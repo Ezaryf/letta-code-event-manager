@@ -18,12 +18,14 @@
     "test-fix": "node scripts/autoTestFix.js",
     "multi-agent": "node scripts/multiAgent.js",
     "file-watch": "node scripts/fileWatcher.js",
+    "debug-watch": "node scripts/debugWatcher.js",
+    "check-patterns": "node scripts/checkPatterns.js",
     "rules": "node scripts/memoryRules.js",
     "rules-add": "node scripts/memoryRules.js add-global",
     "rules-show": "node scripts/memoryRules.js show",
     "rules-sync": "node scripts/memoryRules.js sync",
     "create-all-agents": "node scripts/multiAgent.js create-all",
-    "help": "node -e \"console.log('\\nLetta Event Manager - Commands:\\n');console.log('  npm run create-agent          Create Letta agent');console.log('  npm run send \\\"message\\\"        Send message to agent');console.log('  npm run file-watch <path>     Watch project for changes');console.log('  npm run test-fix <path>       Auto test-fix loop');console.log('  npm run dispatch-cli <file> <path>  Dispatch event');console.log('  npm run multi-agent <type> <file>   Multi-agent routing');console.log('  npm run rules-show            Show memory rules');console.log('\\nExamples:');console.log('  npm run file-watch ../my-project');console.log('  npm run test-fix C:/path/to/project');console.log('');\""
+    "help": "node -e \"console.log('\\nLetta Event Manager Commands:\\n');console.log('  npm run create-agent        Create Letta agent');console.log('  npm run send \\\"msg\\\"          Send message to agent');console.log('  npm run file-watch <path>   Watch & analyze file changes');console.log('  npm run test-fix <path>     Auto test-fix loop');console.log('  npm run debug-watch <path>  Debug watcher (all files)');console.log('  npm run check-patterns <path> Check which files match');console.log('');\""
   },
   "keywords": [],
   "author": "",

@@ -3,3 +3,4 @@ node_modules/
 .letta_agent_id
 .git_commit_message.txt
 suggestions/
+analysis
