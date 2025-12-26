@@ -1,92 +1,132 @@
-# 🤖 Letta Coding Assistant
+# 🤖 Letta - AI-Powered Coding Assistant
 
-AI-powered CLI coding assistant with real-time code analysis, auto-fixes, and commit generation.
+Production-grade CLI tool for real-time code analysis, intelligent fixes, and automated commit generation.
 
-## Features
+## ✨ Features
 
-- **👁️ Watch & Analyze** - Real-time code monitoring with AI analysis
+- **👁️ Watch & Analyze** - Real-time code monitoring with AI-powered analysis
+- **🔬 Deep Analysis** - Comprehensive project architecture and quality assessment
 - **🔧 Auto Test-Fix** - Automatically fix failing tests
-- **💬 Chat** - Interactive chat with your AI agent
-- **📝 Commit Generation** - AI-generated commit messages (DDMMYY format)
+- **💬 Chat** - Interactive AI conversation for coding help
+- **📝 Smart Commits** - AI-generated commit messages (DDMMYY format)
 
-## Quick Start
+## 🚀 Quick Start
 
 ```bash
-# Install
+# Install dependencies
 npm install
 
 # Configure API key
 cp .env.example .env
-# Edit .env and add your LETTA_API_KEY
+# Edit .env and add your LETTA_API_KEY from https://app.letta.ai
 
 # Launch interactive menu
 npm start
 ```
 
-## Usage
+## 📖 Usage
 
-### Interactive Menu (Recommended)
+### Interactive Mode (Recommended)
 ```bash
 npm start
 ```
-This opens a user-friendly menu to select actions.
+Use arrow keys to navigate, Enter to select.
 
 ### Direct Commands
 ```bash
 # Watch a project
 npm run watch /path/to/project
 
-# With auto-fix enabled
+# With auto-fix
 npm run watch /path/to/project -- --auto-fix
 
-# Run test-fix loop
+# Auto test-fix
 npm run fix /path/to/project
 
-# Chat with agent
+# Chat with AI
 npm run chat
 ```
 
-## Menu Options
+## 🎯 Commands
 
-| Option | Description |
-|--------|-------------|
-| Watch & Analyze | Monitor code changes in real-time |
-| Auto Test-Fix | Run tests and auto-fix failures |
-| Chat with Agent | Ask questions or get help |
-| Generate Commit | Create commit message from git diff |
-| Setup Agent | Create or reconfigure your AI agent |
-| Cleanup Agents | Remove unused agents |
+| Command | Description |
+|---------|-------------|
+| Watch & Analyze | Real-time code monitoring with instant feedback |
+| Auto Test-Fix | Run tests and automatically fix failures |
+| Chat | Ask coding questions, get explanations |
+| Generate Commit | AI-powered commit message generation |
+| Setup | Create or reconfigure your AI agent |
+| Cleanup | Remove unused agents |
 
-## Configuration
+## ⚙️ Configuration
 
 Edit `.env`:
 
 ```env
 LETTA_API_KEY=sk-let-...   # Required: Get from https://app.letta.ai
 AUTO_APPLY=false            # Auto-apply fixes without confirmation
-MIN_CONFIDENCE=0.7          # Minimum confidence for auto-fix
+MIN_CONFIDENCE=0.7          # Minimum confidence for auto-fix (0.0-1.0)
+DEBUG=false                 # Enable debug logging
 ```
 
-## Watch Options
+## 🔍 Analysis Capabilities
 
-When using Watch & Analyze, you can enable:
-- **Auto-fix issues** - Automatically apply suggested fixes
-- **Auto-commit** - Generate commit messages after fixes
-- **Watch all files** - Monitor entire project (not just standard folders)
-- **Debug mode** - Verbose logging
+### Code Quality
+- Bug detection
+- Security vulnerability scanning
+- Performance issue identification
+- Code style and best practices
 
-## Backups
+### Project Understanding
+- Architecture pattern detection
+- Dependency analysis
+- Test coverage assessment
+- Framework-specific insights
 
-When auto-fix is enabled, backups are saved to `.letta-backups/` in your project directory (automatically added to .gitignore).
+### Supported Languages
+- JavaScript / TypeScript
+- React / Next.js / Vue
+- Node.js / Express
+- Python (basic)
+- Go / Rust (basic)
 
-## Supported Projects
+## 🛡️ Safety Features
 
-Works with any JavaScript/TypeScript project:
-- Next.js / React
-- Node.js
-- Vue.js
-- Standard folder structures (src/, app/, components/, etc.)
+- **Backups**: All auto-fixes create backups in `.letta-backups/`
+- **Confidence Threshold**: Only applies fixes above minimum confidence
+- **Git Integration**: Auto-adds backup folder to `.gitignore`
+- **Non-destructive**: Watch mode is read-only by default
 
-## License
+## 📊 Session Reports
+
+After each watch session, you get:
+- Files analyzed count
+- Issues found/fixed
+- AI-generated commit message
+- Detailed logs in `logs/` folder
+
+## 🏗️ Architecture
+
+```
+scripts/
+├── cli.js           # Main entry point with interactive menu
+├── assistant.js     # Watch & analyze functionality
+├── autoTestFix.js   # Auto test-fix loop
+├── createAgent.js   # Agent setup
+├── cleanupAgents.js # Agent cleanup
+├── sendMessage.js   # Chat with agent
+├── generateCommitMsg.js  # Commit message generation
+├── fileWatcher.js   # File change detection
+└── memory.js        # Memory management
+```
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create your feature branch
+3. Commit with format: `DDMMYY - Description`
+4. Push and create a Pull Request
+
+## 📄 License
 
 MIT
