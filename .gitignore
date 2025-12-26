@@ -8,6 +8,7 @@ node_modules/
 .letta_agent_id
 .letta_agent_config.json
 .letta_agents.json
+.letta_history.json
 
 # Generated files
 .git_commit_message.txt

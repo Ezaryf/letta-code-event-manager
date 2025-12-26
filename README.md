@@ -1,74 +1,92 @@
-# Letta Coding Assistant
+# 🤖 Letta Coding Assistant
 
-AI-powered coding assistant that watches your code, analyzes changes, suggests fixes, and generates commit messages.
+AI-powered CLI coding assistant with real-time code analysis, auto-fixes, and commit generation.
+
+## Features
+
+- **👁️ Watch & Analyze** - Real-time code monitoring with AI analysis
+- **🔧 Auto Test-Fix** - Automatically fix failing tests
+- **💬 Chat** - Interactive chat with your AI agent
+- **📝 Commit Generation** - AI-generated commit messages (DDMMYY format)
 
 ## Quick Start
 
 ```bash
-# 1. Install dependencies
+# Install
 npm install
 
-# 2. Configure your API key
+# Configure API key
 cp .env.example .env
-# Edit .env and add your LETTA_API_KEY from https://app.letta.ai
+# Edit .env and add your LETTA_API_KEY
 
-# 3. Create your agent (one-time)
-npm run setup
-
-# 4. Start the assistant on any project
-npm run assist /path/to/your/project
+# Launch interactive menu
+npm start
 ```
 
-## Commands
+## Usage
 
-| Command | Description |
-|---------|-------------|
-| `npm run setup` | Create your Letta agent (one-time) |
-| `npm run assist <path>` | Watch + Analyze + Fix + Commit |
-| `npm run fix <path>` | Auto test-fix loop |
-| `npm run cleanup` | Remove old agents |
-| `npm run help` | Show all commands |
-
-## Options
-
+### Interactive Menu (Recommended)
 ```bash
-# Watch and analyze only (default)
-npm run assist ../my-project
-
-# Auto-apply fixes
-npm run assist ../my-project -- --auto-fix
-
-# Auto-apply + auto-commit messages
-npm run assist ../my-project -- --auto-fix --auto-commit
+npm start
 ```
+This opens a user-friendly menu to select actions.
+
+### Direct Commands
+```bash
+# Watch a project
+npm run watch /path/to/project
+
+# With auto-fix enabled
+npm run watch /path/to/project -- --auto-fix
+
+# Run test-fix loop
+npm run fix /path/to/project
+
+# Chat with agent
+npm run chat
+```
+
+## Menu Options
+
+| Option | Description |
+|--------|-------------|
+| Watch & Analyze | Monitor code changes in real-time |
+| Auto Test-Fix | Run tests and auto-fix failures |
+| Chat with Agent | Ask questions or get help |
+| Generate Commit | Create commit message from git diff |
+| Setup Agent | Create or reconfigure your AI agent |
+| Cleanup Agents | Remove unused agents |
 
 ## Configuration
 
-All settings in `.env`:
+Edit `.env`:
 
 ```env
-LETTA_API_KEY=sk-let-...     # Required: Your Letta API key
-AUTO_APPLY=false              # Auto-apply fixes without confirmation
-MIN_CONFIDENCE=0.7            # Minimum confidence to auto-apply
-MAX_FIX_ATTEMPTS=10           # Max retry attempts for test-fix loop
+LETTA_API_KEY=sk-let-...   # Required: Get from https://app.letta.ai
+AUTO_APPLY=false            # Auto-apply fixes without confirmation
+MIN_CONFIDENCE=0.7          # Minimum confidence for auto-fix
 ```
 
-## How It Works
+## Watch Options
 
-1. **Watch** - Monitors your project folders for file changes
-2. **Analyze** - Sends changed code to Letta for analysis
-3. **Suggest** - Shows issues, bugs, and improvements
-4. **Fix** - Optionally auto-applies fixes (with backups)
-5. **Commit** - Generates commit messages in DDMMYY format
+When using Watch & Analyze, you can enable:
+- **Auto-fix issues** - Automatically apply suggested fixes
+- **Auto-commit** - Generate commit messages after fixes
+- **Watch all files** - Monitor entire project (not just standard folders)
+- **Debug mode** - Verbose logging
 
 ## Backups
 
-When auto-fix is enabled, backups are saved to `.letta-backups/` in your project (auto-added to .gitignore).
+When auto-fix is enabled, backups are saved to `.letta-backups/` in your project directory (automatically added to .gitignore).
 
-## Works With Any Project
+## Supported Projects
 
+Works with any JavaScript/TypeScript project:
 - Next.js / React
 - Node.js
-- TypeScript / JavaScript
 - Vue.js
-- Any project with standard folder structure (src/, app/, components/, etc.)
+- Standard folder structures (src/, app/, components/, etc.)
+
+## License
+
+MIT

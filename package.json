@@ -1,15 +1,20 @@
 {
   "name": "letta-code-event-manager",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "type": "module",
-  "main": "index.js",
+  "description": "AI-powered coding assistant with real-time code analysis, auto-fixes, and commit generation",
+  "main": "scripts/cli.js",
+  "bin": {
+    "letta": "./scripts/cli.js"
+  },
   "scripts": {
+    "start": "node scripts/cli.js",
     "setup": "node scripts/createAgent.js",
-    "assist": "node scripts/assistant.js",
+    "watch": "node scripts/assistant.js",
     "fix": "node scripts/autoTestFix.js",
+    "chat": "node scripts/sendMessage.js",
     "cleanup": "node scripts/cleanupAgents.js",
-    "send": "node scripts/sendMessage.js",
-    "help": "node -e \"console.log('\\n🤖 Letta Coding Assistant\\n');console.log('Main Commands:');console.log('  npm run setup              Create your Letta agent (one-time)');console.log('  npm run assist <path>      Watch + Analyze + Fix + Commit');console.log('  npm run fix <path>         Auto test-fix loop');console.log('  npm run cleanup            Remove old agents');console.log('\\nOptions for assist:');console.log('  --auto-fix                 Auto-apply fixes');console.log('  --auto-commit              Auto-generate commits');console.log('\\nExamples:');console.log('  npm run assist ../my-project');console.log('  npm run assist C:\\\\Projects\\\\app -- --auto-fix');console.log('');\""
+    "help": "node scripts/cli.js --help"
   },
   "keywords": [],
   "author": "",
@@ -17,11 +22,14 @@
   "description": "Letta-powered autonomous development assistant",
   "dependencies": {
     "@letta-ai/letta-client": "^1.6.2",
+    "chalk": "^5.6.2",
     "chokidar": "^5.0.0",
     "dayjs": "^1.11.19",
     "dotenv": "^17.2.3",
     "fs-extra": "^11.3.3",
+    "inquirer": "^13.1.0",
     "minimatch": "^10.1.1",
-    "node-fetch": "^3.3.2"
+    "node-fetch": "^3.3.2",
+    "ora": "^9.0.0"
   }
 }
