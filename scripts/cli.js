@@ -15,10 +15,12 @@ const ROOT = path.join(__dirname, "..");
 
 // ASCII Art Banner
 const BANNER = `
-${chalk.cyan("╔═══════════════════════════════════════════════════════════╗")}
-${chalk.cyan("║")}  ${chalk.bold.white("🤖 LETTA CODING ASSISTANT")}                               ${chalk.cyan("║")}
-${chalk.cyan("║")}  ${chalk.gray("AI-powered code analysis, fixes & commit generation")}      ${chalk.cyan("║")}
-${chalk.cyan("╚═══════════════════════════════════════════════════════════╝")}
+${chalk.cyan("╔════════════════════════════════════════════════════════════════╗")}
+${chalk.cyan("║")}                                                                ${chalk.cyan("║")}
+${chalk.cyan("║")}     ${chalk.bold.white("🤖 LETTA CODING ASSISTANT")}                                  ${chalk.cyan("║")}
+${chalk.cyan("║")}     ${chalk.gray("AI-powered code analysis, fixes & commit generation")}       ${chalk.cyan("║")}
+${chalk.cyan("║")}                                                                ${chalk.cyan("║")}
+${chalk.cyan("╚════════════════════════════════════════════════════════════════╝")}
 `;
 
 // Check if agent exists
@@ -61,24 +63,24 @@ function saveToHistory(projectPath) {
 
 // Status display
 function showStatus() {
-  console.log(chalk.gray("\n─────────────────────────────────────────────────────────────"));
+  console.log("");
   
   // API Key status
   if (hasApiKey()) {
     console.log(chalk.green("  ✓ API Key configured"));
   } else {
-    console.log(chalk.red("  ✗ API Key missing - edit .env file"));
+    console.log(chalk.red("  ✗ API Key missing") + chalk.gray(" - edit .env file"));
   }
   
   // Agent status
   if (hasAgent()) {
     const agentId = fs.readFileSync(path.join(ROOT, ".letta_agent_id"), "utf8").trim();
-    console.log(chalk.green(`  ✓ Agent ready (${agentId.slice(0, 20)}...)`));
+    console.log(chalk.green(`  ✓ Agent ready`) + chalk.gray(` (${agentId.slice(0, 20)}...)`));
   } else {
-    console.log(chalk.yellow("  ○ No agent - select 'Setup' to create one"));
+    console.log(chalk.yellow("  ○ No agent") + chalk.gray(" - select 'Setup' to create one"));
   }
   
-  console.log(chalk.gray("─────────────────────────────────────────────────────────────\n"));
+  console.log("");
 }
 
 // Main menu
@@ -87,26 +89,64 @@ async function mainMenu() {
   console.log(BANNER);
   showStatus();
   
+  // Show navigation hint
+  console.log(chalk.gray("  ↑↓ Navigate  •  Enter Select  •  Ctrl+C Exit\n"));
+  console.log(chalk.gray("─".repeat(66)));
+  console.log("");
+  
   const choices = [
-    { name: `${chalk.cyan("👁️  Watch & Analyze")}  - Monitor code changes in real-time`, value: "watch" },
-    { name: `${chalk.green("🔧 Auto Test-Fix")}     - Run tests and auto-fix failures`, value: "fix" },
-    { name: `${chalk.blue("💬 Chat with Agent")}  - Ask questions or get help`, value: "chat" },
-    { name: `${chalk.magenta("📝 Generate Commit")}  - Create commit message for changes`, value: "commit" },
-    new inquirer.Separator(),
-    { name: `${chalk.yellow("⚙️  Setup Agent")}      - Create or reconfigure agent`, value: "setup" },
-    { name: `${chalk.gray("🧹 Cleanup Agents")}   - Remove unused agents`, value: "cleanup" },
-    { name: `${chalk.gray("❓ Help")}              - Show documentation`, value: "help" },
-    new inquirer.Separator(),
-    { name: chalk.red("Exit"), value: "exit" },
+    { 
+      name: `  ${chalk.cyan.bold("👁️  Watch & Analyze")}     ${chalk.gray("Monitor code changes in real-time")}`,
+      value: "watch",
+      short: "Watch & Analyze"
+    },
+    { 
+      name: `  ${chalk.green.bold("🔧 Auto Test-Fix")}       ${chalk.gray("Run tests and auto-fix failures")}`,
+      value: "fix",
+      short: "Auto Test-Fix"
+    },
+    { 
+      name: `  ${chalk.blue.bold("💬 Chat with Agent")}     ${chalk.gray("Ask questions or get help")}`,
+      value: "chat",
+      short: "Chat"
+    },
+    { 
+      name: `  ${chalk.magenta.bold("📝 Generate Commit")}     ${chalk.gray("Create commit message for changes")}`,
+      value: "commit",
+      short: "Generate Commit"
+    },
+    new inquirer.Separator(chalk.gray("\n─".repeat(33))),
+    { 
+      name: `  ${chalk.yellow("⚙️  Setup Agent")}         ${chalk.gray("Create or reconfigure agent")}`,
+      value: "setup",
+      short: "Setup"
+    },
+    { 
+      name: `  ${chalk.gray("🧹 Cleanup Agents")}       ${chalk.gray("Remove unused agents")}`,
+      value: "cleanup",
+      short: "Cleanup"
+    },
+    { 
+      name: `  ${chalk.gray("❓ Help")}                 ${chalk.gray("Show documentation")}`,
+      value: "help",
+      short: "Help"
+    },
+    new inquirer.Separator(chalk.gray("\n─".repeat(33))),
+    { 
+      name: `  ${chalk.red("✖  Exit")}`,
+      value: "exit",
+      short: "Exit"
+    },
   ];
   
   const { action } = await inquirer.prompt([
     {
       type: "list",
       name: "action",
-      message: "What would you like to do?",
+      message: chalk.white.bold("Select an option:"),
       choices,
-      pageSize: 12,
+      pageSize: 15,
+      loop: false,
     },
   ]);
   
@@ -117,30 +157,51 @@ async function mainMenu() {
 async function selectProject() {
   const recentProjects = getRecentProjects();
   
+  console.log("");
+  console.log(chalk.gray("  ↑↓ Navigate  •  Enter Select\n"));
+  
   const choices = [];
   
   if (recentProjects.length > 0) {
-    choices.push(new inquirer.Separator(chalk.gray("── Recent Projects ──")));
+    choices.push(new inquirer.Separator(chalk.gray("  ── Recent Projects ──")));
     for (const proj of recentProjects) {
       if (fs.existsSync(proj)) {
-        choices.push({ name: chalk.cyan(proj), value: proj });
+        const shortPath = proj.length > 50 ? "..." + proj.slice(-47) : proj;
+        choices.push({ 
+          name: `  ${chalk.cyan("📁")} ${shortPath}`, 
+          value: proj,
+          short: path.basename(proj)
+        });
       }
     }
-    choices.push(new inquirer.Separator());
+    choices.push(new inquirer.Separator(""));
   }
   
-  choices.push({ name: chalk.white("📁 Enter path manually"), value: "manual" });
-  choices.push({ name: chalk.white("📂 Use current directory"), value: process.cwd() });
-  choices.push(new inquirer.Separator());
-  choices.push({ name: chalk.gray("← Back to menu"), value: "back" });
+  choices.push({ 
+    name: `  ${chalk.white("📝 Enter path manually")}`, 
+    value: "manual",
+    short: "Manual"
+  });
+  choices.push({ 
+    name: `  ${chalk.white("📂 Use current directory")} ${chalk.gray(`(${process.cwd().slice(-30)})`)}`, 
+    value: process.cwd(),
+    short: "Current dir"
+  });
+  choices.push(new inquirer.Separator(""));
+  choices.push({ 
+    name: `  ${chalk.gray("← Back to menu")}`, 
+    value: "back",
+    short: "Back"
+  });
   
   const { project } = await inquirer.prompt([
     {
       type: "list",
       name: "project",
-      message: "Select project to work with:",
+      message: chalk.white.bold("Select project:"),
       choices,
-      pageSize: 10,
+      pageSize: 12,
+      loop: false,
     },
   ]);
   
@@ -151,11 +212,11 @@ async function selectProject() {
       {
         type: "input",
         name: "manualPath",
-        message: "Enter project path:",
+        message: chalk.white("Enter project path:"),
         validate: (input) => {
-          if (!input) return "Path is required";
+          if (!input) return chalk.red("Path is required");
           const resolved = path.resolve(input);
-          if (!fs.existsSync(resolved)) return `Path not found: ${resolved}`;
+          if (!fs.existsSync(resolved)) return chalk.red(`Path not found: ${resolved}`);
           return true;
         },
       },
@@ -168,17 +229,37 @@ async function selectProject() {
 
 // Watch options
 async function watchOptions() {
+  console.log("");
+  console.log(chalk.gray("  Space Toggle  •  Enter Confirm\n"));
+  
   const { options } = await inquirer.prompt([
     {
       type: "checkbox",
       name: "options",
-      message: "Watch options:",
+      message: chalk.white.bold("Watch options:"),
       choices: [
-        { name: "Auto-fix issues", value: "autoFix", checked: false },
-        { name: "Auto-commit after fixes", value: "autoCommit", checked: false },
-        { name: "Watch all files (not just standard folders)", value: "watchAll", checked: false },
-        { name: "Debug mode (verbose logging)", value: "debug", checked: false },
+        { 
+          name: `  ${chalk.green("🔧 Auto-fix issues")}        ${chalk.gray("Automatically apply suggested fixes")}`,
+          value: "autoFix", 
+          checked: false 
+        },
+        { 
+          name: `  ${chalk.blue("📝 Auto-commit")}            ${chalk.gray("Generate commits after fixes")}`,
+          value: "autoCommit", 
+          checked: false 
+        },
+        { 
+          name: `  ${chalk.yellow("📂 Watch all files")}        ${chalk.gray("Not just standard folders")}`,
+          value: "watchAll", 
+          checked: false 
+        },
+        { 
+          name: `  ${chalk.gray("🐛 Debug mode")}             ${chalk.gray("Verbose logging")}`,
+          value: "debug", 
+          checked: false 
+        },
       ],
+      pageSize: 6,
     },
   ]);
   
@@ -493,40 +574,55 @@ async function showHelp() {
   console.clear();
   console.log(BANNER);
   
-  console.log(chalk.bold("\n📖 HELP & DOCUMENTATION\n"));
+  console.log(chalk.bold.white("\n  📖 HELP & DOCUMENTATION\n"));
+  console.log(chalk.gray("─".repeat(66)));
   
-  console.log(chalk.cyan("Watch & Analyze"));
-  console.log(chalk.gray("  Monitors your project for file changes and analyzes code in real-time."));
-  console.log(chalk.gray("  - Detects bugs, security issues, and improvements"));
-  console.log(chalk.gray("  - Can auto-fix issues with --auto-fix option"));
-  console.log(chalk.gray("  - Generates commit messages on exit\n"));
+  console.log(chalk.cyan.bold("\n  👁️  Watch & Analyze\n"));
+  console.log(chalk.white("      Monitors your project for file changes and analyzes code"));
+  console.log(chalk.white("      in real-time using AI.\n"));
+  console.log(chalk.gray("      • Detects bugs, security issues, and improvements"));
+  console.log(chalk.gray("      • Can auto-fix issues with the auto-fix option"));
+  console.log(chalk.gray("      • Generates commit messages on exit"));
   
-  console.log(chalk.green("Auto Test-Fix"));
-  console.log(chalk.gray("  Runs your test suite and automatically fixes failures."));
-  console.log(chalk.gray("  - Sets up Jest if not configured"));
-  console.log(chalk.gray("  - Creates basic tests if none exist"));
-  console.log(chalk.gray("  - Retries with different approaches\n"));
+  console.log(chalk.green.bold("\n  🔧 Auto Test-Fix\n"));
+  console.log(chalk.white("      Runs your test suite and automatically fixes failures.\n"));
+  console.log(chalk.gray("      • Sets up Jest if not configured"));
+  console.log(chalk.gray("      • Creates basic tests if none exist"));
+  console.log(chalk.gray("      • Retries with different approaches"));
   
-  console.log(chalk.blue("Chat with Agent"));
-  console.log(chalk.gray("  Interactive chat with your Letta agent."));
-  console.log(chalk.gray("  - Ask coding questions"));
-  console.log(chalk.gray("  - Get explanations and suggestions"));
-  console.log(chalk.gray("  - Agent remembers context\n"));
+  console.log(chalk.blue.bold("\n  💬 Chat with Agent\n"));
+  console.log(chalk.white("      Interactive chat with your Letta AI agent.\n"));
+  console.log(chalk.gray("      • Ask coding questions"));
+  console.log(chalk.gray("      • Get explanations and suggestions"));
+  console.log(chalk.gray("      • Agent remembers context"));
   
-  console.log(chalk.magenta("Generate Commit"));
-  console.log(chalk.gray("  Creates commit messages from your git diff."));
-  console.log(chalk.gray("  - Format: DDMMYY - Description"));
-  console.log(chalk.gray("  - Can commit directly or save for later\n"));
+  console.log(chalk.magenta.bold("\n  📝 Generate Commit\n"));
+  console.log(chalk.white("      Creates commit messages from your git diff.\n"));
+  console.log(chalk.gray("      • Format: DDMMYY - Description"));
+  console.log(chalk.gray("      • Can commit directly or save for later"));
   
-  console.log(chalk.bold("Keyboard Shortcuts (in Watch mode):"));
-  console.log(chalk.gray("  Ctrl+C  - Stop watching and show commit options\n"));
+  console.log(chalk.gray("\n─".repeat(66)));
   
-  console.log(chalk.bold("Configuration (.env):"));
-  console.log(chalk.gray("  LETTA_API_KEY     - Your Letta API key (required)"));
-  console.log(chalk.gray("  AUTO_APPLY        - Auto-apply fixes (true/false)"));
-  console.log(chalk.gray("  MIN_CONFIDENCE    - Min confidence for auto-fix (0.0-1.0)\n"));
+  console.log(chalk.bold.white("\n  ⌨️  KEYBOARD SHORTCUTS\n"));
+  console.log(chalk.gray("      ↑ ↓         Navigate menu options"));
+  console.log(chalk.gray("      Enter       Select option"));
+  console.log(chalk.gray("      Space       Toggle checkbox"));
+  console.log(chalk.gray("      Ctrl+C      Exit / Stop watching"));
   
-  await inquirer.prompt([{ type: "input", name: "continue", message: "Press Enter to return to menu..." }]);
+  console.log(chalk.gray("\n─".repeat(66)));
+  
+  console.log(chalk.bold.white("\n  ⚙️  CONFIGURATION (.env)\n"));
+  console.log(chalk.gray("      LETTA_API_KEY     Your Letta API key (required)"));
+  console.log(chalk.gray("      AUTO_APPLY        Auto-apply fixes (true/false)"));
+  console.log(chalk.gray("      MIN_CONFIDENCE    Min confidence for auto-fix (0.0-1.0)"));
+  
+  console.log("");
+  
+  await inquirer.prompt([{ 
+    type: "input", 
+    name: "continue", 
+    message: chalk.gray("Press Enter to return to menu...") 
+  }]);
 }
 
 // Main loop
