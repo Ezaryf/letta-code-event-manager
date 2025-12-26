@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Letta CLI - Production-quality coding assistant with arrow-key navigation
+// Letta CLI - Production-quality coding assistant
 import readline from "readline";
 import chalk from "chalk";
 import ora from "ora";
@@ -12,16 +12,6 @@ dotenv.config();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, "..");
-
-// ASCII Art Banner
-const BANNER = `
-${chalk.cyan("╔════════════════════════════════════════════════════════════════╗")}
-${chalk.cyan("║")}                                                                ${chalk.cyan("║")}
-${chalk.cyan("║")}     ${chalk.bold.white("🤖 LETTA CODING ASSISTANT")}                                  ${chalk.cyan("║")}
-${chalk.cyan("║")}     ${chalk.gray("AI-powered code analysis, fixes & commit generation")}       ${chalk.cyan("║")}
-${chalk.cyan("║")}                                                                ${chalk.cyan("║")}
-${chalk.cyan("╚════════════════════════════════════════════════════════════════╝")}
-`;
 
 // Check if agent exists
 function hasAgent() {
@@ -60,7 +50,36 @@ function saveToHistory(projectPath) {
   fs.writeFileSync(historyFile, JSON.stringify(history, null, 2), "utf8");
 }
 
-// Arrow key menu selector
+// Clear screen and show banner
+function showBanner() {
+  console.clear();
+  console.log(chalk.cyan(`
+╔════════════════════════════════════════════════════════════════╗
+║                                                                ║
+║     ${chalk.bold.white("🤖 LETTA CODING ASSISTANT")}                                  ║
+║     ${chalk.gray("AI-powered code analysis, fixes & commit generation")}       ║
+║                                                                ║
+╚════════════════════════════════════════════════════════════════╝
+`));
+  
+  // Status
+  if (hasApiKey()) {
+    console.log(chalk.green("  ✓ API Key configured"));
+  } else {
+    console.log(chalk.red("  ✗ API Key missing") + chalk.gray(" - edit .env file"));
+  }
+  
+  if (hasAgent()) {
+    const agentId = fs.readFileSync(path.join(ROOT, ".letta_agent_id"), "utf8").trim();
+    console.log(chalk.green(`  ✓ Agent ready`) + chalk.gray(` (${agentId.slice(0, 20)}...)`));
+  } else {
+    console.log(chalk.yellow("  ○ No agent") + chalk.gray(" - select 'Setup' to create one"));
+  }
+  
+  console.log("");
+}
+
+// Arrow key menu - full screen redraw approach
 async function arrowMenu(title, options, showBack = false) {
   return new Promise((resolve) => {
     let selectedIndex = 0;
@@ -69,57 +88,60 @@ async function arrowMenu(title, options, showBack = false) {
       items.push({ label: chalk.gray("← Back"), value: null });
     }
     
-    const renderMenu = () => {
-      // Move cursor up to redraw menu
-      if (selectedIndex >= 0) {
-        process.stdout.write(`\x1B[${items.length + 2}A`);
-      }
-      
+    const draw = () => {
+      showBanner();
+      console.log(chalk.gray("  ↑↓ Navigate  •  Enter Select  •  Ctrl+C Exit"));
+      console.log(chalk.gray("─".repeat(66)));
       console.log("");
       console.log(chalk.bold.white(`  ${title}`));
       console.log("");
       
       items.forEach((item, index) => {
         const isSelected = index === selectedIndex;
-        const prefix = isSelected ? chalk.cyan("❯ ") : "  ";
-        const text = isSelected ? chalk.cyan.bold(item.label) : item.label;
-        console.log(`  ${prefix}${text}`);
+        if (isSelected) {
+          console.log(chalk.cyan(`  ❯ ${item.label}`));
+        } else {
+          console.log(chalk.white(`    ${item.label}`));
+        }
       });
+      
+      console.log("");
     };
     
-    // Initial render
-    console.log("");
-    console.log(chalk.bold.white(`  ${title}`));
-    console.log("");
-    items.forEach((item, index) => {
-      const isSelected = index === selectedIndex;
-      const prefix = isSelected ? chalk.cyan("❯ ") : "  ";
-      const text = isSelected ? chalk.cyan.bold(item.label) : item.label;
-      console.log(`  ${prefix}${text}`);
-    });
+    draw();
     
-    // Setup raw mode for arrow keys
     readline.emitKeypressEvents(process.stdin);
     if (process.stdin.isTTY) {
       process.stdin.setRawMode(true);
     }
     
     const onKeypress = (str, key) => {
+      if (!key) return;
+      
       if (key.name === "up") {
         selectedIndex = selectedIndex > 0 ? selectedIndex - 1 : items.length - 1;
-        renderMenu();
+        // Skip separators
+        while (items[selectedIndex].value && items[selectedIndex].value.startsWith("separator")) {
+          selectedIndex = selectedIndex > 0 ? selectedIndex - 1 : items.length - 1;
+        }
+        draw();
       } else if (key.name === "down") {
         selectedIndex = selectedIndex < items.length - 1 ? selectedIndex + 1 : 0;
-        renderMenu();
+        // Skip separators
+        while (items[selectedIndex].value && items[selectedIndex].value.startsWith("separator")) {
+          selectedIndex = selectedIndex < items.length - 1 ? selectedIndex + 1 : 0;
+        }
+        draw();
       } else if (key.name === "return") {
         cleanup();
+        console.log("");
         resolve(items[selectedIndex].value);
-      } else if (key.name === "escape" || (key.ctrl && key.name === "c")) {
+      } else if (key.ctrl && key.name === "c") {
         cleanup();
-        if (key.ctrl && key.name === "c") {
-          console.log(chalk.cyan("\n\n👋 Goodbye!\n"));
-          process.exit(0);
-        }
+        console.log(chalk.cyan("\n\n  👋 Goodbye!\n"));
+        process.exit(0);
+      } else if (key.name === "escape") {
+        cleanup();
         resolve(null);
       }
     };
@@ -137,92 +159,44 @@ async function arrowMenu(title, options, showBack = false) {
 }
 
 // Simple input prompt
-async function inputPrompt(message, validate = null) {
+async function inputPrompt(message) {
   return new Promise((resolve) => {
     const rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
     });
     
-    const ask = () => {
-      rl.question(chalk.white(`  ${message} `), (answer) => {
-        if (validate) {
-          const result = validate(answer);
-          if (result !== true) {
-            console.log(`  ${chalk.red(result)}`);
-            ask();
-            return;
-          }
-        }
-        rl.close();
-        resolve(answer);
-      });
-    };
-    
-    ask();
+    rl.question(chalk.white(`  ${message} `), (answer) => {
+      rl.close();
+      resolve(answer);
+    });
   });
 }
 
 // Confirm prompt
 async function confirmPrompt(message) {
-  const answer = await inputPrompt(`${message} (y/n):`, (input) => {
-    if (/^[yn]$/i.test(input)) return true;
-    return "Please enter y or n";
-  });
+  const answer = await inputPrompt(`${message} (y/n):`);
   return answer.toLowerCase() === "y";
 }
 
 
-// Status display
-function showStatus() {
-  console.log("");
-  
-  if (hasApiKey()) {
-    console.log(chalk.green("  ✓ API Key configured"));
-  } else {
-    console.log(chalk.red("  ✗ API Key missing") + chalk.gray(" - edit .env file"));
-  }
-  
-  if (hasAgent()) {
-    const agentId = fs.readFileSync(path.join(ROOT, ".letta_agent_id"), "utf8").trim();
-    console.log(chalk.green(`  ✓ Agent ready`) + chalk.gray(` (${agentId.slice(0, 20)}...)`));
-  } else {
-    console.log(chalk.yellow("  ○ No agent") + chalk.gray(" - select 'Setup' to create one"));
-  }
-  
-  console.log("");
-  console.log(chalk.gray("  ↑↓ Navigate  •  Enter Select  •  Ctrl+C Exit"));
-  console.log("");
-  console.log(chalk.gray("─".repeat(66)));
-}
-
 // Main menu options
-const MAIN_MENU_OPTIONS = [
-  { label: `👁️  Watch & Analyze     ${chalk.gray("Monitor code changes in real-time")}`, value: "watch" },
-  { label: `🔧 Auto Test-Fix       ${chalk.gray("Run tests and auto-fix failures")}`, value: "fix" },
-  { label: `💬 Chat with Agent     ${chalk.gray("Ask questions or get help")}`, value: "chat" },
-  { label: `📝 Generate Commit     ${chalk.gray("Create commit message for changes")}`, value: "commit" },
-  { label: chalk.gray("─".repeat(50)), value: "separator1" },
-  { label: `⚙️  Setup Agent         ${chalk.gray("Create or reconfigure agent")}`, value: "setup" },
-  { label: `🧹 Cleanup Agents       ${chalk.gray("Remove unused agents")}`, value: "cleanup" },
-  { label: `❓ Help                 ${chalk.gray("Show documentation")}`, value: "help" },
-  { label: chalk.gray("─".repeat(50)), value: "separator2" },
+const MAIN_MENU = [
+  { label: `👁️  Watch & Analyze     ${chalk.gray("Monitor code changes")}`, value: "watch" },
+  { label: `🔧 Auto Test-Fix       ${chalk.gray("Fix failing tests")}`, value: "fix" },
+  { label: `💬 Chat with Agent     ${chalk.gray("Ask questions")}`, value: "chat" },
+  { label: `📝 Generate Commit     ${chalk.gray("Create commit message")}`, value: "commit" },
+  { label: chalk.gray("────────────────────────────────────────────"), value: "separator1" },
+  { label: `⚙️  Setup Agent         ${chalk.gray("Create agent")}`, value: "setup" },
+  { label: `🧹 Cleanup Agents       ${chalk.gray("Remove old agents")}`, value: "cleanup" },
+  { label: `❓ Help                 ${chalk.gray("Documentation")}`, value: "help" },
+  { label: chalk.gray("────────────────────────────────────────────"), value: "separator2" },
   { label: chalk.red("✖  Exit"), value: "exit" },
 ];
 
 // Main menu
 async function mainMenu() {
-  console.clear();
-  console.log(BANNER);
-  showStatus();
-  
-  const action = await arrowMenu("MAIN MENU", MAIN_MENU_OPTIONS);
-  
-  // Skip separators
-  if (action === "separator1" || action === "separator2") {
-    return mainMenu();
-  }
-  
+  const action = await arrowMenu("MAIN MENU", MAIN_MENU);
   return action;
 }
 
@@ -231,81 +205,47 @@ async function selectProject() {
   const recentProjects = getRecentProjects();
   const options = [];
   
-  if (recentProjects.length > 0) {
-    for (const proj of recentProjects) {
-      if (fs.existsSync(proj)) {
-        const shortPath = proj.length > 45 ? "..." + proj.slice(-42) : proj;
-        options.push({ label: `📁 ${shortPath}`, value: proj });
-      }
+  for (const proj of recentProjects) {
+    if (fs.existsSync(proj)) {
+      const shortPath = proj.length > 40 ? "..." + proj.slice(-37) : proj;
+      options.push({ label: `📁 ${shortPath}`, value: proj });
     }
-    if (options.length > 0) {
-      options.push({ label: chalk.gray("─".repeat(50)), value: "separator" });
-    }
+  }
+  
+  if (options.length > 0) {
+    options.push({ label: chalk.gray("────────────────────────────────────────────"), value: "separator" });
   }
   
   options.push({ label: "📝 Enter path manually", value: "manual" });
+  options.push({ label: `📂 Current directory`, value: process.cwd() });
   
-  const cwdShort = process.cwd().length > 35 ? "..." + process.cwd().slice(-32) : process.cwd();
-  options.push({ label: `📂 Current directory ${chalk.gray(`(${cwdShort})`)}`, value: process.cwd() });
-  
-  console.log("");
   const project = await arrowMenu("SELECT PROJECT", options, true);
-  
-  if (project === "separator") {
-    return selectProject();
-  }
   
   if (project === null) return null;
   
   if (project === "manual") {
-    console.log("");
-    const manualPath = await inputPrompt("Enter project path:", (input) => {
-      if (!input) return "Path is required";
-      const resolved = path.resolve(input);
-      if (!fs.existsSync(resolved)) return `Path not found: ${resolved}`;
-      return true;
-    });
-    return path.resolve(manualPath);
+    const manualPath = await inputPrompt("Enter project path:");
+    if (!manualPath) return null;
+    const resolved = path.resolve(manualPath);
+    if (!fs.existsSync(resolved)) {
+      console.log(chalk.red(`  Path not found: ${resolved}`));
+      await inputPrompt("Press Enter...");
+      return null;
+    }
+    return resolved;
   }
   
   return project;
 }
 
-// Watch options
-async function watchOptions() {
-  const options = [
-    { label: `🔧 Auto-fix issues        ${chalk.gray("Automatically apply fixes")}`, value: "autoFix", selected: false },
-    { label: `📝 Auto-commit            ${chalk.gray("Generate commits after fixes")}`, value: "autoCommit", selected: false },
-    { label: `📂 Watch all files        ${chalk.gray("Not just standard folders")}`, value: "watchAll", selected: false },
-    { label: `🐛 Debug mode             ${chalk.gray("Verbose logging")}`, value: "debug", selected: false },
-  ];
-  
-  console.log("");
-  console.log(chalk.bold.white("  WATCH OPTIONS"));
-  console.log(chalk.gray("  Press Enter to start with defaults, or select options:"));
-  console.log("");
-  
-  // For simplicity, ask yes/no for auto-fix
-  const autoFix = await confirmPrompt("Enable auto-fix?");
-  
-  const result = [];
-  if (autoFix) result.push("autoFix");
-  
-  return result;
-}
-
-
-// Run watch command
-async function runWatch(projectPath, options) {
+// Run watch
+async function runWatch(projectPath, options = []) {
   saveToHistory(projectPath);
   
   console.log(chalk.cyan("\n  🚀 Starting Watch & Analyze...\n"));
   
   const args = [projectPath];
   if (options.includes("autoFix")) args.push("--auto-fix");
-  if (options.includes("autoCommit")) args.push("--auto-commit");
-  if (options.includes("watchAll")) args.push("--all");
-  if (options.includes("debug")) process.env.DEBUG = "true";
   
   const { spawn } = await import("child_process");
   const child = spawn("node", [path.join(ROOT, "scripts/assistant.js"), ...args], {
@@ -314,12 +254,10 @@ async function runWatch(projectPath, options) {
     env: { ...process.env },
   });
   
-  return new Promise((resolve) => {
-    child.on("close", resolve);
-  });
+  return new Promise((resolve) => child.on("close", resolve));
 }
 
-// Run test-fix command
+// Run test-fix
 async function runTestFix(projectPath) {
   saveToHistory(projectPath);
   
@@ -337,21 +275,19 @@ async function runTestFix(projectPath) {
     env: { ...process.env },
   });
   
-  return new Promise((resolve) => {
-    child.on("close", resolve);
-  });
+  return new Promise((resolve) => child.on("close", resolve));
 }
 
-// Chat with agent
+// Chat
 async function runChat() {
   if (!hasAgent()) {
-    console.log(chalk.red("\n  ❌ No agent found. Please run Setup first.\n"));
-    await inputPrompt("Press Enter to continue...");
+    console.log(chalk.red("\n  ❌ No agent. Run Setup first.\n"));
+    await inputPrompt("Press Enter...");
     return;
   }
   
-  console.log(chalk.blue("\n  💬 Chat with Letta Agent"));
-  console.log(chalk.gray("  Type 'exit' to return to menu\n"));
+  console.log(chalk.blue("\n  💬 Chat with Agent"));
+  console.log(chalk.gray("  Type 'exit' to return\n"));
   
   const { Letta } = await import("@letta-ai/letta-client");
   const client = new Letta({
@@ -363,8 +299,7 @@ async function runChat() {
   while (true) {
     const message = await inputPrompt(chalk.cyan("You:"));
     
-    if (message.toLowerCase() === "exit") break;
-    if (!message.trim()) continue;
+    if (message.toLowerCase() === "exit" || !message) break;
     
     const spinner = ora("  Thinking...").start();
     
@@ -380,11 +315,11 @@ async function runChat() {
   }
 }
 
-// Generate commit message
+// Generate commit
 async function runCommit(projectPath) {
   if (!hasAgent()) {
-    console.log(chalk.red("\n  ❌ No agent found. Please run Setup first.\n"));
-    await inputPrompt("Press Enter to continue...");
+    console.log(chalk.red("\n  ❌ No agent. Run Setup first.\n"));
+    await inputPrompt("Press Enter...");
     return;
   }
   
@@ -395,18 +330,16 @@ async function runCommit(projectPath) {
   let diff;
   try {
     diff = execSync("git diff --staged", { cwd: projectPath, encoding: "utf8" });
-    if (!diff) {
-      diff = execSync("git diff", { cwd: projectPath, encoding: "utf8" });
-    }
+    if (!diff) diff = execSync("git diff", { cwd: projectPath, encoding: "utf8" });
   } catch (e) {
-    console.log(chalk.red("\n  ❌ Not a git repository or no changes found.\n"));
-    await inputPrompt("Press Enter to continue...");
+    console.log(chalk.red("\n  ❌ Not a git repo or no changes.\n"));
+    await inputPrompt("Press Enter...");
     return;
   }
   
   if (!diff.trim()) {
-    console.log(chalk.yellow("\n  ⚠️ No changes detected in git.\n"));
-    await inputPrompt("Press Enter to continue...");
+    console.log(chalk.yellow("\n  ⚠️ No changes detected.\n"));
+    await inputPrompt("Press Enter...");
     return;
   }
   
@@ -423,63 +356,44 @@ async function runCommit(projectPath) {
     const agentId = fs.readFileSync(path.join(ROOT, ".letta_agent_id"), "utf8").trim();
     
     const today = dayjs().format("DDMMYY");
-    const prompt = `Generate a git commit message for these changes. Format: ${today} - <description>
-Keep it under 50 chars. Be specific. Capitalize first letter after the dash.
-
-\`\`\`diff
-${diff.slice(0, 3000)}
-\`\`\`
-
-Respond with ONLY the commit message, nothing else.`;
+    const prompt = `Generate commit message. Format: ${today} - <description>. Under 50 chars. Capitalize after dash.\n\n\`\`\`diff\n${diff.slice(0, 2000)}\n\`\`\`\n\nRespond with ONLY the message.`;
     
     const response = await client.agents.messages.create(agentId, { input: prompt });
-    const text = response?.messages?.map((m) => m.text || m.content).join("\n") || "";
+    let message = response?.messages?.map((m) => m.text || m.content).join("").trim().split("\n")[0] || "";
     
-    let message = text.trim().split("\n")[0];
-    if (!message.startsWith(today)) {
-      message = `${today} - ${message}`;
-    }
+    if (!message.startsWith(today)) message = `${today} - ${message}`;
     
-    spinner.succeed("  Commit message generated!");
+    spinner.succeed("  Generated!");
     
-    console.log(chalk.green("\n  📝 Suggested commit message:"));
+    console.log(chalk.green("\n  📝 Commit message:"));
     console.log(chalk.white.bold(`     ${message}\n`));
     
-    const commitNow = await confirmPrompt("Commit now?");
-    
-    if (commitNow) {
+    if (await confirmPrompt("Commit now?")) {
       execSync(`git add -A`, { cwd: projectPath });
       execSync(`git commit -m "${message}"`, { cwd: projectPath });
-      console.log(chalk.green("\n  ✅ Committed successfully!\n"));
-    } else {
-      fs.writeFileSync(path.join(projectPath, ".commit_msg"), message, "utf8");
-      console.log(chalk.cyan(`\n  📋 Saved to ${projectPath}/.commit_msg`));
-      console.log(chalk.gray(`     Run: git commit -F .commit_msg\n`));
+      console.log(chalk.green("\n  ✅ Committed!\n"));
     }
-    
   } catch (err) {
     spinner.fail("  Error: " + err.message);
   }
   
-  await inputPrompt("Press Enter to continue...");
+  await inputPrompt("Press Enter...");
 }
 
 
-// Setup agent
+// Setup
 async function runSetup() {
   console.log(chalk.yellow("\n  ⚙️  Agent Setup\n"));
   
   if (!hasApiKey()) {
-    console.log(chalk.red("  ❌ LETTA_API_KEY not configured in .env file"));
-    console.log(chalk.gray("     1. Get your API key from https://app.letta.ai"));
-    console.log(chalk.gray("     2. Edit .env and add: LETTA_API_KEY=sk-let-...\n"));
-    await inputPrompt("Press Enter to continue...");
+    console.log(chalk.red("  ❌ LETTA_API_KEY not set in .env"));
+    console.log(chalk.gray("     Get key from https://app.letta.ai\n"));
+    await inputPrompt("Press Enter...");
     return;
   }
   
-  if (hasAgent()) {
-    const recreate = await confirmPrompt("Agent already exists. Create a new one?");
-    if (!recreate) return;
+  if (hasAgent() && !(await confirmPrompt("Agent exists. Create new?"))) {
+    return;
   }
   
   const spinner = ora("  Creating agent...").start();
@@ -491,40 +405,35 @@ async function runSetup() {
       env: { ...process.env },
     });
     
-    let output = "";
-    child.stdout.on("data", (data) => { output += data.toString(); });
-    child.stderr.on("data", (data) => { output += data.toString(); });
-    
     await new Promise((resolve) => child.on("close", resolve));
     
     if (hasAgent()) {
-      spinner.succeed("  Agent created successfully!");
-      console.log(chalk.gray(output));
+      spinner.succeed("  Agent created!");
     } else {
       spinner.fail("  Failed to create agent");
-      console.log(chalk.red(output));
     }
   } catch (err) {
     spinner.fail("  Error: " + err.message);
   }
   
-  await inputPrompt("Press Enter to continue...");
+  await inputPrompt("Press Enter...");
 }
 
-// Cleanup agents
+// Cleanup
 async function runCleanup() {
   console.log(chalk.gray("\n  🧹 Agent Cleanup\n"));
   
   if (!hasApiKey()) {
-    console.log(chalk.red("  ❌ LETTA_API_KEY not configured.\n"));
-    await inputPrompt("Press Enter to continue...");
+    console.log(chalk.red("  ❌ LETTA_API_KEY not set.\n"));
+    await inputPrompt("Press Enter...");
     return;
   }
   
-  const confirm = await confirmPrompt("Delete all agents except current one?");
-  if (!confirm) return;
+  if (!(await confirmPrompt("Delete all agents except current?"))) {
+    return;
+  }
   
-  const spinner = ora("  Cleaning up agents...").start();
+  const spinner = ora("  Cleaning up...").start();
   
   try {
     const { spawn } = await import("child_process");
@@ -533,153 +442,93 @@ async function runCleanup() {
       env: { ...process.env },
     });
     
-    let output = "";
-    child.stdout.on("data", (data) => { output += data.toString(); });
-    child.stderr.on("data", (data) => { output += data.toString(); });
-    
     await new Promise((resolve) => child.on("close", resolve));
-    
     spinner.succeed("  Cleanup complete!");
-    console.log(chalk.gray(output));
   } catch (err) {
     spinner.fail("  Error: " + err.message);
   }
   
-  await inputPrompt("Press Enter to continue...");
+  await inputPrompt("Press Enter...");
 }
 
-// Show help
+// Help
 async function showHelp() {
-  console.clear();
-  console.log(BANNER);
+  showBanner();
   
-  console.log(chalk.bold.white("\n  📖 HELP & DOCUMENTATION\n"));
-  console.log(chalk.gray("─".repeat(66)));
-  
-  console.log(chalk.cyan.bold("\n  👁️  Watch & Analyze\n"));
-  console.log(chalk.white("      Monitors your project for file changes and analyzes code"));
-  console.log(chalk.white("      in real-time using AI.\n"));
-  console.log(chalk.gray("      • Detects bugs, security issues, and improvements"));
-  console.log(chalk.gray("      • Can auto-fix issues with the auto-fix option"));
-  console.log(chalk.gray("      • Generates commit messages on exit"));
-  
-  console.log(chalk.green.bold("\n  🔧 Auto Test-Fix\n"));
-  console.log(chalk.white("      Runs your test suite and automatically fixes failures.\n"));
-  console.log(chalk.gray("      • Sets up Jest if not configured"));
-  console.log(chalk.gray("      • Creates basic tests if none exist"));
-  console.log(chalk.gray("      • Retries with different approaches"));
-  
-  console.log(chalk.blue.bold("\n  💬 Chat with Agent\n"));
-  console.log(chalk.white("      Interactive chat with your Letta AI agent.\n"));
-  console.log(chalk.gray("      • Ask coding questions"));
-  console.log(chalk.gray("      • Get explanations and suggestions"));
-  console.log(chalk.gray("      • Agent remembers context"));
-  
-  console.log(chalk.magenta.bold("\n  📝 Generate Commit\n"));
-  console.log(chalk.white("      Creates commit messages from your git diff.\n"));
-  console.log(chalk.gray("      • Format: DDMMYY - Description"));
-  console.log(chalk.gray("      • Can commit directly or save for later"));
-  
-  console.log(chalk.gray("\n─".repeat(66)));
-  
-  console.log(chalk.bold.white("\n  ⌨️  KEYBOARD SHORTCUTS\n"));
-  console.log(chalk.gray("      ↑ ↓         Navigate menu options"));
-  console.log(chalk.gray("      Enter       Select option"));
-  console.log(chalk.gray("      Ctrl+C      Exit / Stop watching"));
-  
+  console.log(chalk.bold.white("  📖 HELP\n"));
+  console.log(chalk.cyan("  👁️  Watch & Analyze") + chalk.gray(" - Monitor code, detect issues, suggest fixes"));
+  console.log(chalk.green("  🔧 Auto Test-Fix") + chalk.gray("    - Run tests, auto-fix failures"));
+  console.log(chalk.blue("  💬 Chat") + chalk.gray("             - Ask coding questions"));
+  console.log(chalk.magenta("  📝 Generate Commit") + chalk.gray("  - AI commit messages (DDMMYY format)"));
+  console.log("");
+  console.log(chalk.bold.white("  ⌨️  KEYS\n"));
+  console.log(chalk.gray("  ↑ ↓     Navigate"));
+  console.log(chalk.gray("  Enter   Select"));
+  console.log(chalk.gray("  Ctrl+C  Exit"));
   console.log("");
   
-  await inputPrompt("Press Enter to return to menu...");
+  await inputPrompt("Press Enter to return...");
 }
 
-// Main loop
+// Main
 async function main() {
   // Help flag
   if (process.argv.includes("--help") || process.argv.includes("-h")) {
-    console.log(BANNER);
-    console.log(chalk.bold("Usage:"));
-    console.log("  npm start                    Interactive menu");
-    console.log("  npm run watch <path>         Watch & analyze project");
-    console.log("  npm run fix <path>           Auto test-fix loop");
-    console.log("  npm run chat                 Chat with agent");
-    console.log("");
-    console.log(chalk.bold("Options:"));
-    console.log("  --auto-fix                   Auto-apply fixes");
-    console.log("  --auto-commit                Auto-generate commits");
-    console.log("  --all                        Watch all files");
-    console.log("  --debug                      Verbose logging");
-    console.log("");
+    console.log(`
+${chalk.cyan("Letta Coding Assistant")}
+
+Usage:
+  npm start                    Interactive menu
+  npm run watch <path>         Watch & analyze
+  npm run fix <path>           Auto test-fix
+  npm run chat                 Chat with agent
+
+Options:
+  --auto-fix    Auto-apply fixes
+  --help        Show this help
+`);
     process.exit(0);
   }
   
-  // Quick start mode - if path provided as argument
+  // Direct path mode
   const argPath = process.argv[2];
   if (argPath && fs.existsSync(path.resolve(argPath))) {
-    const projectPath = path.resolve(argPath);
-    const options = [];
-    if (process.argv.includes("--auto-fix")) options.push("autoFix");
-    if (process.argv.includes("--auto-commit")) options.push("autoCommit");
-    if (process.argv.includes("--all")) options.push("watchAll");
-    if (process.argv.includes("--debug")) options.push("debug");
-    
-    await runWatch(projectPath, options);
+    const options = process.argv.includes("--auto-fix") ? ["autoFix"] : [];
+    await runWatch(path.resolve(argPath), options);
     return;
   }
   
-  // Interactive menu mode
+  // Interactive menu
   while (true) {
     const action = await mainMenu();
     
-    switch (action) {
-      case "watch": {
-        const project = await selectProject();
-        if (project) {
-          const options = await watchOptions();
-          await runWatch(project, options);
-        }
-        break;
+    if (action === "watch") {
+      const project = await selectProject();
+      if (project) {
+        const autoFix = await confirmPrompt("Enable auto-fix?");
+        await runWatch(project, autoFix ? ["autoFix"] : []);
       }
-      
-      case "fix": {
-        const project = await selectProject();
-        if (project) {
-          await runTestFix(project);
-        }
-        break;
-      }
-      
-      case "chat":
-        await runChat();
-        break;
-      
-      case "commit": {
-        const project = await selectProject();
-        if (project) {
-          await runCommit(project);
-        }
-        break;
-      }
-      
-      case "setup":
-        await runSetup();
-        break;
-      
-      case "cleanup":
-        await runCleanup();
-        break;
-      
-      case "help":
-        await showHelp();
-        break;
-      
-      case "exit":
-        console.log(chalk.cyan("\n  👋 Goodbye!\n"));
-        process.exit(0);
+    } else if (action === "fix") {
+      const project = await selectProject();
+      if (project) await runTestFix(project);
+    } else if (action === "chat") {
+      await runChat();
+    } else if (action === "commit") {
+      const project = await selectProject();
+      if (project) await runCommit(project);
+    } else if (action === "setup") {
+      await runSetup();
+    } else if (action === "cleanup") {
+      await runCleanup();
+    } else if (action === "help") {
+      await showHelp();
+    } else if (action === "exit") {
+      console.log(chalk.cyan("\n  👋 Goodbye!\n"));
+      process.exit(0);
     }
   }
 }
 
-// Run
 main().catch((err) => {
   console.error(chalk.red("Error:"), err.message);
   process.exit(1);
