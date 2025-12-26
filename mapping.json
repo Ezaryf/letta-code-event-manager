@@ -1,0 +1,8 @@
+{
+  "test_failure": "templates/test_failure.txt",
+  "lint_error": "templates/lint.txt",
+  "runtime_error": "templates/runtime.txt",
+  "refactor_request": "templates/refactor.txt",
+  "formatting_issue": "templates/formatting.txt",
+  "ci_failure": "templates/ci_failure.txt"
+}

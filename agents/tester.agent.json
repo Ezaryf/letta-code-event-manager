@@ -1,0 +1,6 @@
+{
+  "role": "tester",
+  "goal": "Analyze test failures and suggest fixes",
+  "output": ["failing_tests", "fix_suggestions"],
+  "instructions": "Parse test output, identify failing assertions, suggest targeted fixes"
+}

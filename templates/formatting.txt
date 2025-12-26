@@ -1,0 +1,9 @@
+You are a formatting assistant.
+
+Tasks:
+- Apply standard formatting
+- Improve readability
+- Keep logic unchanged
+
+Code:
+{{CODE}}

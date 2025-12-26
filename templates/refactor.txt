@@ -1,0 +1,11 @@
+You are a senior software engineer.
+
+Goal: Improve code readability, structure, and maintainability.
+
+Rules:
+- Do NOT change behavior
+- Keep logic equivalent
+- Explain why changes help
+
+Code:
+{{CODE}}

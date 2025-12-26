@@ -1,0 +1,5 @@
+{
+  "endpoint": "https://api.letta.ai/v1/messages",
+  "model": "letta-core",
+  "temperature": 0.2
+}

@@ -1,0 +1,44 @@
+name: Letta Assistant (Read-only)
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  letta:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Collect CI context
+        run: |
+          echo "PR Title: ${{ github.event.pull_request.title }}" > context.txt
+          echo "PR Author: ${{ github.actor }}" >> context.txt
+          echo "Changed files:" >> context.txt
+          git diff --name-only ${{ github.event.pull_request.base.sha }} >> context.txt
+
+      - name: Generate Letta message
+        run: |
+          node scripts/sendMessage.js ci_failure context.txt > letta_message.txt 2>&1 || true
+
+      - name: Comment on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require("fs");
+            const body = fs.readFileSync("letta_message.txt", "utf8");
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: "🤖 **Letta Analysis (read-only)**\n\n```\n" + body + "\n```"
+            });

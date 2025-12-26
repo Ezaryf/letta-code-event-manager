@@ -1,0 +1,6 @@
+{
+  "project_type": "Node.js backend",
+  "testing_framework": "jest",
+  "style": "functional, readable",
+  "common_failures": []
+}

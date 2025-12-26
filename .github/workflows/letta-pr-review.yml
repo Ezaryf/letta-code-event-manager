@@ -1,0 +1,129 @@
+# D. GitHub PR Commenter
+# Letta analyzes PRs and posts read-only review comments
+name: Letta PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  letta-review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Get changed files
+        id: changed
+        run: |
+          echo "files<<EOF" >> $GITHUB_OUTPUT
+          git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }} >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Get diff content
+        id: diff
+        run: |
+          echo "diff<<EOF" >> $GITHUB_OUTPUT
+          git diff ${{ github.event.pull_request.base.sha }} ${{ github.sha }} | head -500 >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create review context
+        run: |
+          cat > pr_context.txt << 'CONTEXT'
+          ## Pull Request Review Request
+          
+          **Title:** ${{ github.event.pull_request.title }}
+          **Author:** ${{ github.event.pull_request.user.login }}
+          **Branch:** ${{ github.head_ref }} → ${{ github.base_ref }}
+          
+          ### Changed Files:
+          ${{ steps.changed.outputs.files }}
+          
+          ### Diff Preview:
+          ```diff
+          ${{ steps.diff.outputs.diff }}
+          ```
+          
+          Please review this PR and provide:
+          1. Summary of changes
+          2. Potential issues or bugs
+          3. Security concerns (if any)
+          4. Suggestions for improvement
+          5. Overall assessment (approve/request changes/comment)
+          
+          Be constructive and specific. Reference file names and line numbers when possible.
+          CONTEXT
+
+      - name: Run Letta Review
+        id: review
+        env:
+          LETTA_API_KEY: ${{ secrets.LETTA_API_KEY }}
+        run: |
+          # Create agent if needed
+          if [ ! -f .letta_agent_id ]; then
+            node scripts/createAgent.js
+          fi
+          
+          # Send review request
+          RESPONSE=$(node -e "
+            const fs = require('fs');
+            const { Letta } = require('@letta-ai/letta-client');
+            
+            const client = new Letta({ apiKey: process.env.LETTA_API_KEY });
+            const agentId = fs.readFileSync('.letta_agent_id', 'utf8').trim();
+            const context = fs.readFileSync('pr_context.txt', 'utf8');
+            
+            client.agents.messages.create(agentId, { input: context })
+              .then(r => {
+                const text = r.messages?.map(m => m.text || m.content).join('\n') || 'No response';
+                console.log(text);
+              })
+              .catch(e => console.error(e));
+          ")
+          
+          echo "response<<EOF" >> $GITHUB_OUTPUT
+          echo "$RESPONSE" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Post PR Comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const response = `${{ steps.review.outputs.response }}`;
+            
+            const body = `## 🤖 Letta Code Review
+            
+            ${response || 'Unable to generate review. Please check the workflow logs.'}
+            
+            ---
+            *This is an automated review by Letta AI. Please use your judgment when considering these suggestions.*
+            `;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+
+      - name: Save review artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: letta-review-${{ github.event.pull_request.number }}
+          path: |
+            pr_context.txt
+            suggestions/

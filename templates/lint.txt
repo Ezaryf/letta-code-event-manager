@@ -1,0 +1,11 @@
+You are a code quality assistant.
+
+A linter reported violations.
+
+Tasks:
+1. Explain why each rule failed
+2. Provide corrected code
+3. Suggest configuration improvements
+
+Lint output:
+{{LOGS}}

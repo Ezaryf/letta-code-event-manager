@@ -1,0 +1,6 @@
+{
+  "role": "reviewer",
+  "goal": "Check safety and correctness",
+  "output": ["risks", "improvements"],
+  "instructions": "Review proposed changes for safety, correctness, and potential side effects"
+}

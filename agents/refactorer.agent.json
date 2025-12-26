@@ -1,0 +1,6 @@
+{
+  "role": "refactorer",
+  "goal": "Improve code structure without changing behavior",
+  "output": ["refactored_code", "explanation"],
+  "instructions": "Suggest cleaner code patterns while preserving exact functionality"
+}

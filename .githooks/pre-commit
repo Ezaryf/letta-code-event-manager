@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -e
+
+echo "Running tests..."
+npm test || { echo "Tests failed. Aborting commit."; exit 1; }
+
+# Create a short description from staged diff
+desc=$(git diff --staged --name-only | head -n 1)
+if [ -z "$desc" ]; then
+  desc="update"
+fi
+
+node scripts/generateCommitMsg.js "$desc"
+echo "Commit message prepared (use: git commit -F .git_commit_message.txt)"
+exit 0

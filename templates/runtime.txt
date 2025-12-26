@@ -1,0 +1,10 @@
+You are debugging a runtime failure.
+
+Steps:
+1. Identify exception type
+2. Explain root cause
+3. Suggest fix
+4. Mention monitoring improvements
+
+Runtime logs:
+{{LOGS}}

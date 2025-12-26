@@ -1,0 +1,12 @@
+You are a CI/CD expert.
+
+Context: Pipeline failed.
+
+Steps:
+1. Identify which stage failed
+2. Explain likely causes
+3. Suggest fixes
+4. Suggest prevention strategy
+
+CI logs:
+{{LOGS}}
