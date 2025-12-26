@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Letta CLI - Production-quality coding assistant
-import inquirer from "inquirer";
+// Letta CLI - Production-quality coding assistant with arrow-key navigation
+import readline from "readline";
 import chalk from "chalk";
 import ora from "ora";
 import fs from "fs";
@@ -56,23 +56,133 @@ function saveToHistory(projectPath) {
     } catch (e) {}
   }
   
-  // Add to front, remove duplicates, keep last 5
   history.recentProjects = [projectPath, ...history.recentProjects.filter(p => p !== projectPath)].slice(0, 5);
   fs.writeFileSync(historyFile, JSON.stringify(history, null, 2), "utf8");
 }
+
+// Arrow key menu selector
+async function arrowMenu(title, options, showBack = false) {
+  return new Promise((resolve) => {
+    let selectedIndex = 0;
+    const items = [...options];
+    if (showBack) {
+      items.push({ label: chalk.gray("← Back"), value: null });
+    }
+    
+    const renderMenu = () => {
+      // Move cursor up to redraw menu
+      if (selectedIndex >= 0) {
+        process.stdout.write(`\x1B[${items.length + 2}A`);
+      }
+      
+      console.log("");
+      console.log(chalk.bold.white(`  ${title}`));
+      console.log("");
+      
+      items.forEach((item, index) => {
+        const isSelected = index === selectedIndex;
+        const prefix = isSelected ? chalk.cyan("❯ ") : "  ";
+        const text = isSelected ? chalk.cyan.bold(item.label) : item.label;
+        console.log(`  ${prefix}${text}`);
+      });
+    };
+    
+    // Initial render
+    console.log("");
+    console.log(chalk.bold.white(`  ${title}`));
+    console.log("");
+    items.forEach((item, index) => {
+      const isSelected = index === selectedIndex;
+      const prefix = isSelected ? chalk.cyan("❯ ") : "  ";
+      const text = isSelected ? chalk.cyan.bold(item.label) : item.label;
+      console.log(`  ${prefix}${text}`);
+    });
+    
+    // Setup raw mode for arrow keys
+    readline.emitKeypressEvents(process.stdin);
+    if (process.stdin.isTTY) {
+      process.stdin.setRawMode(true);
+    }
+    
+    const onKeypress = (str, key) => {
+      if (key.name === "up") {
+        selectedIndex = selectedIndex > 0 ? selectedIndex - 1 : items.length - 1;
+        renderMenu();
+      } else if (key.name === "down") {
+        selectedIndex = selectedIndex < items.length - 1 ? selectedIndex + 1 : 0;
+        renderMenu();
+      } else if (key.name === "return") {
+        cleanup();
+        resolve(items[selectedIndex].value);
+      } else if (key.name === "escape" || (key.ctrl && key.name === "c")) {
+        cleanup();
+        if (key.ctrl && key.name === "c") {
+          console.log(chalk.cyan("\n\n👋 Goodbye!\n"));
+          process.exit(0);
+        }
+        resolve(null);
+      }
+    };
+    
+    const cleanup = () => {
+      process.stdin.removeListener("keypress", onKeypress);
+      if (process.stdin.isTTY) {
+        process.stdin.setRawMode(false);
+      }
+    };
+    
+    process.stdin.on("keypress", onKeypress);
+    process.stdin.resume();
+  });
+}
+
+// Simple input prompt
+async function inputPrompt(message, validate = null) {
+  return new Promise((resolve) => {
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+    });
+    
+    const ask = () => {
+      rl.question(chalk.white(`  ${message} `), (answer) => {
+        if (validate) {
+          const result = validate(answer);
+          if (result !== true) {
+            console.log(`  ${chalk.red(result)}`);
+            ask();
+            return;
+          }
+        }
+        rl.close();
+        resolve(answer);
+      });
+    };
+    
+    ask();
+  });
+}
+
+// Confirm prompt
+async function confirmPrompt(message) {
+  const answer = await inputPrompt(`${message} (y/n):`, (input) => {
+    if (/^[yn]$/i.test(input)) return true;
+    return "Please enter y or n";
+  });
+  return answer.toLowerCase() === "y";
+}
+
 
 // Status display
 function showStatus() {
   console.log("");
   
-  // API Key status
   if (hasApiKey()) {
     console.log(chalk.green("  ✓ API Key configured"));
   } else {
     console.log(chalk.red("  ✗ API Key missing") + chalk.gray(" - edit .env file"));
   }
   
-  // Agent status
   if (hasAgent()) {
     const agentId = fs.readFileSync(path.join(ROOT, ".letta_agent_id"), "utf8").trim();
     console.log(chalk.green(`  ✓ Agent ready`) + chalk.gray(` (${agentId.slice(0, 20)}...)`));
@@ -81,7 +191,24 @@ function showStatus() {
   }
   
   console.log("");
+  console.log(chalk.gray("  ↑↓ Navigate  •  Enter Select  •  Ctrl+C Exit"));
+  console.log("");
+  console.log(chalk.gray("─".repeat(66)));
 }
+
+// Main menu options
+const MAIN_MENU_OPTIONS = [
+  { label: `👁️  Watch & Analyze     ${chalk.gray("Monitor code changes in real-time")}`, value: "watch" },
+  { label: `🔧 Auto Test-Fix       ${chalk.gray("Run tests and auto-fix failures")}`, value: "fix" },
+  { label: `💬 Chat with Agent     ${chalk.gray("Ask questions or get help")}`, value: "chat" },
+  { label: `📝 Generate Commit     ${chalk.gray("Create commit message for changes")}`, value: "commit" },
+  { label: chalk.gray("─".repeat(50)), value: "separator1" },
+  { label: `⚙️  Setup Agent         ${chalk.gray("Create or reconfigure agent")}`, value: "setup" },
+  { label: `🧹 Cleanup Agents       ${chalk.gray("Remove unused agents")}`, value: "cleanup" },
+  { label: `❓ Help                 ${chalk.gray("Show documentation")}`, value: "help" },
+  { label: chalk.gray("─".repeat(50)), value: "separator2" },
+  { label: chalk.red("✖  Exit"), value: "exit" },
+];
 
 // Main menu
 async function mainMenu() {
@@ -89,161 +216,82 @@ async function mainMenu() {
   console.log(BANNER);
   showStatus();
   
-  // Show menu options directly (not relying on inquirer to display them)
-  console.log(chalk.gray("─".repeat(66)));
-  console.log("");
-  console.log(chalk.bold.white("  MAIN MENU"));
-  console.log("");
-  console.log(`  ${chalk.cyan("[1]")} 👁️  Watch & Analyze     ${chalk.gray("Monitor code changes in real-time")}`);
-  console.log(`  ${chalk.green("[2]")} 🔧 Auto Test-Fix       ${chalk.gray("Run tests and auto-fix failures")}`);
-  console.log(`  ${chalk.blue("[3]")} 💬 Chat with Agent     ${chalk.gray("Ask questions or get help")}`);
-  console.log(`  ${chalk.magenta("[4]")} 📝 Generate Commit     ${chalk.gray("Create commit message for changes")}`);
-  console.log("");
-  console.log(chalk.gray("─".repeat(66)));
-  console.log("");
-  console.log(`  ${chalk.yellow("[5]")} ⚙️  Setup Agent         ${chalk.gray("Create or reconfigure agent")}`);
-  console.log(`  ${chalk.gray("[6]")} 🧹 Cleanup Agents       ${chalk.gray("Remove unused agents")}`);
-  console.log(`  ${chalk.gray("[7]")} ❓ Help                 ${chalk.gray("Show documentation")}`);
-  console.log("");
-  console.log(chalk.gray("─".repeat(66)));
-  console.log("");
-  console.log(`  ${chalk.red("[0]")} ✖  Exit`);
-  console.log("");
+  const action = await arrowMenu("MAIN MENU", MAIN_MENU_OPTIONS);
   
-  const { choice } = await inquirer.prompt([
-    {
-      type: "input",
-      name: "choice",
-      message: chalk.white.bold("Enter choice (0-7):"),
-      validate: (input) => {
-        if (/^[0-7]$/.test(input)) return true;
-        return chalk.red("Please enter a number 0-7");
-      },
-    },
-  ]);
+  // Skip separators
+  if (action === "separator1" || action === "separator2") {
+    return mainMenu();
+  }
   
-  const actionMap = {
-    "1": "watch",
-    "2": "fix",
-    "3": "chat",
-    "4": "commit",
-    "5": "setup",
-    "6": "cleanup",
-    "7": "help",
-    "0": "exit",
-  };
-  
-  return actionMap[choice];
+  return action;
 }
 
 // Project selector
 async function selectProject() {
   const recentProjects = getRecentProjects();
-  
-  console.log("");
-  console.log(chalk.bold.white("  SELECT PROJECT"));
-  console.log("");
-  
-  const projectChoices = [];
-  let num = 1;
+  const options = [];
   
   if (recentProjects.length > 0) {
-    console.log(chalk.gray("  ── Recent Projects ──"));
     for (const proj of recentProjects) {
       if (fs.existsSync(proj)) {
-        const shortPath = proj.length > 50 ? "..." + proj.slice(-47) : proj;
-        console.log(`  ${chalk.cyan(`[${num}]`)} 📁 ${shortPath}`);
-        projectChoices.push({ num: String(num), path: proj });
-        num++;
+        const shortPath = proj.length > 45 ? "..." + proj.slice(-42) : proj;
+        options.push({ label: `📁 ${shortPath}`, value: proj });
       }
     }
-    console.log("");
+    if (options.length > 0) {
+      options.push({ label: chalk.gray("─".repeat(50)), value: "separator" });
+    }
   }
   
-  console.log(chalk.gray("  ── Options ──"));
-  console.log(`  ${chalk.white(`[${num}]`)} 📝 Enter path manually`);
-  projectChoices.push({ num: String(num), path: "manual" });
-  num++;
+  options.push({ label: "📝 Enter path manually", value: "manual" });
   
-  const cwdShort = process.cwd().length > 40 ? "..." + process.cwd().slice(-37) : process.cwd();
-  console.log(`  ${chalk.white(`[${num}]`)} 📂 Current directory ${chalk.gray(`(${cwdShort})`)}`);
-  projectChoices.push({ num: String(num), path: process.cwd() });
-  num++;
+  const cwdShort = process.cwd().length > 35 ? "..." + process.cwd().slice(-32) : process.cwd();
+  options.push({ label: `📂 Current directory ${chalk.gray(`(${cwdShort})`)}`, value: process.cwd() });
   
   console.log("");
-  console.log(`  ${chalk.gray("[0]")} ← Back to menu`);
-  console.log("");
+  const project = await arrowMenu("SELECT PROJECT", options, true);
   
-  const maxNum = num - 1;
+  if (project === "separator") {
+    return selectProject();
+  }
   
-  const { choice } = await inquirer.prompt([
-    {
-      type: "input",
-      name: "choice",
-      message: chalk.white.bold(`Enter choice (0-${maxNum}):`),
-      validate: (input) => {
-        const n = parseInt(input);
-        if (input === "0" || (n >= 1 && n <= maxNum)) return true;
-        return chalk.red(`Please enter a number 0-${maxNum}`);
-      },
-    },
-  ]);
+  if (project === null) return null;
   
-  if (choice === "0") return null;
-  
-  const selected = projectChoices.find(p => p.num === choice);
-  if (!selected) return null;
-  
-  if (selected.path === "manual") {
-    const { manualPath } = await inquirer.prompt([
-      {
-        type: "input",
-        name: "manualPath",
-        message: chalk.white("Enter project path:"),
-        validate: (input) => {
-          if (!input) return chalk.red("Path is required");
-          const resolved = path.resolve(input);
-          if (!fs.existsSync(resolved)) return chalk.red(`Path not found: ${resolved}`);
-          return true;
-        },
-      },
-    ]);
+  if (project === "manual") {
+    console.log("");
+    const manualPath = await inputPrompt("Enter project path:", (input) => {
+      if (!input) return "Path is required";
+      const resolved = path.resolve(input);
+      if (!fs.existsSync(resolved)) return `Path not found: ${resolved}`;
+      return true;
+    });
     return path.resolve(manualPath);
   }
   
-  return selected.path;
+  return project;
 }
 
 // Watch options
 async function watchOptions() {
+  const options = [
+    { label: `🔧 Auto-fix issues        ${chalk.gray("Automatically apply fixes")}`, value: "autoFix", selected: false },
+    { label: `📝 Auto-commit            ${chalk.gray("Generate commits after fixes")}`, value: "autoCommit", selected: false },
+    { label: `📂 Watch all files        ${chalk.gray("Not just standard folders")}`, value: "watchAll", selected: false },
+    { label: `🐛 Debug mode             ${chalk.gray("Verbose logging")}`, value: "debug", selected: false },
+  ];
+  
   console.log("");
   console.log(chalk.bold.white("  WATCH OPTIONS"));
-  console.log(chalk.gray("  Enter numbers separated by space, or press Enter for defaults"));
-  console.log("");
-  console.log(`  ${chalk.green("[1]")} 🔧 Auto-fix issues        ${chalk.gray("Automatically apply suggested fixes")}`);
-  console.log(`  ${chalk.blue("[2]")} 📝 Auto-commit            ${chalk.gray("Generate commits after fixes")}`);
-  console.log(`  ${chalk.yellow("[3]")} 📂 Watch all files        ${chalk.gray("Not just standard folders")}`);
-  console.log(`  ${chalk.gray("[4]")} 🐛 Debug mode             ${chalk.gray("Verbose logging")}`);
+  console.log(chalk.gray("  Press Enter to start with defaults, or select options:"));
   console.log("");
   
-  const { choices } = await inquirer.prompt([
-    {
-      type: "input",
-      name: "choices",
-      message: chalk.white.bold("Select options (e.g., 1 2):"),
-      default: "",
-    },
-  ]);
+  // For simplicity, ask yes/no for auto-fix
+  const autoFix = await confirmPrompt("Enable auto-fix?");
   
-  const selected = choices.split(/\s+/).filter(Boolean);
-  const options = [];
+  const result = [];
+  if (autoFix) result.push("autoFix");
   
-  if (selected.includes("1")) options.push("autoFix");
-  if (selected.includes("2")) options.push("autoCommit");
-  if (selected.includes("3")) options.push("watchAll");
-  if (selected.includes("4")) options.push("debug");
-  
-  return options;
+  return result;
 }
 
 
@@ -251,7 +299,7 @@ async function watchOptions() {
 async function runWatch(projectPath, options) {
   saveToHistory(projectPath);
   
-  console.log(chalk.cyan("\n🚀 Starting Watch & Analyze...\n"));
+  console.log(chalk.cyan("\n  🚀 Starting Watch & Analyze...\n"));
   
   const args = [projectPath];
   if (options.includes("autoFix")) args.push("--auto-fix");
@@ -259,7 +307,6 @@ async function runWatch(projectPath, options) {
   if (options.includes("watchAll")) args.push("--all");
   if (options.includes("debug")) process.env.DEBUG = "true";
   
-  // Dynamic import and run
   const { spawn } = await import("child_process");
   const child = spawn("node", [path.join(ROOT, "scripts/assistant.js"), ...args], {
     stdio: "inherit",
@@ -276,16 +323,9 @@ async function runWatch(projectPath, options) {
 async function runTestFix(projectPath) {
   saveToHistory(projectPath);
   
-  const { autoApply } = await inquirer.prompt([
-    {
-      type: "confirm",
-      name: "autoApply",
-      message: "Auto-apply fixes?",
-      default: false,
-    },
-  ]);
+  const autoApply = await confirmPrompt("Auto-apply fixes?");
   
-  console.log(chalk.green("\n🔧 Starting Auto Test-Fix...\n"));
+  console.log(chalk.green("\n  🔧 Starting Auto Test-Fix...\n"));
   
   const args = [projectPath];
   if (autoApply) args.push("--auto");
@@ -305,13 +345,13 @@ async function runTestFix(projectPath) {
 // Chat with agent
 async function runChat() {
   if (!hasAgent()) {
-    console.log(chalk.red("\n❌ No agent found. Please run Setup first.\n"));
-    await inquirer.prompt([{ type: "input", name: "continue", message: "Press Enter to continue..." }]);
+    console.log(chalk.red("\n  ❌ No agent found. Please run Setup first.\n"));
+    await inputPrompt("Press Enter to continue...");
     return;
   }
   
-  console.log(chalk.blue("\n💬 Chat with Letta Agent"));
-  console.log(chalk.gray("Type 'exit' to return to menu\n"));
+  console.log(chalk.blue("\n  💬 Chat with Letta Agent"));
+  console.log(chalk.gray("  Type 'exit' to return to menu\n"));
   
   const { Letta } = await import("@letta-ai/letta-client");
   const client = new Letta({
@@ -321,27 +361,21 @@ async function runChat() {
   const agentId = fs.readFileSync(path.join(ROOT, ".letta_agent_id"), "utf8").trim();
   
   while (true) {
-    const { message } = await inquirer.prompt([
-      {
-        type: "input",
-        name: "message",
-        message: chalk.cyan("You:"),
-      },
-    ]);
+    const message = await inputPrompt(chalk.cyan("You:"));
     
     if (message.toLowerCase() === "exit") break;
     if (!message.trim()) continue;
     
-    const spinner = ora("Thinking...").start();
+    const spinner = ora("  Thinking...").start();
     
     try {
       const response = await client.agents.messages.create(agentId, { input: message });
       spinner.stop();
       
       const text = response?.messages?.map((m) => m.text || m.content).join("\n") || "No response";
-      console.log(chalk.green("\nAgent:"), text, "\n");
+      console.log(chalk.green("\n  Agent:"), text, "\n");
     } catch (err) {
-      spinner.fail("Error: " + err.message);
+      spinner.fail("  Error: " + err.message);
     }
   }
 }
@@ -349,8 +383,8 @@ async function runChat() {
 // Generate commit message
 async function runCommit(projectPath) {
   if (!hasAgent()) {
-    console.log(chalk.red("\n❌ No agent found. Please run Setup first.\n"));
-    await inquirer.prompt([{ type: "input", name: "continue", message: "Press Enter to continue..." }]);
+    console.log(chalk.red("\n  ❌ No agent found. Please run Setup first.\n"));
+    await inputPrompt("Press Enter to continue...");
     return;
   }
   
@@ -358,7 +392,6 @@ async function runCommit(projectPath) {
   
   const { execSync } = await import("child_process");
   
-  // Get git diff
   let diff;
   try {
     diff = execSync("git diff --staged", { cwd: projectPath, encoding: "utf8" });
@@ -366,18 +399,18 @@ async function runCommit(projectPath) {
       diff = execSync("git diff", { cwd: projectPath, encoding: "utf8" });
     }
   } catch (e) {
-    console.log(chalk.red("\n❌ Not a git repository or no changes found.\n"));
-    await inquirer.prompt([{ type: "input", name: "continue", message: "Press Enter to continue..." }]);
+    console.log(chalk.red("\n  ❌ Not a git repository or no changes found.\n"));
+    await inputPrompt("Press Enter to continue...");
     return;
   }
   
   if (!diff.trim()) {
-    console.log(chalk.yellow("\n⚠️ No changes detected in git.\n"));
-    await inquirer.prompt([{ type: "input", name: "continue", message: "Press Enter to continue..." }]);
+    console.log(chalk.yellow("\n  ⚠️ No changes detected in git.\n"));
+    await inputPrompt("Press Enter to continue...");
     return;
   }
   
-  const spinner = ora("Generating commit message...").start();
+  const spinner = ora("  Generating commit message...").start();
   
   try {
     const { Letta } = await import("@letta-ai/letta-client");
@@ -391,7 +424,7 @@ async function runCommit(projectPath) {
     
     const today = dayjs().format("DDMMYY");
     const prompt = `Generate a git commit message for these changes. Format: ${today} - <description>
-Keep it under 50 chars. Be specific.
+Keep it under 50 chars. Be specific. Capitalize first letter after the dash.
 
 \`\`\`diff
 ${diff.slice(0, 3000)}
@@ -407,75 +440,49 @@ Respond with ONLY the commit message, nothing else.`;
       message = `${today} - ${message}`;
     }
     
-    spinner.succeed("Commit message generated!");
+    spinner.succeed("  Commit message generated!");
     
-    console.log(chalk.green("\n📝 Suggested commit message:"));
-    console.log(chalk.white.bold(`   ${message}\n`));
+    console.log(chalk.green("\n  📝 Suggested commit message:"));
+    console.log(chalk.white.bold(`     ${message}\n`));
     
-    const { action } = await inquirer.prompt([
-      {
-        type: "list",
-        name: "action",
-        message: "What would you like to do?",
-        choices: [
-          { name: "Copy to clipboard (manual commit)", value: "copy" },
-          { name: "Commit now", value: "commit" },
-          { name: "Edit message", value: "edit" },
-          { name: "Cancel", value: "cancel" },
-        ],
-      },
-    ]);
+    const commitNow = await confirmPrompt("Commit now?");
     
-    if (action === "commit") {
+    if (commitNow) {
       execSync(`git add -A`, { cwd: projectPath });
       execSync(`git commit -m "${message}"`, { cwd: projectPath });
-      console.log(chalk.green("\n✅ Committed successfully!\n"));
-    } else if (action === "edit") {
-      const { edited } = await inquirer.prompt([
-        { type: "input", name: "edited", message: "Edit message:", default: message },
-      ]);
-      execSync(`git add -A`, { cwd: projectPath });
-      execSync(`git commit -m "${edited}"`, { cwd: projectPath });
-      console.log(chalk.green("\n✅ Committed successfully!\n"));
-    } else if (action === "copy") {
+      console.log(chalk.green("\n  ✅ Committed successfully!\n"));
+    } else {
       fs.writeFileSync(path.join(projectPath, ".commit_msg"), message, "utf8");
-      console.log(chalk.cyan(`\n📋 Saved to ${projectPath}/.commit_msg`));
-      console.log(chalk.gray(`   Run: git commit -F .commit_msg\n`));
+      console.log(chalk.cyan(`\n  📋 Saved to ${projectPath}/.commit_msg`));
+      console.log(chalk.gray(`     Run: git commit -F .commit_msg\n`));
     }
     
   } catch (err) {
-    spinner.fail("Error: " + err.message);
+    spinner.fail("  Error: " + err.message);
   }
   
-  await inquirer.prompt([{ type: "input", name: "continue", message: "Press Enter to continue..." }]);
+  await inputPrompt("Press Enter to continue...");
 }
 
 
 // Setup agent
 async function runSetup() {
-  console.log(chalk.yellow("\n⚙️  Agent Setup\n"));
+  console.log(chalk.yellow("\n  ⚙️  Agent Setup\n"));
   
   if (!hasApiKey()) {
-    console.log(chalk.red("❌ LETTA_API_KEY not configured in .env file"));
-    console.log(chalk.gray("   1. Get your API key from https://app.letta.ai"));
-    console.log(chalk.gray("   2. Edit .env and add: LETTA_API_KEY=sk-let-...\n"));
-    await inquirer.prompt([{ type: "input", name: "continue", message: "Press Enter to continue..." }]);
+    console.log(chalk.red("  ❌ LETTA_API_KEY not configured in .env file"));
+    console.log(chalk.gray("     1. Get your API key from https://app.letta.ai"));
+    console.log(chalk.gray("     2. Edit .env and add: LETTA_API_KEY=sk-let-...\n"));
+    await inputPrompt("Press Enter to continue...");
     return;
   }
   
   if (hasAgent()) {
-    const { recreate } = await inquirer.prompt([
-      {
-        type: "confirm",
-        name: "recreate",
-        message: "Agent already exists. Create a new one?",
-        default: false,
-      },
-    ]);
+    const recreate = await confirmPrompt("Agent already exists. Create a new one?");
     if (!recreate) return;
   }
   
-  const spinner = ora("Creating agent...").start();
+  const spinner = ora("  Creating agent...").start();
   
   try {
     const { spawn } = await import("child_process");
@@ -491,41 +498,33 @@ async function runSetup() {
     await new Promise((resolve) => child.on("close", resolve));
     
     if (hasAgent()) {
-      spinner.succeed("Agent created successfully!");
+      spinner.succeed("  Agent created successfully!");
       console.log(chalk.gray(output));
     } else {
-      spinner.fail("Failed to create agent");
+      spinner.fail("  Failed to create agent");
       console.log(chalk.red(output));
     }
   } catch (err) {
-    spinner.fail("Error: " + err.message);
+    spinner.fail("  Error: " + err.message);
   }
   
-  await inquirer.prompt([{ type: "input", name: "continue", message: "Press Enter to continue..." }]);
+  await inputPrompt("Press Enter to continue...");
 }
 
 // Cleanup agents
 async function runCleanup() {
-  console.log(chalk.gray("\n🧹 Agent Cleanup\n"));
+  console.log(chalk.gray("\n  🧹 Agent Cleanup\n"));
   
   if (!hasApiKey()) {
-    console.log(chalk.red("❌ LETTA_API_KEY not configured.\n"));
-    await inquirer.prompt([{ type: "input", name: "continue", message: "Press Enter to continue..." }]);
+    console.log(chalk.red("  ❌ LETTA_API_KEY not configured.\n"));
+    await inputPrompt("Press Enter to continue...");
     return;
   }
   
-  const { confirm } = await inquirer.prompt([
-    {
-      type: "confirm",
-      name: "confirm",
-      message: "This will delete all agents except your current one. Continue?",
-      default: false,
-    },
-  ]);
-  
+  const confirm = await confirmPrompt("Delete all agents except current one?");
   if (!confirm) return;
   
-  const spinner = ora("Cleaning up agents...").start();
+  const spinner = ora("  Cleaning up agents...").start();
   
   try {
     const { spawn } = await import("child_process");
@@ -540,13 +539,13 @@ async function runCleanup() {
     
     await new Promise((resolve) => child.on("close", resolve));
     
-    spinner.succeed("Cleanup complete!");
+    spinner.succeed("  Cleanup complete!");
     console.log(chalk.gray(output));
   } catch (err) {
-    spinner.fail("Error: " + err.message);
+    spinner.fail("  Error: " + err.message);
   }
   
-  await inquirer.prompt([{ type: "input", name: "continue", message: "Press Enter to continue..." }]);
+  await inputPrompt("Press Enter to continue...");
 }
 
 // Show help
@@ -586,23 +585,11 @@ async function showHelp() {
   console.log(chalk.bold.white("\n  ⌨️  KEYBOARD SHORTCUTS\n"));
   console.log(chalk.gray("      ↑ ↓         Navigate menu options"));
   console.log(chalk.gray("      Enter       Select option"));
-  console.log(chalk.gray("      Space       Toggle checkbox"));
   console.log(chalk.gray("      Ctrl+C      Exit / Stop watching"));
-  
-  console.log(chalk.gray("\n─".repeat(66)));
-  
-  console.log(chalk.bold.white("\n  ⚙️  CONFIGURATION (.env)\n"));
-  console.log(chalk.gray("      LETTA_API_KEY     Your Letta API key (required)"));
-  console.log(chalk.gray("      AUTO_APPLY        Auto-apply fixes (true/false)"));
-  console.log(chalk.gray("      MIN_CONFIDENCE    Min confidence for auto-fix (0.0-1.0)"));
   
   console.log("");
   
-  await inquirer.prompt([{ 
-    type: "input", 
-    name: "continue", 
-    message: chalk.gray("Press Enter to return to menu...") 
-  }]);
+  await inputPrompt("Press Enter to return to menu...");
 }
 
 // Main loop
@@ -686,7 +673,7 @@ async function main() {
         break;
       
       case "exit":
-        console.log(chalk.cyan("\n👋 Goodbye!\n"));
+        console.log(chalk.cyan("\n  👋 Goodbye!\n"));
         process.exit(0);
     }
   }

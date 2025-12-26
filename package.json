@@ -2,7 +2,7 @@
   "name": "letta-code-event-manager",
   "version": "2.0.0",
   "type": "module",
-  "description": "AI-powered coding assistant with real-time code analysis, auto-fixes, and commit generation",
+  "description": "Letta-powered autonomous development assistant",
   "main": "scripts/cli.js",
   "bin": {
     "letta": "./scripts/cli.js"
@@ -19,7 +19,6 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "Letta-powered autonomous development assistant",
   "dependencies": {
     "@letta-ai/letta-client": "^1.6.2",
     "chalk": "^5.6.2",
@@ -27,7 +26,6 @@
     "dayjs": "^1.11.19",
     "dotenv": "^17.2.3",
     "fs-extra": "^11.3.3",
-    "inquirer": "^13.1.0",
     "minimatch": "^10.1.1",
     "node-fetch": "^3.3.2",
     "ora": "^9.0.0"
