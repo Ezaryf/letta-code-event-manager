@@ -89,68 +89,51 @@ async function mainMenu() {
   console.log(BANNER);
   showStatus();
   
-  // Show navigation hint
-  console.log(chalk.gray("  ↑↓ Navigate  •  Enter Select  •  Ctrl+C Exit\n"));
+  // Show menu options directly (not relying on inquirer to display them)
   console.log(chalk.gray("─".repeat(66)));
   console.log("");
+  console.log(chalk.bold.white("  MAIN MENU"));
+  console.log("");
+  console.log(`  ${chalk.cyan("[1]")} 👁️  Watch & Analyze     ${chalk.gray("Monitor code changes in real-time")}`);
+  console.log(`  ${chalk.green("[2]")} 🔧 Auto Test-Fix       ${chalk.gray("Run tests and auto-fix failures")}`);
+  console.log(`  ${chalk.blue("[3]")} 💬 Chat with Agent     ${chalk.gray("Ask questions or get help")}`);
+  console.log(`  ${chalk.magenta("[4]")} 📝 Generate Commit     ${chalk.gray("Create commit message for changes")}`);
+  console.log("");
+  console.log(chalk.gray("─".repeat(66)));
+  console.log("");
+  console.log(`  ${chalk.yellow("[5]")} ⚙️  Setup Agent         ${chalk.gray("Create or reconfigure agent")}`);
+  console.log(`  ${chalk.gray("[6]")} 🧹 Cleanup Agents       ${chalk.gray("Remove unused agents")}`);
+  console.log(`  ${chalk.gray("[7]")} ❓ Help                 ${chalk.gray("Show documentation")}`);
+  console.log("");
+  console.log(chalk.gray("─".repeat(66)));
+  console.log("");
+  console.log(`  ${chalk.red("[0]")} ✖  Exit`);
+  console.log("");
   
-  const choices = [
-    { 
-      name: `  ${chalk.cyan.bold("👁️  Watch & Analyze")}     ${chalk.gray("Monitor code changes in real-time")}`,
-      value: "watch",
-      short: "Watch & Analyze"
-    },
-    { 
-      name: `  ${chalk.green.bold("🔧 Auto Test-Fix")}       ${chalk.gray("Run tests and auto-fix failures")}`,
-      value: "fix",
-      short: "Auto Test-Fix"
-    },
-    { 
-      name: `  ${chalk.blue.bold("💬 Chat with Agent")}     ${chalk.gray("Ask questions or get help")}`,
-      value: "chat",
-      short: "Chat"
-    },
-    { 
-      name: `  ${chalk.magenta.bold("📝 Generate Commit")}     ${chalk.gray("Create commit message for changes")}`,
-      value: "commit",
-      short: "Generate Commit"
-    },
-    new inquirer.Separator(chalk.gray("\n─".repeat(33))),
-    { 
-      name: `  ${chalk.yellow("⚙️  Setup Agent")}         ${chalk.gray("Create or reconfigure agent")}`,
-      value: "setup",
-      short: "Setup"
-    },
-    { 
-      name: `  ${chalk.gray("🧹 Cleanup Agents")}       ${chalk.gray("Remove unused agents")}`,
-      value: "cleanup",
-      short: "Cleanup"
-    },
-    { 
-      name: `  ${chalk.gray("❓ Help")}                 ${chalk.gray("Show documentation")}`,
-      value: "help",
-      short: "Help"
-    },
-    new inquirer.Separator(chalk.gray("\n─".repeat(33))),
-    { 
-      name: `  ${chalk.red("✖  Exit")}`,
-      value: "exit",
-      short: "Exit"
-    },
-  ];
-  
-  const { action } = await inquirer.prompt([
+  const { choice } = await inquirer.prompt([
     {
-      type: "list",
-      name: "action",
-      message: chalk.white.bold("Select an option:"),
-      choices,
-      pageSize: 15,
-      loop: false,
+      type: "input",
+      name: "choice",
+      message: chalk.white.bold("Enter choice (0-7):"),
+      validate: (input) => {
+        if (/^[0-7]$/.test(input)) return true;
+        return chalk.red("Please enter a number 0-7");
+      },
     },
   ]);
   
-  return action;
+  const actionMap = {
+    "1": "watch",
+    "2": "fix",
+    "3": "chat",
+    "4": "commit",
+    "5": "setup",
+    "6": "cleanup",
+    "7": "help",
+    "0": "exit",
+  };
+  
+  return actionMap[choice];
 }
 
 // Project selector
@@ -158,56 +141,60 @@ async function selectProject() {
   const recentProjects = getRecentProjects();
   
   console.log("");
-  console.log(chalk.gray("  ↑↓ Navigate  •  Enter Select\n"));
+  console.log(chalk.bold.white("  SELECT PROJECT"));
+  console.log("");
   
-  const choices = [];
+  const projectChoices = [];
+  let num = 1;
   
   if (recentProjects.length > 0) {
-    choices.push(new inquirer.Separator(chalk.gray("  ── Recent Projects ──")));
+    console.log(chalk.gray("  ── Recent Projects ──"));
     for (const proj of recentProjects) {
       if (fs.existsSync(proj)) {
         const shortPath = proj.length > 50 ? "..." + proj.slice(-47) : proj;
-        choices.push({ 
-          name: `  ${chalk.cyan("📁")} ${shortPath}`, 
-          value: proj,
-          short: path.basename(proj)
-        });
+        console.log(`  ${chalk.cyan(`[${num}]`)} 📁 ${shortPath}`);
+        projectChoices.push({ num: String(num), path: proj });
+        num++;
       }
     }
-    choices.push(new inquirer.Separator(""));
+    console.log("");
   }
   
-  choices.push({ 
-    name: `  ${chalk.white("📝 Enter path manually")}`, 
-    value: "manual",
-    short: "Manual"
-  });
-  choices.push({ 
-    name: `  ${chalk.white("📂 Use current directory")} ${chalk.gray(`(${process.cwd().slice(-30)})`)}`, 
-    value: process.cwd(),
-    short: "Current dir"
-  });
-  choices.push(new inquirer.Separator(""));
-  choices.push({ 
-    name: `  ${chalk.gray("← Back to menu")}`, 
-    value: "back",
-    short: "Back"
-  });
+  console.log(chalk.gray("  ── Options ──"));
+  console.log(`  ${chalk.white(`[${num}]`)} 📝 Enter path manually`);
+  projectChoices.push({ num: String(num), path: "manual" });
+  num++;
   
-  const { project } = await inquirer.prompt([
+  const cwdShort = process.cwd().length > 40 ? "..." + process.cwd().slice(-37) : process.cwd();
+  console.log(`  ${chalk.white(`[${num}]`)} 📂 Current directory ${chalk.gray(`(${cwdShort})`)}`);
+  projectChoices.push({ num: String(num), path: process.cwd() });
+  num++;
+  
+  console.log("");
+  console.log(`  ${chalk.gray("[0]")} ← Back to menu`);
+  console.log("");
+  
+  const maxNum = num - 1;
+  
+  const { choice } = await inquirer.prompt([
     {
-      type: "list",
-      name: "project",
-      message: chalk.white.bold("Select project:"),
-      choices,
-      pageSize: 12,
-      loop: false,
+      type: "input",
+      name: "choice",
+      message: chalk.white.bold(`Enter choice (0-${maxNum}):`),
+      validate: (input) => {
+        const n = parseInt(input);
+        if (input === "0" || (n >= 1 && n <= maxNum)) return true;
+        return chalk.red(`Please enter a number 0-${maxNum}`);
+      },
     },
   ]);
   
-  if (project === "back") return null;
+  if (choice === "0") return null;
   
-  if (project === "manual") {
+  const selected = projectChoices.find(p => p.num === choice);
+  if (!selected) return null;
+  
+  if (selected.path === "manual") {
     const { manualPath } = await inquirer.prompt([
       {
         type: "input",
@@ -224,44 +211,37 @@ async function selectProject() {
     return path.resolve(manualPath);
   }
   
-  return project;
+  return selected.path;
 }
 
 // Watch options
 async function watchOptions() {
   console.log("");
-  console.log(chalk.gray("  Space Toggle  •  Enter Confirm\n"));
+  console.log(chalk.bold.white("  WATCH OPTIONS"));
+  console.log(chalk.gray("  Enter numbers separated by space, or press Enter for defaults"));
+  console.log("");
+  console.log(`  ${chalk.green("[1]")} 🔧 Auto-fix issues        ${chalk.gray("Automatically apply suggested fixes")}`);
+  console.log(`  ${chalk.blue("[2]")} 📝 Auto-commit            ${chalk.gray("Generate commits after fixes")}`);
+  console.log(`  ${chalk.yellow("[3]")} 📂 Watch all files        ${chalk.gray("Not just standard folders")}`);
+  console.log(`  ${chalk.gray("[4]")} 🐛 Debug mode             ${chalk.gray("Verbose logging")}`);
+  console.log("");
   
-  const { options } = await inquirer.prompt([
+  const { choices } = await inquirer.prompt([
     {
-      type: "checkbox",
-      name: "options",
-      message: chalk.white.bold("Watch options:"),
-      choices: [
-        { 
-          name: `  ${chalk.green("🔧 Auto-fix issues")}        ${chalk.gray("Automatically apply suggested fixes")}`,
-          value: "autoFix", 
-          checked: false 
-        },
-        { 
-          name: `  ${chalk.blue("📝 Auto-commit")}            ${chalk.gray("Generate commits after fixes")}`,
-          value: "autoCommit", 
-          checked: false 
-        },
-        { 
-          name: `  ${chalk.yellow("📂 Watch all files")}        ${chalk.gray("Not just standard folders")}`,
-          value: "watchAll", 
-          checked: false 
-        },
-        { 
-          name: `  ${chalk.gray("🐛 Debug mode")}             ${chalk.gray("Verbose logging")}`,
-          value: "debug", 
-          checked: false 
-        },
-      ],
-      pageSize: 6,
+      type: "input",
+      name: "choices",
+      message: chalk.white.bold("Select options (e.g., 1 2):"),
+      default: "",
     },
   ]);
+  
+  const selected = choices.split(/\s+/).filter(Boolean);
+  const options = [];
+  
+  if (selected.includes("1")) options.push("autoFix");
+  if (selected.includes("2")) options.push("autoCommit");
+  if (selected.includes("3")) options.push("watchAll");
+  if (selected.includes("4")) options.push("debug");
   
   return options;
 }
