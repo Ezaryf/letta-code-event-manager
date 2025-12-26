@@ -1,6 +1,7 @@
-// B. Multi-Agent System
-// Routes events to specialized agents: reviewer, fixer, architect, memory curator
+// Multi-Agent Architecture with Tool Broker
+// Based on audit recommendations for clean agent separation
 import fs from "fs";
+import path from "path";
 import dotenv from "dotenv";
 import { Letta } from "@letta-ai/letta-client";
 
@@ -11,35 +12,50 @@ const client = new Letta({
   projectID: process.env.LETTA_PROJECT_ID,
 });
 
-// Agent role definitions
+// Agent role definitions with optimized prompts
 const AGENT_ROLES = {
-  reviewer: {
-    persona: "You are a code reviewer. Focus on: code quality, potential bugs, security issues, and best practices. Be constructive but thorough.",
-    goal: "Review code and identify issues",
+  router: {
+    name: "EchoHarbor-Router",
+    persona: "You are the Router agent. Analyze incoming requests and determine which specialist agent should handle them. Respond with JSON: {\"route_to\": \"agent_name\", \"reason\": \"why\"}",
+    goal: "Route requests to appropriate specialist agents",
+  },
+  planner: {
+    name: "EchoHarbor-Planner", 
+    persona: "You are the Planner agent. Break complex tasks into sequential steps. Respond with JSON: {\"steps\": [{\"action\": \"...\", \"agent\": \"...\"}], \"dependencies\": []}",
+    goal: "Decompose tasks into actionable steps",
+  },
+  executor: {
+    name: "EchoHarbor-Executor",
+    persona: "You are the Executor agent. Carry out planned actions using available tools. Focus on one step at a time. Report results clearly.",
+    goal: "Execute planned actions",
   },
   fixer: {
-    persona: "You are a bug fixer. Focus on: minimal changes, safe fixes, clear explanations. Always produce unified diff patches.",
+    name: "EchoHarbor-Fixer",
+    persona: "You are the Fixer agent. Analyze errors and bugs, then provide minimal safe fixes. Always output structured JSON with diagnosis, root_cause, and fix_steps.",
     goal: "Fix bugs with minimal safe changes",
   },
-  architect: {
-    persona: "You are a software architect. Focus on: system design, patterns, scalability, maintainability. Suggest structural improvements.",
-    goal: "Improve code architecture",
+  reviewer: {
+    name: "EchoHarbor-Reviewer",
+    persona: "You are the Reviewer agent. Check code quality, security, and best practices. Be constructive but thorough. Flag risks clearly.",
+    goal: "Review code for quality and security",
   },
-  curator: {
-    persona: "You are a memory curator. Focus on: extracting best practices, coding rules, and project patterns from conversations. Store important learnings.",
-    goal: "Curate and organize project knowledge",
+  memory_steward: {
+    name: "EchoHarbor-Memory",
+    persona: "You are the Memory Steward. Manage memory blocks, extract learnings from conversations, and maintain project knowledge. Store important patterns and rules.",
+    goal: "Manage persistent memory and knowledge",
   },
 };
 
-// Event to agent routing
-const EVENT_ROUTING = {
+// Event to agent routing rules
+const ROUTING_RULES = {
   test_failure: ["fixer", "reviewer"],
+  runtime_error: ["fixer"],
   lint_error: ["fixer"],
-  runtime_error: ["fixer", "architect"],
-  refactor_request: ["architect", "reviewer"],
   code_review: ["reviewer"],
-  memory_update: ["curator"],
-  ci_failure: ["fixer", "reviewer"],
+  refactor_request: ["planner", "executor", "reviewer"],
+  complex_task: ["planner", "executor"],
+  memory_update: ["memory_steward"],
+  general: ["router"],
 };
 
 // Store for created agent IDs
@@ -60,15 +76,16 @@ async function createAgent(role) {
   const config = AGENT_ROLES[role];
   if (!config) throw new Error(`Unknown role: ${role}`);
 
-  console.log(`Creating ${role} agent...`);
+  console.log(`   Creating ${config.name}...`);
   
   const agent = await client.agents.create({
+    name: config.name,
     model: "openai/gpt-4o-mini",
     embedding: "openai/text-embedding-ada-002",
     memory_blocks: [
       {
         label: "persona",
-        description: `Agent role: ${role}`,
+        description: "Agent role and behavior",
         value: config.persona,
       },
       {
@@ -99,77 +116,113 @@ async function getOrCreateAgent(role) {
 async function sendToAgent(role, message) {
   const agentId = await getOrCreateAgent(role);
   
-  console.log(`\n🤖 [${role.toUpperCase()}] Processing...`);
+  console.log(`\n🤖 [${role.toUpperCase()}]`);
   
   const response = await client.agents.messages.create(agentId, { input: message });
   const text = response?.messages?.map((m) => m.text || m.content).join("\n") || "";
   
-  return { role, response: text };
+  return { role, agentId, response: text };
 }
 
-export async function routeEvent(eventType, content) {
-  const roles = EVENT_ROUTING[eventType] || ["fixer"];
+// Route event to appropriate agents
+export function routeEvent(eventType) {
+  return ROUTING_RULES[eventType] || ROUTING_RULES.general;
+}
+
+// Orchestrate multi-agent workflow
+export async function orchestrate(eventType, content) {
+  const roles = routeEvent(eventType);
   
   console.log(`\n📨 Event: ${eventType}`);
-  console.log(`   Routing to: ${roles.join(", ")}`);
+  console.log(`   Routing to: ${roles.join(" → ")}`);
   
   const results = [];
-  
-  for (const role of roles) {
-    const result = await sendToAgent(role, content);
-    results.push(result);
-    console.log(`\n--- ${role.toUpperCase()} Response ---`);
-    console.log(result.response);
-  }
-  
-  return results;
-}
-
-export async function orchestrate(eventType, content) {
-  // Sequential orchestration with context passing
-  const roles = EVENT_ROUTING[eventType] || ["fixer"];
   let context = content;
-  const results = [];
   
+  // Sequential orchestration with context passing
   for (const role of roles) {
-    const enrichedMessage = `Previous context:\n${context}\n\nYour task as ${role}:\n${content}`;
+    const enrichedMessage = roles.length > 1 
+      ? `Previous context:\n${context}\n\nYour task as ${role}:\n${content}`
+      : content;
+    
     const result = await sendToAgent(role, enrichedMessage);
     results.push(result);
+    
+    console.log(`   Response: ${result.response.slice(0, 200)}...`);
+    
+    // Pass context to next agent
     context += `\n\n[${role}]: ${result.response}`;
   }
   
-  // Always end with curator to extract learnings
-  if (!roles.includes("curator")) {
-    const curatorResult = await sendToAgent(
-      "curator",
-      `Review this conversation and extract any best practices or rules to remember:\n${context}`
+  // Extract learnings via memory steward
+  if (!roles.includes("memory_steward") && results.length > 0) {
+    const learnings = await sendToAgent(
+      "memory_steward",
+      `Extract any best practices or rules to remember from this conversation:\n${context}`
     );
-    results.push(curatorResult);
+    results.push(learnings);
   }
   
   return results;
 }
 
-// CLI usage
-const eventType = process.argv[2];
-const contentFile = process.argv[3];
+// Simple single-agent call
+export async function callAgent(role, message) {
+  return sendToAgent(role, message);
+}
 
-if (eventType && contentFile && fs.existsSync(contentFile)) {
-  const content = fs.readFileSync(contentFile, "utf8");
-  orchestrate(eventType, content).catch(console.error);
-} else if (eventType === "list") {
-  console.log("Available roles:", Object.keys(AGENT_ROLES).join(", "));
-  console.log("Event types:", Object.keys(EVENT_ROUTING).join(", "));
-} else if (eventType === "create-all") {
-  (async () => {
-    for (const role of Object.keys(AGENT_ROLES)) {
-      await getOrCreateAgent(role);
+// CLI interface
+const command = process.argv[2];
+const arg1 = process.argv[3];
+const arg2 = process.argv[4];
+
+switch (command) {
+  case "create-all":
+    console.log("🔧 Creating all specialist agents...\n");
+    (async () => {
+      for (const role of Object.keys(AGENT_ROLES)) {
+        await getOrCreateAgent(role);
+        console.log(`   ✅ ${role}`);
+      }
+      console.log("\n✅ All agents created!");
+      console.log("   Config saved to:", AGENTS_FILE);
+    })();
+    break;
+
+  case "list":
+    console.log("Available roles:", Object.keys(AGENT_ROLES).join(", "));
+    console.log("Event types:", Object.keys(ROUTING_RULES).join(", "));
+    const existing = loadAgents();
+    console.log("Created agents:", Object.keys(existing).join(", ") || "none");
+    break;
+
+  case "call":
+    if (arg1 && arg2) {
+      const content = fs.existsSync(arg2) ? fs.readFileSync(arg2, "utf8") : arg2;
+      callAgent(arg1, content).then(r => console.log(r.response)).catch(console.error);
+    } else {
+      console.log("Usage: node scripts/multiAgent.js call <role> <message|file>");
     }
-    console.log("All agents created:", loadAgents());
-  })();
-} else {
-  console.log("Usage:");
-  console.log("  node scripts/multiAgent.js <event_type> <content_file>");
-  console.log("  node scripts/multiAgent.js list");
-  console.log("  node scripts/multiAgent.js create-all");
+    break;
+
+  case "orchestrate":
+    if (arg1 && arg2) {
+      const content = fs.existsSync(arg2) ? fs.readFileSync(arg2, "utf8") : arg2;
+      orchestrate(arg1, content).catch(console.error);
+    } else {
+      console.log("Usage: node scripts/multiAgent.js orchestrate <event_type> <content|file>");
+    }
+    break;
+
+  default:
+    console.log("Multi-Agent System");
+    console.log("==================");
+    console.log("Commands:");
+    console.log("  create-all                    Create all specialist agents");
+    console.log("  list                          Show available roles and events");
+    console.log("  call <role> <message>         Call a specific agent");
+    console.log("  orchestrate <event> <content> Run multi-agent workflow");
+    console.log("");
+    console.log("Roles:", Object.keys(AGENT_ROLES).join(", "));
+    console.log("Events:", Object.keys(ROUTING_RULES).join(", "));
 }

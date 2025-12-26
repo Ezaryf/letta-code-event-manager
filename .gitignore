@@ -1,6 +1,22 @@
+# Environment and secrets
 .env
+
+# Dependencies
 node_modules/
+
+# Letta agent files (generated per-user)
 .letta_agent_id
+.letta_agent_config.json
+.letta_agents.json
+
+# Generated files
 .git_commit_message.txt
+.commit_msg
 suggestions/
-analysis
+analysis/
+events/
+
+# Backup files
+*.backup
+*.deleted
+.letta-backups/

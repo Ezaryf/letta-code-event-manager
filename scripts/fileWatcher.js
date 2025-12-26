@@ -1,4 +1,5 @@
 // File Watcher - watches project and analyzes changes with Letta
+// Uses EchoHarbor agent for all analysis
 import chokidar from "chokidar";
 import path from "path";
 import fs from "fs";
@@ -38,21 +39,22 @@ if (!fs.existsSync(TARGET_REPO)) {
 // File type mapping
 const FILE_ANALYSIS = {
   ".js": "javascript",
-  ".jsx": "react",
+  ".jsx": "react component",
   ".ts": "typescript",
-  ".tsx": "react-typescript",
-  ".json": "config",
-  ".css": "styles",
-  ".scss": "styles",
+  ".tsx": "react typescript component",
+  ".json": "configuration",
+  ".css": "stylesheet",
+  ".scss": "sass stylesheet",
 };
 
 // Debounce tracking
 const pendingAnalysis = new Map();
 let isReady = false;
+let analysisCount = 0;
 
 async function analyzeFile(filePath) {
   const ext = path.extname(filePath);
-  const analysisType = FILE_ANALYSIS[ext] || "general";
+  const analysisType = FILE_ANALYSIS[ext] || "code";
   const relativePath = path.relative(TARGET_REPO, filePath);
 
   let content;
@@ -63,42 +65,49 @@ async function analyzeFile(filePath) {
     return;
   }
 
-  if (content.length > 10000) {
-    console.log(`   ⏭️ Skipping (file too large)`);
+  if (content.length > 8000) {
+    console.log(`   ⏭️ Skipping (file too large: ${content.length} chars)`);
     return;
   }
 
-  const prompt = `Analyze this ${analysisType} file that was just modified.
+  // Optimized prompt for quick analysis
+  const prompt = `Analyze this ${analysisType} file. Be brief (2-3 sentences max).
 
 File: ${relativePath}
 \`\`\`${ext.slice(1)}
 ${content}
 \`\`\`
 
-Quick review (be brief, 2-3 sentences max):
-1. Any bugs or issues?
-2. Any security concerns?
-3. Quick improvements?
+Check for:
+1. Bugs or issues
+2. Security concerns  
+3. Quick improvements
 
-If it looks fine, just say "✓ Looks good"`;
+If fine, say "✓ Looks good"`;
 
-  console.log(`   🤖 Asking Letta...`);
+  console.log(`   🤖 Analyzing with EchoHarbor...`);
 
   try {
+    const startTime = Date.now();
     const response = await client.agents.messages.create(agentId, { input: prompt });
+    const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+    
     const text = response?.messages?.map((m) => m.text || m.content).join("\n") || "";
+    const shortText = text.length > 300 ? text.slice(0, 300) + "..." : text;
 
-    console.log(`   📝 ${text.slice(0, 300)}`);
+    console.log(`   📝 [${duration}s] ${shortText}`);
 
     // Save analysis
+    analysisCount++;
     const stamp = dayjs().format("YYYYMMDD_HHmmss");
     const analysisDir = path.join("analysis", stamp);
     fs.mkdirSync(analysisDir, { recursive: true });
     fs.writeFileSync(path.join(analysisDir, "file.txt"), relativePath, "utf8");
     fs.writeFileSync(path.join(analysisDir, "analysis.txt"), text, "utf8");
+    fs.writeFileSync(path.join(analysisDir, "content.txt"), content, "utf8");
 
   } catch (err) {
-    console.log(`   ❌ Analysis error: ${err.message}`);
+    console.log(`   ❌ Error: ${err.message}`);
   }
 }
 
@@ -115,25 +124,24 @@ function scheduleAnalysis(filePath) {
   pendingAnalysis.set(filePath, timeout);
 }
 
-// Build watch patterns
+// Build watch patterns - check which folders actually exist
 const targetNormalized = TARGET_REPO.replace(/\\/g, "/");
-let WATCH_PATTERNS;
+const POSSIBLE_FOLDERS = ["src", "app", "components", "pages", "lib", "utils", "hooks", "types"];
+let WATCH_PATTERNS = [];
 
 if (WATCH_ALL) {
-  // Watch everything
   WATCH_PATTERNS = [targetNormalized];
 } else {
-  // Watch specific folders - use simple patterns
-  WATCH_PATTERNS = [
-    `${targetNormalized}/src`,
-    `${targetNormalized}/app`,
-    `${targetNormalized}/components`,
-    `${targetNormalized}/pages`,
-    `${targetNormalized}/lib`,
-    `${targetNormalized}/utils`,
-    `${targetNormalized}/hooks`,
-    `${targetNormalized}/types`,
-  ];
+  for (const folder of POSSIBLE_FOLDERS) {
+    const fullPath = path.join(TARGET_REPO, folder);
+    if (fs.existsSync(fullPath)) {
+      WATCH_PATTERNS.push(fullPath.replace(/\\/g, "/"));
+    }
+  }
+  // If no standard folders found, watch the project root
+  if (WATCH_PATTERNS.length === 0) {
+    WATCH_PATTERNS = [targetNormalized];
+  }
 }
 
 const IGNORE = [
@@ -145,34 +153,45 @@ const IGNORE = [
   "**/*.min.js",
 ];
 
-console.log("👁️  Letta File Watcher");
+const VALID_EXTENSIONS = [".js", ".jsx", ".ts", ".tsx"];
+
+console.log("👁️  Letta File Watcher (EchoHarbor)");
 console.log("=".repeat(50));
 console.log(`Target: ${TARGET_REPO}`);
+console.log(`Agent: EchoHarbor (${agentId.slice(0, 20)}...)`);
 console.log(`Mode: ${WATCH_ALL ? "ALL files" : "Standard folders"}`);
+console.log(`Watching: ${WATCH_PATTERNS.length} folder(s)`);
 console.log(`Debounce: ${DEBOUNCE_MS}ms`);
 console.log("=".repeat(50));
+console.log("");
+
+// Show watched folders
+console.log("📁 Watched folders:");
+WATCH_PATTERNS.forEach(p => console.log(`   - ${path.relative(TARGET_REPO, p) || "."}`));
 console.log("");
 
 const watcher = chokidar.watch(WATCH_PATTERNS, {
   ignored: IGNORE,
   ignoreInitial: true,
+  persistent: true,
   usePolling: true,
-  interval: 500,
-  awaitWriteFinish: { stabilityThreshold: 500, pollInterval: 100 },
+  interval: 300,
+  binaryInterval: 300,
+  awaitWriteFinish: { stabilityThreshold: 300, pollInterval: 100 },
+  depth: 10,
 });
 
 watcher.on("ready", () => {
   if (!isReady) {
     isReady = true;
-    console.log("🟢 Watcher ready. Edit files in your project to trigger analysis.");
+    console.log("🟢 Watcher ready. Edit files to trigger analysis.");
     console.log("   Press Ctrl+C to stop.\n");
   }
 });
 
 watcher.on("change", (filePath) => {
-  // Filter by extension
   const ext = path.extname(filePath);
-  if (![".js", ".jsx", ".ts", ".tsx"].includes(ext)) return;
+  if (!VALID_EXTENSIONS.includes(ext)) return;
   
   const rel = path.relative(TARGET_REPO, filePath);
   console.log(`\n📝 Changed: ${rel}`);
@@ -182,9 +201,8 @@ watcher.on("change", (filePath) => {
 watcher.on("add", (filePath) => {
   if (!isReady) return;
   
-  // Filter by extension
   const ext = path.extname(filePath);
-  if (![".js", ".jsx", ".ts", ".tsx"].includes(ext)) return;
+  if (!VALID_EXTENSIONS.includes(ext)) return;
   
   const rel = path.relative(TARGET_REPO, filePath);
   console.log(`\n➕ Added: ${rel}`);
@@ -193,4 +211,11 @@ watcher.on("add", (filePath) => {
 
 watcher.on("error", (err) => {
   console.error("❌ Watcher error:", err);
+});
+
+// Graceful shutdown
+process.on("SIGINT", () => {
+  console.log(`\n\n📊 Session stats: ${analysisCount} files analyzed`);
+  console.log("👋 Watcher stopped.");
+  process.exit(0);
 });

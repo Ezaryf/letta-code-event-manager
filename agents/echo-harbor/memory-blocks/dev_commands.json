@@ -1,0 +1,6 @@
+{
+  "label": "dev_commands",
+  "description": "Project-specific development commands",
+  "value": "test: npm test | build: npm run build | lint: npm run lint | dev: npm run dev",
+  "max_chars": 5000
+}
