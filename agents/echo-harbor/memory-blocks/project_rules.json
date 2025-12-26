@@ -1,0 +1,6 @@
+{
+  "label": "project_rules",
+  "description": "Repository and coding standards",
+  "value": "Commits: DDMMYY - message format. Run tests before commit. Small atomic changes. Default branch: main.",
+  "max_chars": 10000
+}

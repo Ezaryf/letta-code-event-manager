@@ -1,0 +1,29 @@
+{
+  "name": "EchoHarbor",
+  "description": "Self-improving technical agent for code analysis and repository maintenance",
+  "version": "1.0.0",
+  "model": "openai/gpt-4o-mini",
+  "embedding": "openai/text-embedding-ada-002",
+  "capabilities": [
+    "code_analysis",
+    "test_fixing",
+    "memory_persistence",
+    "structured_output"
+  ],
+  "memory_blocks": [
+    "persona",
+    "project_rules",
+    "dev_commands",
+    "user_prefs"
+  ],
+  "tools": [
+    "analyze_test_failure",
+    "suggest_fix",
+    "memory_query"
+  ],
+  "settings": {
+    "temperature": 0.2,
+    "max_tokens": 4096,
+    "response_format": "auto"
+  }
+}

@@ -331,6 +331,28 @@ function applyFix(fix, failedAttempts = 0) {
 
   console.log(`   Action: ${action.toUpperCase()}`);
 
+  // Helper to create backup in .letta-backups folder
+  const createBackup = (srcPath) => {
+    if (!fs.existsSync(srcPath)) return;
+    const relativePath = path.relative(TARGET_REPO, srcPath);
+    const backupDir = path.join(TARGET_REPO, ".letta-backups", path.dirname(relativePath));
+    const timestamp = dayjs().format("YYYYMMDD_HHmmss");
+    const backupName = `${path.basename(srcPath)}.${timestamp}.backup`;
+    const backupPath = path.join(backupDir, backupName);
+    
+    fs.mkdirSync(backupDir, { recursive: true });
+    fs.copyFileSync(srcPath, backupPath);
+    
+    // Ensure .letta-backups is gitignored
+    const gitignorePath = path.join(TARGET_REPO, ".gitignore");
+    let gitignore = fs.existsSync(gitignorePath) ? fs.readFileSync(gitignorePath, "utf8") : "";
+    if (!gitignore.includes(".letta-backups")) {
+      fs.appendFileSync(gitignorePath, "\n# Letta assistant backups\n.letta-backups/\n");
+    }
+    
+    return backupPath;
+  };
+
   if (action === "create") {
     const dir = path.dirname(filePath);
     if (!fs.existsSync(dir)) {
@@ -338,7 +360,7 @@ function applyFix(fix, failedAttempts = 0) {
     }
     
     if (fs.existsSync(filePath)) {
-      fs.writeFileSync(filePath + ".backup", fs.readFileSync(filePath), "utf8");
+      createBackup(filePath);
     }
     
     fs.writeFileSync(filePath, fix.full_content || fix.code_after || "", "utf8");
@@ -348,7 +370,7 @@ function applyFix(fix, failedAttempts = 0) {
 
   if (action === "delete") {
     if (fs.existsSync(filePath)) {
-      fs.writeFileSync(filePath + ".deleted", fs.readFileSync(filePath));
+      createBackup(filePath);
       fs.unlinkSync(filePath);
       console.log(`   🗑️ Deleted: ${fix.file_to_fix}`);
       return true;
@@ -368,7 +390,7 @@ function applyFix(fix, failedAttempts = 0) {
     return false;
   }
 
-  fs.writeFileSync(filePath + ".backup", content, "utf8");
+  createBackup(filePath);
   const newContent = content.replace(fix.code_before, fix.code_after);
   fs.writeFileSync(filePath, newContent, "utf8");
   
