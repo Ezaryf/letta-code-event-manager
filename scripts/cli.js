@@ -55,14 +55,18 @@ function saveToHistory(projectPath) {
 
 function showBanner(subtitle = null) {
   console.clear();
-  console.log(chalk.cyan(`
-╔════════════════════════════════════════════════════════════════╗
-║                                                                ║
-║     ${chalk.bold.white("🤖 LETTA CODING ASSISTANT")}                                  ║
-║     ${chalk.gray("AI-powered code analysis, fixes & commit generation")}       ║
-║                                                                ║
-╚════════════════════════════════════════════════════════════════╝
-`));
+  // Box width = 66 chars inside (between ║ and ║)
+  // Note: emoji 🤖 takes 2 char widths visually
+  const title = "LETTA CODING ASSISTANT";
+  const desc = "AI-powered code analysis, fixes & commit generation";
+  
+  console.log(chalk.cyan("╔" + "═".repeat(66) + "╗"));
+  console.log(chalk.cyan("║") + " ".repeat(66) + chalk.cyan("║"));
+  console.log(chalk.cyan("║") + "     🤖 " + chalk.bold.white(title) + " ".repeat(66 - 8 - title.length) + chalk.cyan("║"));
+  console.log(chalk.cyan("║") + "     " + chalk.gray(desc) + " ".repeat(66 - 5 - desc.length) + chalk.cyan("║"));
+  console.log(chalk.cyan("║") + " ".repeat(66) + chalk.cyan("║"));
+  console.log(chalk.cyan("╚" + "═".repeat(66) + "╝"));
+  console.log("");
   
   if (hasApiKey()) {
     console.log(chalk.green("  ✓ API Key configured"));
