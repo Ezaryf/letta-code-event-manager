@@ -6,6 +6,7 @@ import fs from "fs";
 import dotenv from "dotenv";
 import { Letta } from "@letta-ai/letta-client";
 import dayjs from "dayjs";
+import { fileURLToPath } from "url";
 import {
   detectProjectType,
   scanProjectStructure,
@@ -15,14 +16,16 @@ import {
   getGitContext,
 } from "./analyzer.js";
 
-dotenv.config();
-
 const client = new Letta({
   apiKey: process.env.LETTA_API_KEY,
   projectID: process.env.LETTA_PROJECT_ID,
 });
 
-const ROOT = path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Z]:)/, "$1"));
+dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const ROOT = path.join(__dirname, "..");
 
 // CLI Arguments
 const PROJECT_PATH = process.argv[2] ? path.resolve(process.argv[2]) : null;
