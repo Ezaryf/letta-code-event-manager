@@ -14,7 +14,10 @@
     "chat": "node scripts/cli.js chat",
     "setup": "node scripts/createAgent.js",
     "cleanup": "node scripts/cleanupAgents.js",
-    "help": "node scripts/cli.js --help"
+    "help": "node scripts/cli.js --help",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
+    "test:property": "node --experimental-vm-modules node_modules/jest/bin/jest.js --testPathPattern=property"
   },
   "keywords": ["ai", "coding-assistant", "code-analysis", "letta", "cli"],
   "author": "",
@@ -30,5 +33,9 @@
     "dotenv": "^17.2.3",
     "fs-extra": "^11.3.3",
     "ora": "^9.0.0"
+  },
+  "devDependencies": {
+    "fast-check": "^3.22.0",
+    "jest": "^29.7.0"
   }
 }

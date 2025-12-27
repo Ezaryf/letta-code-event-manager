@@ -1,0 +1,250 @@
+/**
+ * @fileoverview Suggestion Manager - Manages the suggestion queue for IDE agents
+ * @module src/core/suggestionManager
+ */
+
+import fs from 'fs';
+import path from 'path';
+
+/**
+ * @typedef {import('./types.js').Suggestion} Suggestion
+ * @typedef {import('./types.js').SuggestionType} SuggestionType
+ * @typedef {import('./types.js').FixAction} FixAction
+ * @typedef {import('./types.js').AnalysisContext} AnalysisContext
+ */
+
+/**
+ * Default suggestion retention period (24 hours in milliseconds)
+ * @type {number}
+ */
+const DEFAULT_RETENTION = 86400000;
+
+/**
+ * Manages the suggestion queue for IDE agents to consume.
+ */
+export class SuggestionManager {
+  /**
+   * @param {string} projectPath - Path to the project root
+   */
+  constructor(projectPath) {
+    /** @type {string} */
+    this.projectPath = projectPath;
+    
+    /** @type {string} */
+    this.suggestionsDir = path.join(projectPath, '.letta', 'suggestions');
+    
+    /** @type {number} */
+    this.retentionPeriod = DEFAULT_RETENTION;
+    
+    this._ensureDirectory();
+  }
+
+  /**
+   * Creates a new suggestion
+   * @param {Omit<Suggestion, 'id' | 'timestamp' | 'consumed'>} suggestionData - Suggestion data
+   * @returns {string} The suggestion ID
+   */
+  createSuggestion(suggestionData) {
+    const id = this._generateId();
+    const timestamp = new Date();
+    
+    /** @type {Suggestion} */
+    const suggestion = {
+      id,
+      timestamp,
+      file: suggestionData.file,
+      type: suggestionData.type,
+      confidence: Math.max(0, Math.min(1, suggestionData.confidence)),
+      description: suggestionData.description,
+      context: suggestionData.context || {},
+      fix: suggestionData.fix,
+      consumed: false
+    };
+    
+    const filePath = path.join(this.suggestionsDir, `${id}.json`);
+    fs.writeFileSync(filePath, JSON.stringify(suggestion, null, 2));
+    
+    return id;
+  }
+
+  /**
+   * Marks a suggestion as consumed
+   * @param {string} suggestionId - ID of the suggestion
+   * @param {string} [consumedBy] - Who consumed the suggestion
+   */
+  markConsumed(suggestionId, consumedBy) {
+    const filePath = path.join(this.suggestionsDir, `${suggestionId}.json`);
+    
+    if (!fs.existsSync(filePath)) {
+      throw new Error(`Suggestion not found: ${suggestionId}`);
+    }
+    
+    const content = fs.readFileSync(filePath, 'utf-8');
+    const suggestion = JSON.parse(content);
+    
+    suggestion.consumed = true;
+    suggestion.consumedBy = consumedBy || 'unknown';
+    
+    fs.writeFileSync(filePath, JSON.stringify(suggestion, null, 2));
+  }
+
+  /**
+   * Gets all pending (unconsumed) suggestions
+   * @returns {Suggestion[]} List of pending suggestions
+   */
+  getPendingSuggestions() {
+    this._ensureDirectory();
+    
+    const files = fs.readdirSync(this.suggestionsDir)
+      .filter(f => f.endsWith('.json'));
+    
+    /** @type {Suggestion[]} */
+    const pending = [];
+    
+    for (const file of files) {
+      try {
+        const content = fs.readFileSync(
+          path.join(this.suggestionsDir, file),
+          'utf-8'
+        );
+        const suggestion = JSON.parse(content);
+        
+        if (!suggestion.consumed) {
+          // Convert timestamp string back to Date
+          suggestion.timestamp = new Date(suggestion.timestamp);
+          pending.push(suggestion);
+        }
+      } catch (error) {
+        console.error(`Failed to read suggestion ${file}:`, error);
+      }
+    }
+    
+    // Sort by timestamp, newest first
+    return pending.sort((a, b) => 
+      b.timestamp.getTime() - a.timestamp.getTime()
+    );
+  }
+
+  /**
+   * Gets a specific suggestion by ID
+   * @param {string} suggestionId - ID of the suggestion
+   * @returns {Suggestion | null} The suggestion or null
+   */
+  getSuggestion(suggestionId) {
+    const filePath = path.join(this.suggestionsDir, `${suggestionId}.json`);
+    
+    if (!fs.existsSync(filePath)) {
+      return null;
+    }
+    
+    try {
+      const content = fs.readFileSync(filePath, 'utf-8');
+      const suggestion = JSON.parse(content);
+      suggestion.timestamp = new Date(suggestion.timestamp);
+      return suggestion;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Cleans up old suggestions
+   * @param {number} [maxAge] - Maximum age in milliseconds (default: retention period)
+   * @returns {number} Number of suggestions cleaned up
+   */
+  cleanupOldSuggestions(maxAge) {
+    const cutoff = Date.now() - (maxAge || this.retentionPeriod);
+    let cleaned = 0;
+    
+    this._ensureDirectory();
+    
+    const files = fs.readdirSync(this.suggestionsDir)
+      .filter(f => f.endsWith('.json'));
+    
+    for (const file of files) {
+      const filePath = path.join(this.suggestionsDir, file);
+      
+      try {
+        const content = fs.readFileSync(filePath, 'utf-8');
+        const suggestion = JSON.parse(content);
+        const timestamp = new Date(suggestion.timestamp).getTime();
+        
+        if (timestamp < cutoff) {
+          fs.unlinkSync(filePath);
+          cleaned++;
+        }
+      } catch (error) {
+        console.error(`Failed to process suggestion ${file}:`, error);
+      }
+    }
+    
+    return cleaned;
+  }
+
+  /**
+   * Sets the retention period
+   * @param {number} period - Retention period in milliseconds
+   */
+  setRetentionPeriod(period) {
+    this.retentionPeriod = period;
+  }
+
+  /**
+   * Gets all suggestions (including consumed)
+   * @returns {Suggestion[]} List of all suggestions
+   */
+  getAllSuggestions() {
+    this._ensureDirectory();
+    
+    const files = fs.readdirSync(this.suggestionsDir)
+      .filter(f => f.endsWith('.json'));
+    
+    /** @type {Suggestion[]} */
+    const suggestions = [];
+    
+    for (const file of files) {
+      try {
+        const content = fs.readFileSync(
+          path.join(this.suggestionsDir, file),
+          'utf-8'
+        );
+        const suggestion = JSON.parse(content);
+        suggestion.timestamp = new Date(suggestion.timestamp);
+        suggestions.push(suggestion);
+      } catch (error) {
+        console.error(`Failed to read suggestion ${file}:`, error);
+      }
+    }
+    
+    return suggestions.sort((a, b) => 
+      b.timestamp.getTime() - a.timestamp.getTime()
+    );
+  }
+
+  /**
+   * Ensures the suggestions directory exists
+   * @private
+   */
+  _ensureDirectory() {
+    if (!fs.existsSync(this.suggestionsDir)) {
+      fs.mkdirSync(this.suggestionsDir, { recursive: true });
+    }
+  }
+
+  /**
+   * Generates a unique suggestion ID
+   * @returns {string} Unique ID
+   * @private
+   */
+  _generateId() {
+    const now = new Date();
+    const dateStr = now.toISOString()
+      .replace(/[-:]/g, '')
+      .replace('T', '_')
+      .slice(0, 15);
+    const random = Math.random().toString(36).substring(2, 8);
+    return `sug_${dateStr}_${random}`;
+  }
+}
+
+export default SuggestionManager;

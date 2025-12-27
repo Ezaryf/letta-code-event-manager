@@ -21,3 +21,8 @@ events/
 *.backup
 *.deleted
 .letta-backups/
+
+# Test artifacts
+tests/.test-workspace/
+tests/.test-*
+coverage/
