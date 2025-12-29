@@ -12,17 +12,20 @@ import path from 'path';
  * @typedef {import('./types.js').CollaborationModeType} CollaborationModeType
  * @typedef {import('./types.js').CollaborationStatus} CollaborationStatus
  * @typedef {import('./types.js').IDEActivity} IDEActivity
+ * @typedef {import('./types.js').StatusFileData} StatusFileData
+ * @typedef {import('./types.js').StatusState} StatusState
+ * @typedef {import('./types.js').SessionStats} SessionStats
  */
 
 /**
  * IDE indicator configurations
- * @type {Object.<string, {folder: string, configFile?: string}>}
+ * @type {Object.<string, {folder: string, configFile?: string, statusFile?: string}>}
  */
 const IDE_INDICATORS = {
-  kiro: { folder: '.kiro', configFile: 'agent-status.json' },
-  cursor: { folder: '.cursor', configFile: 'agent.lock' },
-  windsurf: { folder: '.windsurf', configFile: null },
-  antigravity: { folder: '.antigravity', configFile: null }
+  kiro: { folder: '.kiro', configFile: 'agent.lock', statusFile: 'agent-status.json' },
+  cursor: { folder: '.cursor', configFile: 'agent.lock', statusFile: null },
+  windsurf: { folder: '.windsurf', configFile: null, statusFile: null },
+  antigravity: { folder: '.antigravity', configFile: null, statusFile: null }
 };
 
 /**
@@ -50,6 +53,22 @@ export class IDECoordinator {
     
     /** @type {Date} */
     this._lastSync = new Date();
+    
+    /** @type {SessionStats} */
+    this._sessionStats = {
+      analyzed: 0,
+      issues: 0,
+      suggestions: 0
+    };
+    
+    /** @type {string | undefined} */
+    this._currentFile = undefined;
+    
+    /** @type {StatusState} */
+    this._currentStatus = 'idle';
+    
+    /** @type {fs.FSWatcher | null} */
+    this._ideStatusWatcher = null;
   }
 
   /**
@@ -136,9 +155,10 @@ export class IDECoordinator {
 
   /**
    * Broadcasts status to the status file
-   * @param {string} status - Status to broadcast
+   * @param {StatusState} status - Status to broadcast ('idle', 'analyzing', 'fixing')
+   * @param {string} [currentFile] - Current file being processed
    */
-  broadcastStatus(status) {
+  broadcastStatus(status, currentFile) {
     const statusPath = path.join(this.projectPath, '.letta', 'status.json');
     const statusDir = path.dirname(statusPath);
     
@@ -147,21 +167,144 @@ export class IDECoordinator {
       fs.mkdirSync(statusDir, { recursive: true });
     }
     
-    /** @type {import('./types.js').StatusFileData} */
+    this._currentStatus = status;
+    this._currentFile = currentFile;
+    
+    /** @type {StatusFileData} */
     const statusData = {
-      status: /** @type {import('./types.js').StatusState} */ (status),
+      status: status,
       timestamp: new Date().toISOString(),
-      currentFile: undefined,
+      currentFile: currentFile,
       queueLength: this._queuedAnalyses,
-      sessionStats: {
-        analyzed: 0,
-        issues: 0,
-        suggestions: 0
-      }
+      sessionStats: { ...this._sessionStats }
     };
     
     fs.writeFileSync(statusPath, JSON.stringify(statusData, null, 2));
     this._lastSync = new Date();
+  }
+
+  /**
+   * Updates session statistics
+   * @param {'analyzed' | 'issues' | 'suggestions'} stat - Stat to increment
+   * @param {number} [amount=1] - Amount to increment by
+   */
+  updateStats(stat, amount = 1) {
+    if (stat in this._sessionStats) {
+      this._sessionStats[stat] += amount;
+    }
+  }
+
+  /**
+   * Gets current session statistics
+   * @returns {SessionStats} Current session stats
+   */
+  getSessionStats() {
+    return { ...this._sessionStats };
+  }
+
+  /**
+   * Resets session statistics
+   */
+  resetStats() {
+    this._sessionStats = {
+      analyzed: 0,
+      issues: 0,
+      suggestions: 0
+    };
+  }
+
+  /**
+   * Starts watching for IDE activity
+   * Monitors IDE status files for changes and triggers callbacks
+   */
+  startIDEActivityWatch() {
+    if (!this._detectedIDE) {
+      return;
+    }
+    
+    const ideConfig = IDE_INDICATORS[this._detectedIDE.type];
+    if (!ideConfig || !ideConfig.statusFile) {
+      return;
+    }
+    
+    const statusFilePath = path.join(this._detectedIDE.configPath, ideConfig.statusFile);
+    
+    // Watch the IDE's status file for changes
+    if (fs.existsSync(path.dirname(statusFilePath))) {
+      try {
+        this._ideStatusWatcher = fs.watch(path.dirname(statusFilePath), (eventType, filename) => {
+          if (filename === ideConfig.statusFile) {
+            this._handleIDEStatusChange(statusFilePath);
+          }
+        });
+      } catch (error) {
+        console.error('Error starting IDE activity watch:', error);
+      }
+    }
+  }
+
+  /**
+   * Stops watching for IDE activity
+   */
+  stopIDEActivityWatch() {
+    if (this._ideStatusWatcher) {
+      this._ideStatusWatcher.close();
+      this._ideStatusWatcher = null;
+    }
+  }
+
+  /**
+   * Handles IDE status file changes
+   * @param {string} statusFilePath - Path to the IDE status file
+   * @private
+   */
+  _handleIDEStatusChange(statusFilePath) {
+    try {
+      if (fs.existsSync(statusFilePath)) {
+        const content = fs.readFileSync(statusFilePath, 'utf-8');
+        const ideStatus = JSON.parse(content);
+        
+        /** @type {IDEActivity} */
+        const activity = {
+          ide: this._detectedIDE?.type || 'unknown',
+          action: ideStatus.status || 'unknown',
+          file: ideStatus.currentFile,
+          timestamp: new Date()
+        };
+        
+        this._notifyActivity(activity);
+      }
+    } catch (error) {
+      // Ignore parse errors - file might be in the middle of being written
+    }
+  }
+
+  /**
+   * Reads the current IDE agent status
+   * @returns {Object | null} IDE status data or null
+   */
+  readIDEStatus() {
+    if (!this._detectedIDE) {
+      return null;
+    }
+    
+    const ideConfig = IDE_INDICATORS[this._detectedIDE.type];
+    if (!ideConfig || !ideConfig.statusFile) {
+      return null;
+    }
+    
+    const statusFilePath = path.join(this._detectedIDE.configPath, ideConfig.statusFile);
+    
+    try {
+      if (fs.existsSync(statusFilePath)) {
+        const content = fs.readFileSync(statusFilePath, 'utf-8');
+        return JSON.parse(content);
+      }
+    } catch (error) {
+      // Ignore errors
+    }
+    
+    return null;
   }
 
   /**

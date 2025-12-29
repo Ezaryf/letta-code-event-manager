@@ -36,6 +36,15 @@ export class SuggestionManager {
     /** @type {number} */
     this.retentionPeriod = DEFAULT_RETENTION;
     
+    /** @type {fs.FSWatcher | null} */
+    this._watcher = null;
+    
+    /** @type {Map<string, number>} - Tracks last access time for suggestions */
+    this._accessTimes = new Map();
+    
+    /** @type {Array<(suggestionId: string, consumedBy: string) => void>} */
+    this._consumptionCallbacks = [];
+    
     this._ensureDirectory();
   }
 
@@ -219,6 +228,188 @@ export class SuggestionManager {
     return suggestions.sort((a, b) => 
       b.timestamp.getTime() - a.timestamp.getTime()
     );
+  }
+
+  /**
+   * Starts watching for external reads of suggestion files.
+   * When an external process reads a suggestion file, it will be marked as consumed.
+   * Requirements: 3.3
+   */
+  watchForConsumption() {
+    this._ensureDirectory();
+    
+    // Stop any existing watcher
+    this.stopWatching();
+    
+    // Initialize access times for existing suggestions
+    this._initializeAccessTimes();
+    
+    try {
+      this._watcher = fs.watch(this.suggestionsDir, (eventType, filename) => {
+        if (filename && filename.endsWith('.json')) {
+          this._handleFileEvent(eventType, filename);
+        }
+      });
+    } catch (error) {
+      console.error('Failed to start suggestion watcher:', error);
+    }
+  }
+
+  /**
+   * Stops watching for suggestion consumption
+   */
+  stopWatching() {
+    if (this._watcher) {
+      try {
+        this._watcher.close();
+      } catch (error) {
+        // Ignore errors when closing watcher
+      }
+      this._watcher = null;
+    }
+  }
+
+  /**
+   * Registers a callback for when a suggestion is consumed
+   * @param {(suggestionId: string, consumedBy: string) => void} callback - Callback function
+   */
+  onConsumption(callback) {
+    this._consumptionCallbacks.push(callback);
+  }
+
+  /**
+   * Removes a consumption callback
+   * @param {(suggestionId: string, consumedBy: string) => void} callback - Callback to remove
+   */
+  offConsumption(callback) {
+    const index = this._consumptionCallbacks.indexOf(callback);
+    if (index > -1) {
+      this._consumptionCallbacks.splice(index, 1);
+    }
+  }
+
+  /**
+   * Checks if a suggestion has been accessed externally
+   * @param {string} suggestionId - ID of the suggestion
+   * @returns {boolean} True if accessed externally
+   */
+  wasAccessedExternally(suggestionId) {
+    const filePath = path.join(this.suggestionsDir, `${suggestionId}.json`);
+    
+    if (!fs.existsSync(filePath)) {
+      return false;
+    }
+    
+    try {
+      const stats = fs.statSync(filePath);
+      const lastKnownAccess = this._accessTimes.get(suggestionId);
+      
+      if (lastKnownAccess && stats.atimeMs > lastKnownAccess) {
+        return true;
+      }
+    } catch {
+      return false;
+    }
+    
+    return false;
+  }
+
+  /**
+   * Marks a suggestion as consumed if it was accessed externally
+   * @param {string} suggestionId - ID of the suggestion
+   * @param {string} [consumedBy='external'] - Who consumed the suggestion
+   * @returns {boolean} True if marked as consumed
+   */
+  markConsumedIfAccessed(suggestionId, consumedBy = 'external') {
+    if (this.wasAccessedExternally(suggestionId)) {
+      const suggestion = this.getSuggestion(suggestionId);
+      if (suggestion && !suggestion.consumed) {
+        this.markConsumed(suggestionId, consumedBy);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Initializes access times for existing suggestions
+   * @private
+   */
+  _initializeAccessTimes() {
+    this._accessTimes.clear();
+    
+    try {
+      const files = fs.readdirSync(this.suggestionsDir)
+        .filter(f => f.endsWith('.json'));
+      
+      for (const file of files) {
+        const filePath = path.join(this.suggestionsDir, file);
+        const suggestionId = file.replace('.json', '');
+        
+        try {
+          const stats = fs.statSync(filePath);
+          this._accessTimes.set(suggestionId, stats.atimeMs);
+        } catch {
+          // Ignore errors for individual files
+        }
+      }
+    } catch (error) {
+      console.error('Failed to initialize access times:', error);
+    }
+  }
+
+  /**
+   * Handles file system events for suggestion files
+   * @param {string} eventType - Type of event
+   * @param {string} filename - Name of the file
+   * @private
+   */
+  _handleFileEvent(eventType, filename) {
+    const suggestionId = filename.replace('.json', '');
+    const filePath = path.join(this.suggestionsDir, filename);
+    
+    if (!fs.existsSync(filePath)) {
+      // File was deleted
+      this._accessTimes.delete(suggestionId);
+      return;
+    }
+    
+    try {
+      const stats = fs.statSync(filePath);
+      const lastKnownAccess = this._accessTimes.get(suggestionId);
+      
+      // Check if file was accessed (read) by external process
+      if (lastKnownAccess && stats.atimeMs > lastKnownAccess) {
+        const suggestion = this.getSuggestion(suggestionId);
+        
+        if (suggestion && !suggestion.consumed) {
+          // Mark as consumed by external process
+          this.markConsumed(suggestionId, 'external');
+          this._notifyConsumption(suggestionId, 'external');
+        }
+      }
+      
+      // Update access time
+      this._accessTimes.set(suggestionId, stats.atimeMs);
+    } catch (error) {
+      // Ignore errors for individual file events
+    }
+  }
+
+  /**
+   * Notifies all registered callbacks of a consumption event
+   * @param {string} suggestionId - ID of the consumed suggestion
+   * @param {string} consumedBy - Who consumed the suggestion
+   * @private
+   */
+  _notifyConsumption(suggestionId, consumedBy) {
+    for (const callback of this._consumptionCallbacks) {
+      try {
+        callback(suggestionId, consumedBy);
+      } catch (error) {
+        console.error('Error in consumption callback:', error);
+      }
+    }
   }
 
   /**

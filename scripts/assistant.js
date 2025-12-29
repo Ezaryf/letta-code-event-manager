@@ -1,5 +1,6 @@
+#!/usr/bin/env node
 // Letta Coding Assistant - Intelligent File Watcher
-// Deep analysis with context awareness and safe auto-fixing
+// Live dashboard with theme support
 import chokidar from "chokidar";
 import path from "path";
 import fs from "fs";
@@ -7,23 +8,16 @@ import dotenv from "dotenv";
 import { Letta } from "@letta-ai/letta-client";
 import dayjs from "dayjs";
 import { fileURLToPath } from "url";
+import chalk from "chalk";
+import logUpdate from "log-update";
 import {
   detectProjectType,
   scanProjectStructure,
-  analyzeFileContent,
-  findRelatedFiles,
   buildAnalysisContext,
-  getGitContext,
 } from "./analyzer.js";
 
 // Load environment variables FIRST before using them
 dotenv.config();
-
-// Now create the client with loaded env vars
-const client = new Letta({
-  apiKey: process.env.LETTA_API_KEY,
-  projectID: process.env.LETTA_PROJECT_ID,
-});
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -33,46 +27,155 @@ const ROOT = path.join(__dirname, "..");
 const PROJECT_PATH = process.argv[2] ? path.resolve(process.argv[2]) : null;
 const AUTO_FIX = process.argv.includes("--auto-fix");
 const DEBUG = process.argv.includes("--debug") || process.env.DEBUG === "true";
+const WATCH_ALL = process.argv.includes("--all") || process.env.WATCH_ALL === "true";
 
-// Show help first (before agent check)
+// Theme from env or default
+const THEME_NAME = process.env.LETTA_THEME || "ocean";
+
+// ═══════════════════════════════════════════════════════════════════════════
+// THEMES
+// ═══════════════════════════════════════════════════════════════════════════
+
+const THEMES = {
+  ocean: {
+    name: "Ocean",
+    header: chalk.cyan,
+    headerBg: chalk.bgCyan.black,
+    box1: chalk.cyan,        // Project Info
+    box2: chalk.blue,        // Watching
+    box3: chalk.green,       // Stats
+    box4: chalk.yellow,      // Issues
+    box5: chalk.red,         // Severity
+    box6: chalk.magenta,     // Recent
+    accent: chalk.cyan,
+    success: chalk.green,
+    warning: chalk.yellow,
+    error: chalk.red,
+    dim: chalk.dim,
+    bold: chalk.bold,
+  },
+  forest: {
+    name: "Forest",
+    header: chalk.green,
+    headerBg: chalk.bgGreen.black,
+    box1: chalk.green,
+    box2: chalk.hex("#90EE90"),
+    box3: chalk.hex("#32CD32"),
+    box4: chalk.yellow,
+    box5: chalk.hex("#FF6347"),
+    box6: chalk.hex("#98FB98"),
+    accent: chalk.green,
+    success: chalk.hex("#32CD32"),
+    warning: chalk.yellow,
+    error: chalk.red,
+    dim: chalk.dim,
+    bold: chalk.bold,
+  },
+  sunset: {
+    name: "Sunset",
+    header: chalk.hex("#FF6B6B"),
+    headerBg: chalk.bgHex("#FF6B6B").black,
+    box1: chalk.hex("#FF6B6B"),
+    box2: chalk.hex("#FFA07A"),
+    box3: chalk.hex("#FFD93D"),
+    box4: chalk.hex("#FF8C00"),
+    box5: chalk.hex("#DC143C"),
+    box6: chalk.hex("#FF69B4"),
+    accent: chalk.hex("#FF6B6B"),
+    success: chalk.hex("#98FB98"),
+    warning: chalk.hex("#FFD93D"),
+    error: chalk.hex("#DC143C"),
+    dim: chalk.dim,
+    bold: chalk.bold,
+  },
+  midnight: {
+    name: "Midnight",
+    header: chalk.hex("#9D4EDD"),
+    headerBg: chalk.bgHex("#9D4EDD").white,
+    box1: chalk.hex("#9D4EDD"),
+    box2: chalk.hex("#7B68EE"),
+    box3: chalk.hex("#00CED1"),
+    box4: chalk.hex("#FFD700"),
+    box5: chalk.hex("#FF4500"),
+    box6: chalk.hex("#DA70D6"),
+    accent: chalk.hex("#9D4EDD"),
+    success: chalk.hex("#00FA9A"),
+    warning: chalk.hex("#FFD700"),
+    error: chalk.hex("#FF4500"),
+    dim: chalk.dim,
+    bold: chalk.bold,
+  },
+  mono: {
+    name: "Monochrome",
+    header: chalk.white,
+    headerBg: chalk.bgWhite.black,
+    box1: chalk.white,
+    box2: chalk.gray,
+    box3: chalk.white,
+    box4: chalk.gray,
+    box5: chalk.white,
+    box6: chalk.gray,
+    accent: chalk.white,
+    success: chalk.white,
+    warning: chalk.gray,
+    error: chalk.white,
+    dim: chalk.dim,
+    bold: chalk.bold,
+  },
+};
+
+const T = THEMES[THEME_NAME] || THEMES.ocean;
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Help Display
+// ═══════════════════════════════════════════════════════════════════════════
+
 if (!PROJECT_PATH) {
-  console.log(`
-🤖 Letta Coding Assistant - Intelligent Watcher
-================================================
+  console.log(T.header(`
+┌─────────────────────────────────────────────────────────────┐
+│         🤖 Letta Coding Assistant - Intelligent Watcher     │
+└─────────────────────────────────────────────────────────────┘
+`));
+  console.log(`  ${chalk.white("Usage:")} ${T.accent("npm run watch")} ${chalk.yellow("<project-path>")} ${T.dim("[options]")}
 
-Usage:
-  npm run watch <project-path> [options]
+  ${chalk.white("Options:")}
+    ${T.success("--auto-fix")}   Automatically apply safe fixes
+    ${T.success("--all")}        Watch ALL files (not just standard folders)
+    ${T.success("--debug")}      Enable debug logging
 
-Options:
-  --auto-fix     Automatically apply safe fixes
-  --all          Watch ALL files (not just common folders)
-  --debug        Enable debug logging
+  ${chalk.white("Themes:")} Set ${T.accent("LETTA_THEME")} in .env (ocean, forest, sunset, midnight, mono)
 
-Examples:
-  npm run watch ../my-project
-  npm run watch "C:\\Projects\\my-app" --auto-fix
-  npm run watch . --all
+  ${chalk.white("Examples:")}
+    npm run watch ../my-project
+    npm run watch . --all --auto-fix
 `);
   process.exit(0);
 }
 
-// Now check agent
+// Validate API key before creating client
+if (!process.env.LETTA_API_KEY || process.env.LETTA_API_KEY === "sk-let-your-api-key-here") {
+  console.error(T.error("✗ LETTA_API_KEY not configured. Run: npm start → Quick Setup"));
+  process.exit(1);
+}
+
+// Now create the client with loaded env vars
+const client = new Letta({
+  apiKey: process.env.LETTA_API_KEY,
+  projectID: process.env.LETTA_PROJECT_ID,
+});
+
 const agentId = fs.existsSync(path.join(ROOT, ".letta_agent_id"))
   ? fs.readFileSync(path.join(ROOT, ".letta_agent_id"), "utf8").trim()
   : null;
 
 if (!agentId) {
-  console.error("❌ No agent. Run: npm run setup");
-  process.exit(1);
-}
-
-if (!process.env.LETTA_API_KEY || process.env.LETTA_API_KEY === "sk-let-your-api-key-here") {
-  console.error("❌ LETTA_API_KEY not configured. Run: npm start → Quick Setup");
+  console.error(T.error(`✗ No agent. Run: npm run setup`));
   process.exit(1);
 }
 
 if (!fs.existsSync(PROJECT_PATH)) {
-  console.error(`❌ Project not found: ${PROJECT_PATH}`);
+  console.error(T.error(`✗ Project not found: ${PROJECT_PATH}`));
   process.exit(1);
 }
 
@@ -83,34 +186,200 @@ if (!fs.existsSync(PROJECT_PATH)) {
 const pendingAnalysis = new Map();
 const analysisCache = new Map();
 const changedFiles = new Set();
-const fixHistory = [];
 let isReady = false;
 let projectType = null;
 let projectStructure = null;
+let currentStatus = "Initializing...";
+let dashboardInterval = null;
 
 const stats = {
   analyzed: 0,
   issues: 0,
   fixed: 0,
   skipped: 0,
+  startTime: Date.now(),
+  issuesByType: { bugs: 0, security: 0, performance: 0, style: 0 },
+  recentFiles: [],
+  severityCounts: { critical: 0, high: 0, medium: 0, low: 0 },
+  logs: [], // Activity log
 };
+
+const VALID_EXTENSIONS = [".js", ".jsx", ".ts", ".tsx", ".json", ".css", ".scss", ".md"];
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Dashboard Rendering (Live Update)
+// ═══════════════════════════════════════════════════════════════════════════
+
+const LINE = "─";
+
+function getUptime() {
+  const seconds = Math.floor((Date.now() - stats.startTime) / 1000);
+  const hrs = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+  if (hrs > 0) return `${hrs}h ${mins}m`;
+  return `${mins}m ${secs}s`;
+}
+
+function stripAnsi(str) {
+  return str.replace(/\x1b\[[0-9;]*m/g, "");
+}
+
+function box(title, lines, width, color) {
+  const inner = width - 4;
+  let out = color(`  ┌─ `) + T.bold(title) + color(` ${LINE.repeat(Math.max(0, inner - title.length - 1))}┐\n`);
+  for (const line of lines) {
+    const clean = stripAnsi(String(line));
+    const padding = Math.max(0, inner - clean.length);
+    out += color(`  │ `) + line + " ".repeat(padding) + color(` │\n`);
+  }
+  out += color(`  └${LINE.repeat(width - 2)}┘`);
+  return out;
+}
+
+function bar(val, max = 10, w = 10) {
+  const f = Math.min(val, max);
+  return T.success("█".repeat(f)) + T.dim("░".repeat(w - f));
+}
+
+function renderDashboard() {
+  const W = Math.min(process.stdout.columns || 80, 75);
+  
+  // Get fresh project info
+  const fw = projectType?.framework || projectType?.type || "node";
+  const lang = projectType?.language || "javascript";
+  const total = typeof projectStructure?.totalFiles === 'number' ? projectStructure.totalFiles : 0;
+  const comps = Array.isArray(projectStructure?.components) ? projectStructure.components.length : 0;
+  const utils = Array.isArray(projectStructure?.utils) ? projectStructure.utils.length : 0;
+  const tests = Array.isArray(projectStructure?.testFiles) ? projectStructure.testFiles.length : 0;
+  const shortPath = PROJECT_PATH.length > 45 ? "..." + PROJECT_PATH.slice(-42) : PROJECT_PATH;
+
+  let output = "";
+  
+  // Header
+  output += T.header(`
+  ┌${LINE.repeat(W - 4)}┐
+  │  🤖 Letta Coding Assistant              Theme: ${T.bold(T.name || THEME_NAME)}  │
+  └${LINE.repeat(W - 4)}┘
+`);
+
+  // Project Info (box1 - cyan/primary)
+  output += box("Project Info", [
+    `${T.dim("Project:")}   ${T.bold(path.basename(PROJECT_PATH))}`,
+    `${T.dim("Path:")}      ${T.accent(shortPath)}`,
+    `${T.dim("Framework:")} ${chalk.yellow(fw)}`,
+    `${T.dim("Language:")}  ${chalk.blue(lang)}`,
+    `${T.dim("Files:")}     ${T.success(total)} total (${comps} comps, ${utils} utils, ${tests} tests)`,
+    `${T.dim("Auto-fix:")}  ${AUTO_FIX ? T.success("ON") : T.error("OFF")}`,
+  ], W, T.box1);
+
+  output += "\n\n";
+
+  // Watching (box2 - blue)
+  const watchInfo = WATCH_ALL ? "All directories" : "Project directory";
+  output += box("Watching", [
+    `${T.accent("›")} ${watchInfo}`,
+    `${T.dim("Extensions:")} ${VALID_EXTENSIONS.slice(0, 4).join(", ")}...`,
+  ], 35, T.box2);
+
+  output += "\n\n";
+
+  // Stats (box3 - green)
+  output += box("Stats", [
+    `Analyzed  ${T.success(String(stats.analyzed).padStart(3))}`,
+    `Issues    ${T.warning(String(stats.issues).padStart(3))}`,
+    `Fixed     ${T.accent(String(stats.fixed).padStart(3))}`,
+    `Skipped   ${T.dim(String(stats.skipped).padStart(3))}`,
+    `Uptime    ${chalk.magenta(getUptime())}`,
+  ], 24, T.box3);
+
+  output += "\n\n";
+
+  // Issues breakdown (box4 - yellow)
+  const { bugs, security, performance, style } = stats.issuesByType;
+  output += box("Issues", [
+    `${T.error("●")} Bugs     ${bar(bugs)} ${String(bugs).padStart(2)}`,
+    `${T.warning("!")} Security ${bar(security)} ${String(security).padStart(2)}`,
+    `${T.accent("⚡")} Perf     ${bar(performance)} ${String(performance).padStart(2)}`,
+    `${T.dim("○")} Style    ${bar(style)} ${String(style).padStart(2)}`,
+  ], 34, T.box4);
+
+  output += "\n\n";
+
+  // Severity (box5 - red)
+  const { critical, high, medium, low } = stats.severityCounts;
+  output += box("Severity", [
+    `${T.error("●")} Critical ${T.error(String(critical).padStart(2))}`,
+    `${T.warning("●")} High     ${T.warning(String(high).padStart(2))}`,
+    `${chalk.white("●")} Medium   ${String(medium).padStart(2)}`,
+    `${T.dim("●")} Low      ${T.dim(String(low).padStart(2))}`,
+  ], 22, T.box5);
+
+  output += "\n\n";
+
+  // Recent Activity (box6 - magenta)
+  let recentLines;
+  if (stats.recentFiles.length === 0) {
+    recentLines = [T.dim("No files analyzed yet...")];
+  } else {
+    recentLines = stats.recentFiles.slice(-5).reverse().map((f) => {
+      const icon = f.hasIssues ? T.error("×") : T.success("✓");
+      const name = f.name.length > 20 ? f.name.slice(0, 17) + "..." : f.name.padEnd(20);
+      const time = dayjs(f.time).format("HH:mm:ss");
+      const fixed = f.wasFixed ? T.accent(" [fix]") : "";
+      return `${icon} ${name} ${T.dim(time)}${fixed}`;
+    });
+  }
+  output += box("Recent Activity", recentLines, 42, T.box6);
+
+  output += "\n\n";
+
+  // Activity Log (last 3 events)
+  output += T.dim(`  ─── Activity Log ${"─".repeat(40)}\n`);
+  const logs = stats.logs.slice(-3);
+  if (logs.length === 0) {
+    output += T.dim("  Waiting for file changes...\n");
+  } else {
+    for (const log of logs) {
+      output += `  ${log}\n`;
+    }
+  }
+
+  output += "\n";
+
+  // Status bar
+  const spinner = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+  const frame = spinner[Math.floor(Date.now() / 100) % spinner.length];
+  output += T.accent(`  ${frame} ${currentStatus}\n`);
+  output += T.dim(`\n  ${LINE.repeat(W - 4)}`);
+  output += T.dim(`\n  Press ${T.accent("Ctrl+C")} to stop  |  Theme: ${T.accent(THEME_NAME)}  |  ${T.dim("LETTA_THEME=<name> to change")}\n`);
+
+  return output;
+}
+
+function updateDashboard() {
+  logUpdate(renderDashboard());
+}
+
+function addLog(message) {
+  const time = dayjs().format("HH:mm:ss");
+  stats.logs.push(`${T.dim(time)} ${message}`);
+  if (stats.logs.length > 50) stats.logs.shift();
+  updateDashboard();
+}
+
 
 // ═══════════════════════════════════════════════════════════════════════════
 // INTELLIGENT ANALYSIS
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function analyzeWithContext(filePath) {
-  const relativePath = path.relative(PROJECT_PATH, filePath);
-  
-  // Build rich context
   const context = buildAnalysisContext(filePath, PROJECT_PATH, { includeGit: true });
-  
-  // Create intelligent prompt with full context
   const prompt = buildAnalysisPrompt(context);
   
   if (DEBUG) {
-    console.log(`   [DEBUG] Context: ${context.file.imports.length} imports, ${context.file.functions.length} functions`);
-    console.log(`   [DEBUG] Related: ${context.related.tests.length} tests, ${context.related.types.length} types`);
+    console.log(`   [DEBUG] Analyzing with context...`);
   }
   
   try {
@@ -121,18 +390,15 @@ async function analyzeWithContext(filePath) {
       console.log(`   [DEBUG] Raw response length: ${text.length}`);
     }
     
-    // Parse structured response
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       try {
-        const result = JSON.parse(jsonMatch[0]);
-        return { ...result, raw: text };
+        return { ...JSON.parse(jsonMatch[0]), raw: text };
       } catch (e) {
         if (DEBUG) console.log(`   [DEBUG] JSON parse failed: ${e.message}`);
       }
     }
     
-    // Fallback to text analysis
     return {
       status: text.includes("✓") || text.toLowerCase().includes("looks good") ? "ok" : "review",
       summary: text.slice(0, 200),
@@ -141,113 +407,43 @@ async function analyzeWithContext(filePath) {
       fix_available: false,
       raw: text,
     };
-    
   } catch (err) {
-    console.log(`   ❌ Analysis error: ${err.message}`);
+    addLog(T.error(`✗ Analysis error: ${err.message}`));
+    
+    // Helpful error messages
     if (err.message.includes("401") || err.message.includes("unauthorized")) {
-      console.log(`   💡 Check your LETTA_API_KEY in .env`);
+      addLog(T.warning(`💡 Check your LETTA_API_KEY in .env`));
     } else if (err.message.includes("404") || err.message.includes("not found")) {
-      console.log(`   💡 Agent may have been deleted. Run: npm run setup`);
+      addLog(T.warning(`💡 Agent may have been deleted. Run: npm run setup`));
     } else if (err.message.includes("timeout") || err.message.includes("ETIMEDOUT")) {
-      console.log(`   💡 Request timed out. Will retry on next change.`);
+      addLog(T.warning(`💡 Request timed out. Will retry on next change.`));
     }
+    
     return null;
   }
 }
 
 function buildAnalysisPrompt(context) {
-  const { file, project, structure, related, relatedContents, git } = context;
+  const { file, project, structure } = context;
   
-  let prompt = `You are an expert code reviewer. Analyze this file with full project context.
+  return `You are an expert code reviewer. Analyze this file briefly.
 
-═══════════════════════════════════════════════════════════════
-PROJECT CONTEXT
-═══════════════════════════════════════════════════════════════
-Framework: ${project.framework || project.type}
-Language: ${project.language}
-Structure: ${structure.totalFiles} files (${structure.components} components, ${structure.utils} utils, ${structure.tests} tests)
-${git?.branch ? `Git Branch: ${git.branch}` : ""}
-
-═══════════════════════════════════════════════════════════════
-FILE: ${file.path}
-═══════════════════════════════════════════════════════════════
-Lines: ${file.lineCount} | Complexity: ${file.complexity}
-Imports: ${file.imports.slice(0, 5).join(", ")}${file.imports.length > 5 ? ` (+${file.imports.length - 5} more)` : ""}
-Exports: ${file.exports.join(", ") || "none"}
-Functions: ${file.functions.join(", ") || "none"}
-${file.components.length ? `Components: ${file.components.join(", ")}` : ""}
-${file.hooks.length ? `Hooks: ${file.hooks.join(", ")}` : ""}
+PROJECT: ${project.framework || project.type} / ${project.language}
+FILE: ${file.path} (${file.lineCount} lines)
 
 \`\`\`${file.path.split(".").pop()}
 ${file.content}
 \`\`\`
-${file.truncated ? "\n(File truncated - showing first 15k chars)" : ""}
-`;
 
-  // Add related test file if exists
-  if (Object.keys(relatedContents).length > 0) {
-    prompt += `\n═══════════════════════════════════════════════════════════════
-RELATED TEST FILE
-═══════════════════════════════════════════════════════════════\n`;
-    for (const [testPath, testContent] of Object.entries(relatedContents)) {
-      prompt += `\n--- ${testPath} ---\n\`\`\`\n${testContent}\n\`\`\`\n`;
-    }
-  }
-
-  // Add pre-detected issues
-  if (file.issues.length > 0) {
-    prompt += `\n═══════════════════════════════════════════════════════════════
-PRE-DETECTED ISSUES
-═══════════════════════════════════════════════════════════════\n`;
-    file.issues.forEach(i => {
-      prompt += `- [${i.type}] ${i.message}\n`;
-    });
-  }
-
-  prompt += `
-═══════════════════════════════════════════════════════════════
-ANALYSIS REQUEST
-═══════════════════════════════════════════════════════════════
-Analyze for:
-1. BUGS - Logic errors, null checks, edge cases
-2. SECURITY - XSS, injection, exposed secrets
-3. PERFORMANCE - Unnecessary re-renders, memory leaks, N+1
-4. BEST PRACTICES - ${project.framework || "JavaScript"} patterns, naming, structure
+Check for: BUGS, SECURITY, PERFORMANCE issues.
 
 Respond with ONLY valid JSON:
 {
   "status": "ok" | "issues_found",
-  "summary": "1-2 sentence summary",
-  "issues": [
-    {
-      "type": "bug|security|performance|style",
-      "severity": "critical|high|medium|low",
-      "line": 0,
-      "description": "what's wrong",
-      "suggestion": "how to fix"
-    }
-  ],
-  "suggestions": ["improvement 1", "improvement 2"],
-  "fix_available": true|false,
-  "fix_confidence": 0.0-1.0,
-  "fix_description": "what the fix does",
-  "fixes": [
-    {
-      "file": "${file.path}",
-      "action": "replace",
-      "search": "exact code to find",
-      "replace": "replacement code"
-    }
-  ]
-}
-
-RULES:
-- Only suggest fixes you're confident won't break the code
-- For "replace" action, "search" must be EXACT text from the file
-- Set fix_confidence based on how safe the fix is
-- If no issues, return status "ok" with empty issues array`;
-
-  return prompt;
+  "summary": "1 sentence",
+  "issues": [{"type": "bug|security|performance|style", "severity": "critical|high|medium|low", "description": "what's wrong", "suggestion": "fix"}],
+  "fix_available": false
+}`;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -256,63 +452,28 @@ RULES:
 
 function applyFixes(fixes, confidence) {
   const MIN_CONFIDENCE = parseFloat(process.env.MIN_CONFIDENCE || "0.7");
-  
-  if (confidence < MIN_CONFIDENCE) {
-    console.log(`   ⚠️ Fix confidence (${confidence}) below threshold (${MIN_CONFIDENCE})`);
-    return false;
-  }
+  if (confidence < MIN_CONFIDENCE) return false;
   
   let allApplied = true;
-  
   for (const fix of fixes) {
     const filePath = path.join(PROJECT_PATH, fix.file);
-    
-    if (!fs.existsSync(filePath)) {
-      console.log(`   ❌ File not found: ${fix.file}`);
-      allApplied = false;
-      continue;
-    }
+    if (!fs.existsSync(filePath)) { allApplied = false; continue; }
     
     const content = fs.readFileSync(filePath, "utf8");
-    
-    if (fix.action === "replace") {
-      if (!content.includes(fix.search)) {
-        console.log(`   ❌ Could not find code to replace in ${fix.file}`);
-        if (DEBUG) {
-          console.log(`   [DEBUG] Looking for: ${fix.search.slice(0, 50)}...`);
-        }
-        allApplied = false;
-        continue;
-      }
-      
-      // Create backup
+    if (fix.action === "replace" && content.includes(fix.search)) {
       createBackup(filePath);
-      
-      // Apply fix
       const newContent = content.replace(fix.search, fix.replace);
-      
-      // Validate fix doesn't break syntax (basic check)
-      if (!validateSyntax(newContent, fix.file)) {
-        console.log(`   ❌ Fix would create syntax error, skipping`);
+      if (validateSyntax(newContent, fix.file)) {
+        fs.writeFileSync(filePath, newContent, "utf8");
+        stats.fixed++;
+        addLog(T.success(`✓ Auto-fixed: ${path.basename(fix.file)}`));
+      } else {
         allApplied = false;
-        continue;
       }
-      
-      fs.writeFileSync(filePath, newContent, "utf8");
-      console.log(`   ✅ Fixed: ${fix.file}`);
-      
-      // Record fix
-      fixHistory.push({
-        timestamp: new Date().toISOString(),
-        file: fix.file,
-        action: fix.action,
-        confidence,
-      });
-      
-      stats.fixed++;
+    } else {
+      allApplied = false;
     }
   }
-  
   return allApplied;
 }
 
@@ -320,48 +481,36 @@ function createBackup(filePath) {
   const relativePath = path.relative(PROJECT_PATH, filePath);
   const backupDir = path.join(PROJECT_PATH, ".letta-backups", path.dirname(relativePath));
   const timestamp = dayjs().format("YYYYMMDD_HHmmss");
-  const backupName = `${path.basename(filePath)}.${timestamp}.backup`;
-  const backupPath = path.join(backupDir, backupName);
-  
+  const backupPath = path.join(backupDir, `${path.basename(filePath)}.${timestamp}.backup`);
   fs.mkdirSync(backupDir, { recursive: true });
   fs.copyFileSync(filePath, backupPath);
-  
-  // Ensure .letta-backups is gitignored
   ensureGitignore();
-  
-  return backupPath;
 }
 
 function ensureGitignore() {
   const gitignorePath = path.join(PROJECT_PATH, ".gitignore");
   let gitignore = fs.existsSync(gitignorePath) ? fs.readFileSync(gitignorePath, "utf8") : "";
-  
   if (!gitignore.includes(".letta-backups")) {
-    fs.appendFileSync(gitignorePath, "\n# Letta assistant backups\n.letta-backups/\n");
+    fs.appendFileSync(gitignorePath, "\n# Letta backups\n.letta-backups/\n");
   }
 }
 
 function validateSyntax(content, fileName) {
-  // Basic syntax validation
   const ext = path.extname(fileName);
-  
   if ([".js", ".jsx", ".ts", ".tsx"].includes(ext)) {
-    // Check balanced brackets
     const brackets = { "{": 0, "[": 0, "(": 0 };
     const pairs = { "}": "{", "]": "[", ")": "(" };
-    
     for (const char of content) {
       if (brackets[char] !== undefined) brackets[char]++;
       if (pairs[char]) brackets[pairs[char]]--;
     }
-    
-    for (const [bracket, count] of Object.entries(brackets)) {
+    for (const count of Object.values(brackets)) {
       if (count !== 0) return false;
     }
   }
-  
   return true;
 }
+
 
 // ═══════════════════════════════════════════════════════════════════════════
 // FILE PROCESSING
@@ -369,224 +518,146 @@ function validateSyntax(content, fileName) {
 
 async function processFile(filePath) {
   const relativePath = path.relative(PROJECT_PATH, filePath);
+  const fileName = path.basename(filePath);
+  const ext = path.extname(filePath);
   
-  // Check if file still exists
-  if (!fs.existsSync(filePath)) {
-    if (DEBUG) console.log(`   [DEBUG] File no longer exists`);
-    return;
-  }
+  if (!fs.existsSync(filePath)) return;
   
-  // Read content
   let content;
   try {
     content = fs.readFileSync(filePath, "utf8");
   } catch (err) {
-    console.log(`   ❌ Could not read file: ${err.message}`);
+    addLog(T.error(`✗ Cannot read: ${fileName}`));
     return;
   }
   
-  // Skip empty files
   if (!content.trim()) {
-    console.log(`   ⏭️ Empty file`);
     stats.skipped++;
+    updateDashboard();
     return;
   }
   
-  // Check cache - skip if unchanged
+  // Skip if unchanged
   const contentHash = simpleHash(content);
   if (analysisCache.get(filePath) === contentHash) {
-    console.log(`   ⏭️ Unchanged since last analysis`);
     stats.skipped++;
+    addLog(T.dim(`→ Skipped (unchanged): ${fileName}`));
+    updateDashboard();
     return;
   }
   
-  console.log(`   🔍 Analyzing with context...`);
-  stats.analyzed++;
+  currentStatus = `Analyzing ${fileName}...`;
+  updateDashboard();
   
+  stats.analyzed++;
+  const startTime = Date.now();
   const result = await analyzeWithContext(filePath);
+  const duration = ((Date.now() - startTime) / 1000).toFixed(1);
   
   if (!result) {
+    currentStatus = "Ready - waiting for changes...";
+    updateDashboard();
     return;
   }
   
-  // Cache result
   analysisCache.set(filePath, contentHash);
   changedFiles.add(relativePath);
   
-  // Display results
+  const hasIssues = result.status !== "ok" && result.issues?.length > 0;
+  let wasFixed = false;
+  
   if (result.status === "ok") {
-    console.log(`   ✓ ${result.summary || "Looks good!"}`);
-  } else {
-    // Show issues
-    if (result.issues && result.issues.length > 0) {
-      stats.issues += result.issues.length;
+    addLog(T.success(`✓ ${fileName} - ${result.summary || "Looks good!"} (${duration}s)`));
+  } else if (hasIssues) {
+    stats.issues += result.issues.length;
+    
+    for (const issue of result.issues) {
+      // Update stats
+      if (issue.type === "bug") stats.issuesByType.bugs++;
+      else if (issue.type === "security") stats.issuesByType.security++;
+      else if (issue.type === "performance") stats.issuesByType.performance++;
+      else stats.issuesByType.style++;
       
-      for (const issue of result.issues) {
-        const icon = {
-          bug: "🐛",
-          security: "🔒",
-          performance: "⚡",
-          style: "💅",
-        }[issue.type] || "⚠️";
-        
-        const severity = {
-          critical: chalk.red,
-          high: chalk.yellow,
-          medium: chalk.white,
-          low: chalk.gray,
-        }[issue.severity] || chalk.white;
-        
-        console.log(`   ${icon} [${issue.severity}] ${issue.description}`);
-        if (issue.suggestion) {
-          console.log(`      💡 ${issue.suggestion}`);
-        }
+      if (issue.severity) {
+        stats.severityCounts[issue.severity] = (stats.severityCounts[issue.severity] || 0) + 1;
       }
-    }
-    
-    // Show suggestions
-    if (result.suggestions && result.suggestions.length > 0) {
-      console.log(`   📝 Suggestions:`);
-      result.suggestions.slice(0, 3).forEach(s => console.log(`      • ${s}`));
-    }
-    
-    // Auto-fix if enabled and available
-    if (AUTO_FIX && result.fix_available && result.fixes && result.fixes.length > 0) {
-      console.log(`   🔧 Applying fix (confidence: ${result.fix_confidence})...`);
-      console.log(`      ${result.fix_description}`);
       
+      const icon = { bug: "🐛", security: "🔒", performance: "⚡", style: "💅" }[issue.type] || "⚠";
+      addLog(`${icon} ${T.warning(`[${issue.severity}]`)} ${fileName}: ${issue.description.slice(0, 50)}`);
+    }
+    
+    // Auto-fix
+    if (AUTO_FIX && result.fix_available && result.fixes?.length > 0) {
       if (applyFixes(result.fixes, result.fix_confidence)) {
-        console.log(`   ✅ Fix applied successfully`);
+        wasFixed = true;
       }
-    } else if (result.fix_available) {
-      console.log(`   💡 Fix available (run with --auto-fix to apply)`);
     }
   }
+  
+  // Track recent files
+  stats.recentFiles.push({ name: fileName, ext, time: Date.now(), duration, hasIssues, wasFixed });
+  if (stats.recentFiles.length > 20) stats.recentFiles.shift();
+  
+  currentStatus = "Ready - waiting for changes...";
+  updateDashboard();
 }
 
 function simpleHash(str) {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
     hash = hash & hash;
   }
   return hash.toString(16);
 }
 
-// Simple chalk replacement for colors
-const chalk = {
-  red: (s) => `\x1b[31m${s}\x1b[0m`,
-  yellow: (s) => `\x1b[33m${s}\x1b[0m`,
-  green: (s) => `\x1b[32m${s}\x1b[0m`,
-  gray: (s) => `\x1b[90m${s}\x1b[0m`,
-  white: (s) => s,
-  cyan: (s) => `\x1b[36m${s}\x1b[0m`,
-};
-
-// ═══════════════════════════════════════════════════════════════════════════
-// DEBOUNCED SCHEDULING
-// ═══════════════════════════════════════════════════════════════════════════
-
 function scheduleAnalysis(filePath) {
   if (pendingAnalysis.has(filePath)) {
     clearTimeout(pendingAnalysis.get(filePath));
   }
-  
-  const timeout = setTimeout(() => {
+  pendingAnalysis.set(filePath, setTimeout(() => {
     pendingAnalysis.delete(filePath);
     processFile(filePath);
-  }, 1500);
-  
-  pendingAnalysis.set(filePath, timeout);
+  }, 1000));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// COMMIT MESSAGE GENERATION
+// COMMIT MESSAGE
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function generateCommitMessage() {
-  if (changedFiles.size === 0) {
-    console.log("\n📝 No changes to commit.");
-    return;
-  }
+  if (changedFiles.size === 0) return;
   
   const fileList = Array.from(changedFiles).slice(0, 10).join(", ");
   const date = dayjs().format("DDMMYY");
   
-  const prompt = `Generate a git commit message for these changed files: ${fileList}
-
-Rules:
-- Format: ${date} - <short description>
-- Keep under 50 characters total
-- Capitalize first letter after dash
-- Be specific about what changed
-
-Respond with ONLY the commit message.`;
-
   try {
-    const response = await client.agents.messages.create(agentId, { input: prompt });
+    const response = await client.agents.messages.create(agentId, {
+      input: `Generate a git commit message for: ${fileList}. Format: ${date} - <description>. Keep under 50 chars. Reply with ONLY the message.`
+    });
     let message = response?.messages?.map((m) => m.text || m.content).join("").trim().split("\n")[0] || "";
+    if (!message.startsWith(date)) message = `${date} - ${message}`;
     
-    if (!message.startsWith(date)) {
-      message = `${date} - ${message}`;
-    }
+    console.log(T.success(`\n  📝 Commit: "${message}"`));
+    console.log(T.dim(`     git add -A && git commit -m "${message}"\n`));
     
-    console.log(`\n📝 Suggested commit message:`);
-    console.log(`   "${message}"`);
-    console.log(`\n   To commit: git add -A && git commit -m "${message}"`);
-    
-    // Save for easy use
     fs.writeFileSync(path.join(PROJECT_PATH, ".commit_msg"), message, "utf8");
-    console.log(`   Or: git commit -F .commit_msg`);
-    
   } catch (err) {
-    console.log(`\n❌ Could not generate commit message: ${err.message}`);
+    console.log(T.error(`  ✗ Could not generate commit message`));
   }
-  
   changedFiles.clear();
 }
 
+
 // ═══════════════════════════════════════════════════════════════════════════
-// WATCHER SETUP
+// WATCHER SETUP - WATCH ALL FILES
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Initialize project analysis
 projectType = detectProjectType(PROJECT_PATH);
 projectStructure = scanProjectStructure(PROJECT_PATH);
 
-// Check if user wants to watch all files
-const WATCH_ALL = process.argv.includes("--all") || process.env.WATCH_ALL === "true";
-
-// Determine watch patterns
-const POSSIBLE_FOLDERS = [
-  "src", "app", "components", "pages", "lib", "utils", "hooks", "types", 
-  "features", "modules", "__tests__", "tests", "scripts", "templates",
-  "api", "services", "models", "controllers", "routes", "middleware"
-];
-const WATCH_PATTERNS = [];
-
-if (WATCH_ALL) {
-  // Watch entire project
-  WATCH_PATTERNS.push(PROJECT_PATH.replace(/\\/g, "/"));
-} else {
-  // Watch specific folders that exist
-  for (const folder of POSSIBLE_FOLDERS) {
-    const fullPath = path.join(PROJECT_PATH, folder);
-    if (fs.existsSync(fullPath)) {
-      WATCH_PATTERNS.push(fullPath.replace(/\\/g, "/"));
-    }
-  }
-  
-  // Also watch root-level JS/TS files
-  WATCH_PATTERNS.push(path.join(PROJECT_PATH, "*.js").replace(/\\/g, "/"));
-  WATCH_PATTERNS.push(path.join(PROJECT_PATH, "*.ts").replace(/\\/g, "/"));
-  
-  // Fallback to project root if no folders found
-  if (WATCH_PATTERNS.length === 2) { // Only the root *.js and *.ts patterns
-    WATCH_PATTERNS.length = 0;
-    WATCH_PATTERNS.push(PROJECT_PATH.replace(/\\/g, "/"));
-  }
-}
+// Watch the entire project directory
+let WATCH_PATTERNS = [PROJECT_PATH.replace(/\\/g, "/")];
 
 const IGNORE = [
   "**/node_modules/**",
@@ -598,36 +669,18 @@ const IGNORE = [
   "**/.letta-backups/**",
   "**/*.min.js",
   "**/*.map",
+  "**/.kiro/**",
+  "**/package-lock.json",
+  "**/.env*",
 ];
 
-const VALID_EXTENSIONS = [".js", ".jsx", ".ts", ".tsx"];
-
 // ═══════════════════════════════════════════════════════════════════════════
-// START
+// START - LIVE DASHBOARD
 // ═══════════════════════════════════════════════════════════════════════════
 
-console.log(`
-🤖 Letta Coding Assistant - Intelligent Watcher
-════════════════════════════════════════════════════════════════
-Project:    ${PROJECT_PATH}
-Framework:  ${projectType.framework || projectType.type}
-Language:   ${projectType.language}
-Files:      ${projectStructure.totalFiles} total
-Auto-fix:   ${AUTO_FIX ? "ON" : "OFF"}
-Watch mode: ${WATCH_ALL ? "ALL FILES" : "Smart (common folders)"}
-════════════════════════════════════════════════════════════════
-`);
-
-console.log("📁 Watching:");
-if (WATCH_ALL) {
-  console.log(`   • ${path.basename(PROJECT_PATH)} (entire project)`);
-} else {
-  WATCH_PATTERNS.forEach(p => {
-    const rel = path.relative(PROJECT_PATH, p.replace(/\*\.(js|ts)$/, ""));
-    console.log(`   • ${rel || "."}`);
-  });
-}
-console.log("");
+console.clear();
+currentStatus = "Starting watcher...";
+updateDashboard();
 
 const watcher = chokidar.watch(WATCH_PATTERNS, {
   ignored: IGNORE,
@@ -635,20 +688,21 @@ const watcher = chokidar.watch(WATCH_PATTERNS, {
   persistent: true,
   usePolling: process.platform === "win32", // Use polling on Windows for reliability
   interval: 500,
-  binaryInterval: 500,
   awaitWriteFinish: { stabilityThreshold: 500, pollInterval: 100 },
-  depth: 10,
+  depth: 20, // Watch deeply nested folders
 });
 
 watcher.on("ready", () => {
-  if (!isReady) {
-    isReady = true;
-    const watchedPaths = watcher.getWatched();
-    const totalWatched = Object.values(watchedPaths).flat().length;
-    console.log(`🟢 Ready! Watching ${totalWatched} files.`);
-    console.log("   Edit your code - I'll analyze it with full context.");
-    console.log("   Press Ctrl+C to stop and see commit options.\n");
-  }
+  isReady = true;
+  const watchedPaths = watcher.getWatched();
+  const totalWatched = Object.values(watchedPaths).flat().length;
+  currentStatus = `Ready - watching ${totalWatched} files for changes...`;
+  addLog(T.success(`✓ Watcher ready - monitoring ${totalWatched} files`));
+  
+  // Start live dashboard refresh (every second for uptime)
+  dashboardInterval = setInterval(() => {
+    updateDashboard();
+  }, 1000);
 });
 
 watcher.on("change", (filePath) => {
@@ -656,18 +710,17 @@ watcher.on("change", (filePath) => {
   if (!VALID_EXTENSIONS.includes(ext)) return;
   
   const rel = path.relative(PROJECT_PATH, filePath);
-  console.log(`\n📝 Changed: ${rel}`);
+  addLog(T.accent(`› Changed: ${rel}`));
   scheduleAnalysis(filePath);
 });
 
 watcher.on("add", (filePath) => {
   if (!isReady) return;
-  
   const ext = path.extname(filePath);
   if (!VALID_EXTENSIONS.includes(ext)) return;
   
   const rel = path.relative(PROJECT_PATH, filePath);
-  console.log(`\n➕ Added: ${rel}`);
+  addLog(T.success(`+ Added: ${rel}`));
   scheduleAnalysis(filePath);
 });
 
@@ -676,40 +729,43 @@ watcher.on("unlink", (filePath) => {
   if (!VALID_EXTENSIONS.includes(ext)) return;
   
   const rel = path.relative(PROJECT_PATH, filePath);
-  console.log(`\n➖ Deleted: ${rel}`);
+  addLog(T.error(`- Deleted: ${rel}`));
   // Clear from cache
   analysisCache.delete(filePath);
+  updateDashboard();
 });
 
 watcher.on("error", (err) => {
-  console.error("❌ Watcher error:", err.message);
+  addLog(T.error(`✗ Watcher error: ${err.message}`));
   if (DEBUG) {
     console.error(err.stack);
   }
 });
 
-if (DEBUG) {
-  watcher.on("all", (event, filePath) => {
-    console.log(`[DEBUG] ${event}: ${path.relative(PROJECT_PATH, filePath)}`);
-  });
-}
+// ═══════════════════════════════════════════════════════════════════════════
+// SHUTDOWN
+// ═══════════════════════════════════════════════════════════════════════════
 
-// Handle exit
 process.on("SIGINT", async () => {
-  console.log(`\n
-📊 Session Summary
-════════════════════════════════════════════════════════════════
-Files analyzed:  ${stats.analyzed}
-Issues found:    ${stats.issues}
-Auto-fixed:      ${stats.fixed}
-Skipped:         ${stats.skipped}
-════════════════════════════════════════════════════════════════
-`);
-
+  if (dashboardInterval) clearInterval(dashboardInterval);
+  logUpdate.clear();
+  
+  console.log(T.header(`
+  ┌─────────────────────────────────────────────────────────────┐
+  │                    📊 Session Summary                       │
+  └─────────────────────────────────────────────────────────────┘
+`));
+  
+  console.log(`  ${T.dim("Analyzed:")}  ${T.success(stats.analyzed)}    ${T.dim("Issues:")} ${T.warning(stats.issues)}    ${T.dim("Fixed:")} ${T.accent(stats.fixed)}`);
+  console.log(`  ${T.dim("Skipped:")}   ${T.dim(stats.skipped)}    ${T.dim("Duration:")} ${chalk.magenta(getUptime())}`);
+  console.log("");
+  console.log(`  ${T.error("●")} Bugs: ${stats.issuesByType.bugs}  ${T.warning("●")} Security: ${stats.issuesByType.security}  ${T.accent("●")} Perf: ${stats.issuesByType.performance}  ${T.dim("●")} Style: ${stats.issuesByType.style}`);
+  console.log(`  ${T.error("Critical:")} ${stats.severityCounts.critical}  ${T.warning("High:")} ${stats.severityCounts.high}  ${chalk.white("Medium:")} ${stats.severityCounts.medium}  ${T.dim("Low:")} ${stats.severityCounts.low}`);
+  
   if (changedFiles.size > 0) {
     await generateCommitMessage();
   }
-  
-  console.log("\n👋 Goodbye!");
+
+  console.log(T.accent(`\n  ♥ Thanks for using Letta! Happy coding!\n`));
   process.exit(0);
 });

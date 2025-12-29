@@ -12,64 +12,64 @@ This implementation plan transforms the IDE collaboration design into discrete c
   - Set up fast-check testing framework
   - _Requirements: All_
 
-- [-] 2. Implement IDE Coordinator
-  - [-] 2.1 Create `src/core/ideCoordinator.js` with IDE detection logic
+- [x] 2. Implement IDE Coordinator
+  - [x] 2.1 Create `src/core/ideCoordinator.js` with IDE detection logic
     - Implement `detectIDE()` to scan for .kiro, .cursor, .windsurf, .antigravity folders
     - Implement `isIDEActive()` to check for running IDE processes
     - Implement `getCollaborationMode()` and `setCollaborationMode()`
     - _Requirements: 1.1, 1.2, 1.3, 1.5_
 
-  - [ ] 2.2 Write property test for IDE detection
+  - [x] 2.2 Write property test for IDE detection
     - **Property 1: IDE Detection Enables Correct Mode**
     - **Validates: Requirements 1.1, 1.2, 1.3, 1.5**
 
-  - [ ] 2.3 Implement status broadcasting in IDE Coordinator
+  - [x] 2.3 Implement status broadcasting in IDE Coordinator
     - Implement `broadcastStatus()` to write `.letta/status.json`
     - Implement `onIDEActivity()` callback for IDE status changes
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
 
-  - [ ] 2.4 Write property test for status broadcasting
+  - [x] 2.4 Write property test for status broadcasting
     - **Property 6: Status Broadcasting Consistency**
     - **Validates: Requirements 5.1, 5.2, 5.3, 5.4, 5.5**
 
-- [ ] 3. Implement Lock Manager
-  - [ ] 3.1 Create `src/core/lockManager.js` with lock operations
+- [x] 3. Implement Lock Manager
+  - [x] 3.1 Create `src/core/lockManager.js` with lock operations
     - Implement `acquireLock()` to create `.letta.lock` file
     - Implement `releaseLock()` to remove lock file
     - Implement `isLocked()` to check lock status
     - _Requirements: 2.4_
 
-  - [ ] 3.2 Implement IDE lock watching
+  - [x] 3.2 Implement IDE lock watching
     - Implement `watchIDELocks()` to monitor `.kiro/agent.lock`, `.cursor/agent.lock`
     - Implement `onIDELockChange()` callback
     - Implement `yieldToIDE()` for conflict resolution
     - _Requirements: 2.1, 2.2, 2.3, 2.5_
 
-  - [ ] 3.3 Write property test for lock coordination
+  - [x] 3.3 Write property test for lock coordination
     - **Property 2: Lock File Coordination**
     - **Validates: Requirements 2.1, 2.2, 2.3, 2.4, 2.5**
 
-- [ ] 4. Implement Suggestion Manager
-  - [ ] 4.1 Create `src/core/suggestionManager.js` with suggestion operations
+- [-] 4. Implement Suggestion Manager
+  - [x] 4.1 Create `src/core/suggestionManager.js` with suggestion operations
     - Implement `createSuggestion()` to write to `.letta/suggestions/`
     - Implement `markConsumed()` to update suggestion status
     - Implement `getPendingSuggestions()` to list unconsumed suggestions
     - _Requirements: 3.1, 3.2, 3.4_
 
-  - [ ] 4.2 Write property test for suggestion format
+  - [x] 4.2 Write property test for suggestion format
     - **Property 3: Suggestion Format Validity**
     - **Validates: Requirements 3.1, 3.2, 3.4**
 
-  - [ ] 4.3 Implement suggestion consumption tracking
+  - [x] 4.3 Implement suggestion consumption tracking
     - Watch for external reads of suggestion files
     - Mark suggestions as consumed when accessed
     - _Requirements: 3.3_
 
-  - [ ] 4.4 Write property test for suggestion consumption
+  - [x] 4.4 Write property test for suggestion consumption
     - **Property 4: Suggestion Consumption Round-Trip**
     - **Validates: Requirements 3.3**
 
-  - [ ] 4.5 Implement suggestion cleanup
+  - [-] 4.5 Implement suggestion cleanup
     - Implement `cleanupOldSuggestions()` to remove old suggestions
     - _Requirements: 3.1_
 
