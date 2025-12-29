@@ -148,6 +148,40 @@ function getUptime() {
   return `${mins}m ${secs}s`;
 }
 
+function getGitBranch() {
+  try {
+    const { execSync } = require("child_process");
+    const branch = execSync("git rev-parse --abbrev-ref HEAD", { 
+      cwd: PROJECT_PATH, 
+      encoding: "utf8",
+      stdio: ["pipe", "pipe", "pipe"]
+    }).trim();
+    return branch;
+  } catch {
+    return null;
+  }
+}
+
+function getGitStatus() {
+  try {
+    const { execSync } = require("child_process");
+    const status = execSync("git status --porcelain", { 
+      cwd: PROJECT_PATH, 
+      encoding: "utf8",
+      stdio: ["pipe", "pipe", "pipe"]
+    });
+    const lines = status.trim().split("\n").filter(l => l);
+    return {
+      modified: lines.filter(l => l.startsWith(" M") || l.startsWith("M ")).length,
+      added: lines.filter(l => l.startsWith("A ") || l.startsWith("??")).length,
+      deleted: lines.filter(l => l.startsWith(" D") || l.startsWith("D ")).length,
+      total: lines.length
+    };
+  } catch {
+    return null;
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Show Header ONCE at startup
 // ═══════════════════════════════════════════════════════════════════════════
@@ -159,7 +193,13 @@ function showHeader() {
   const fw = projectType?.framework || projectType?.type || "node";
   const lang = projectType?.language || "javascript";
   const total = projectStructure?.totalFiles || 0;
-  const shortPath = PROJECT_PATH.length > 50 ? "..." + PROJECT_PATH.slice(-47) : PROJECT_PATH;
+  const comps = projectStructure?.components?.length || 0;
+  const utils = projectStructure?.utils?.length || 0;
+  const tests = projectStructure?.testFiles?.length || 0;
+  const shortPath = PROJECT_PATH.length > 45 ? "..." + PROJECT_PATH.slice(-42) : PROJECT_PATH;
+  
+  const gitBranch = getGitBranch();
+  const gitStatus = getGitStatus();
 
   console.clear();
   console.log(T.accent(`
@@ -167,16 +207,48 @@ function showHeader() {
   ║  🤖 LETTA CODING ASSISTANT - File Watcher                    ║
   ╚══════════════════════════════════════════════════════════════╝
 `));
-  console.log(`  ${T.dim("Project:")}   ${chalk.bold(path.basename(PROJECT_PATH))}`);
-  console.log(`  ${T.dim("Path:")}      ${shortPath}`);
-  console.log(`  ${T.dim("Framework:")} ${chalk.yellow(fw)} / ${chalk.blue(lang)}`);
-  console.log(`  ${T.dim("Files:")}     ${T.success(total)} total`);
-  console.log(`  ${T.dim("Auto-fix:")}  ${AUTO_FIX ? T.success("ON") : T.error("OFF")}`);
-  console.log(`  ${T.dim("Theme:")}     ${T.accent(THEME_NAME)}`);
+  
+  // Project Info Section
+  console.log(T.accent("  ┌─ Project Info ─────────────────────────────────────────────┐"));
+  console.log(`  │ ${T.dim("Project:")}   ${chalk.bold(path.basename(PROJECT_PATH)).padEnd(45)}│`);
+  console.log(`  │ ${T.dim("Path:")}      ${shortPath.padEnd(45)}│`);
+  console.log(`  │ ${T.dim("Framework:")} ${chalk.yellow(fw)} / ${chalk.blue(lang)}${" ".repeat(Math.max(0, 38 - fw.length - lang.length))}│`);
+  console.log(`  │ ${T.dim("Files:")}     ${T.success(total)} total (${comps} components, ${utils} utils, ${tests} tests)${" ".repeat(Math.max(0, 10))}│`);
+  console.log(T.accent("  └──────────────────────────────────────────────────────────────┘"));
   console.log("");
-  console.log(T.dim("  " + "─".repeat(60)));
-  console.log(T.dim("  Press Ctrl+C to stop and see session summary + commit options"));
-  console.log(T.dim("  " + "─".repeat(60)));
+  
+  // Git Info Section (if available)
+  if (gitBranch) {
+    console.log(T.accent("  ┌─ Git Status ───────────────────────────────────────────────┐"));
+    console.log(`  │ ${T.dim("Branch:")}    ${chalk.magenta(gitBranch).padEnd(45)}│`);
+    if (gitStatus) {
+      const statusText = gitStatus.total > 0 
+        ? `${gitStatus.modified} modified, ${gitStatus.added} new, ${gitStatus.deleted} deleted`
+        : "Clean - no uncommitted changes";
+      console.log(`  │ ${T.dim("Changes:")}   ${gitStatus.total > 0 ? T.warning(statusText) : T.success(statusText)}${" ".repeat(Math.max(0, 20))}│`);
+    }
+    console.log(T.accent("  └──────────────────────────────────────────────────────────────┘"));
+    console.log("");
+  }
+  
+  // Settings Section
+  console.log(T.accent("  ┌─ Current Settings ─────────────────────────────────────────┐"));
+  console.log(`  │ ${T.dim("Auto-fix:")}  ${AUTO_FIX ? T.success("ON - will auto-apply fixes") : T.error("OFF")}${" ".repeat(AUTO_FIX ? 18 : 38)}│`);
+  console.log(`  │ ${T.dim("Theme:")}     ${T.accent(THEME_NAME)}${" ".repeat(Math.max(0, 45 - THEME_NAME.length))}│`);
+  console.log(`  │ ${T.dim("Debounce:")}  ${WATCHER_DEBOUNCE}ms${" ".repeat(Math.max(0, 42 - String(WATCHER_DEBOUNCE).length))}│`);
+  console.log(`  │ ${T.dim("Confidence:")} ${(MIN_CONFIDENCE * 100).toFixed(0)}% minimum for auto-fix${" ".repeat(25)}│`);
+  console.log(T.accent("  └──────────────────────────────────────────────────────────────┘"));
+  console.log("");
+  
+  // Instructions
+  console.log(T.dim("  ─────────────────────────────────────────────────────────────────"));
+  console.log(T.dim("  📝 Edit any file to trigger analysis"));
+  console.log(T.warning("  🛑 Press 'q' to stop → full summary → commit options"));
+  if (process.platform === "win32") {
+    console.log(T.dim("     (Ctrl+C shows quick summary only on Windows)"));
+  }
+  console.log(T.dim("  ⚙️  Change settings: npm start → Settings"));
+  console.log(T.dim("  ─────────────────────────────────────────────────────────────────"));
   console.log("");
 }
 
@@ -451,8 +523,24 @@ async function showCommitOptions() {
   
   if (changedFiles.size === 0) {
     console.log(T.dim("  No files were analyzed during this session."));
+    console.log(T.dim("  No commit message needed."));
     console.log("");
     return;
+  }
+  
+  // Show git status
+  const gitBranch = getGitBranch();
+  const gitStatus = getGitStatus();
+  
+  if (gitBranch) {
+    console.log(T.accent("  📊 Git Status:"));
+    console.log(`     Branch: ${chalk.magenta(gitBranch)}`);
+    if (gitStatus && gitStatus.total > 0) {
+      console.log(`     ${T.warning(`${gitStatus.total} uncommitted changes`)}`);
+    } else {
+      console.log(`     ${T.success("Working tree clean")}`);
+    }
+    console.log("");
   }
   
   // Generate commit message
@@ -463,37 +551,124 @@ async function showCommitOptions() {
     console.log("");
     console.log(T.success("  ✓ Suggested commit message:"));
     console.log("");
-    console.log(chalk.bold.white(`     "${commitMsg}"`));
-    console.log("");
-    console.log(T.dim("  To commit your changes, run:"));
-    console.log("");
-    console.log(T.accent(`     git add -A && git commit -m "${commitMsg}"`));
+    console.log(chalk.bgBlack.white(`     ${commitMsg}     `));
     console.log("");
     
     // Save to file
     fs.writeFileSync(path.join(PROJECT_PATH, ".commit_msg"), commitMsg, "utf8");
-    console.log(T.dim(`  (Message saved to .commit_msg)`));
+    console.log(T.dim(`  (Saved to .commit_msg)`));
+    console.log("");
+    
+    console.log(T.accent("  📋 Quick Commands:"));
+    console.log("");
+    console.log(T.dim("  Stage all & commit:"));
+    console.log(T.accent(`     git add -A && git commit -m "${commitMsg}"`));
+    console.log("");
+    console.log(T.dim("  Stage, commit & push:"));
+    console.log(T.accent(`     git add -A && git commit -m "${commitMsg}" && git push`));
     console.log("");
   }
 }
 
 async function promptNextAction() {
+  // Small delay to ensure stdin is ready for input
+  await new Promise(r => setTimeout(r, 50));
+  
   console.log(T.dim("  " + "─".repeat(60)));
   console.log("");
+  console.log(T.accent("  What would you like to do next?"));
+  console.log("");
   console.log(`  ${T.accent("[1]")} Return to main menu`);
-  console.log(`  ${T.accent("[2]")} Exit`);
+  console.log(`  ${T.accent("[2]")} Run git commit now (opens prompt)`);
+  console.log(`  ${T.accent("[3]")} Exit`);
   console.log("");
   
   return new Promise((resolve) => {
+    // Ensure stdin is in line mode
+    if (process.stdin.isTTY) {
+      try { process.stdin.setRawMode(false); } catch (e) {}
+    }
+    process.stdin.resume();
+    
     const rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
     });
     
-    rl.question(T.accent("  Your choice (1-2): "), (answer) => {
+    rl.question(T.accent("  Your choice (1-3): "), async (answer) => {
       rl.close();
-      resolve(answer.trim() === "1" ? "menu" : "exit");
+      const choice = answer.trim();
+      
+      if (choice === "2") {
+        // Run git commit
+        await runGitCommit();
+        resolve("menu");
+      } else if (choice === "1") {
+        resolve("menu");
+      } else {
+        resolve("exit");
+      }
     });
+  });
+}
+
+async function runGitCommit() {
+  const commitMsgPath = path.join(PROJECT_PATH, ".commit_msg");
+  let commitMsg = "";
+  
+  if (fs.existsSync(commitMsgPath)) {
+    commitMsg = fs.readFileSync(commitMsgPath, "utf8").trim();
+  }
+  
+  console.log("");
+  console.log(T.accent("  🚀 Running Git Commit..."));
+  console.log("");
+  
+  try {
+    const { execSync } = await import("child_process");
+    
+    // Stage all changes
+    console.log(T.dim("  Staging all changes..."));
+    execSync("git add -A", { cwd: PROJECT_PATH, stdio: "pipe" });
+    console.log(T.success("  ✓ Changes staged"));
+    
+    // Commit
+    console.log(T.dim(`  Committing with message: "${commitMsg}"`));
+    execSync(`git commit -m "${commitMsg}"`, { cwd: PROJECT_PATH, stdio: "pipe" });
+    console.log(T.success("  ✓ Commit successful!"));
+    
+    // Ask about push
+    console.log("");
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+    });
+    
+    await new Promise((resolve) => {
+      rl.question(T.accent("  Push to remote? (y/n): "), async (answer) => {
+        rl.close();
+        if (answer.trim().toLowerCase() === "y") {
+          console.log(T.dim("  Pushing..."));
+          try {
+            execSync("git push", { cwd: PROJECT_PATH, stdio: "pipe" });
+            console.log(T.success("  ✓ Pushed successfully!"));
+          } catch (e) {
+            console.log(T.error(`  ✗ Push failed: ${e.message}`));
+          }
+        }
+        resolve();
+      });
+    });
+    
+  } catch (err) {
+    console.log(T.error(`  ✗ Git error: ${err.message}`));
+    console.log(T.dim("  You can run the commands manually."));
+  }
+  
+  console.log("");
+  await new Promise(r => {
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    rl.question(T.dim("  Press Enter to continue..."), () => { rl.close(); r(); });
   });
 }
 
@@ -531,6 +706,9 @@ watcher.on("ready", () => {
   log(T.success(`✓ Watcher ready! Monitoring ${totalWatched} files`));
   log(T.dim("Waiting for file changes... (edit a file to trigger analysis)"));
   console.log("");
+  
+  // Start keyboard listener after watcher is ready
+  setTimeout(setupKeyboardListener, 100);
 });
 
 watcher.on("change", (filePath) => {
@@ -569,16 +747,39 @@ watcher.on("error", (err) => {
 // Shutdown - Show FULL summary and commit options
 // ═══════════════════════════════════════════════════════════════════════════
 
+let isShuttingDown = false;
+let shutdownComplete = false;
+
 async function shutdown() {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+  
+  // Disable raw mode so readline prompts work
+  if (process.stdin.isTTY) {
+    try {
+      process.stdin.setRawMode(false);
+    } catch (e) {}
+  }
+  process.stdin.removeAllListeners("data");
+  process.stdin.pause();
+  
   console.log("");
   log(T.dim("Stopping watcher..."));
   
-  if (watcher) await watcher.close();
+  if (watcher) {
+    try {
+      await watcher.close();
+    } catch (e) {
+      // Ignore close errors
+    }
+  }
   
   await showSessionSummary();
   await showCommitOptions();
   
   const action = await promptNextAction();
+  
+  shutdownComplete = true;
   
   if (action === "menu") {
     if (RETURN_TO_MENU) {
@@ -589,6 +790,7 @@ async function shutdown() {
       spawn("node", [path.join(ROOT, "scripts/cli.js")], {
         stdio: "inherit",
         cwd: ROOT,
+        shell: true,
       });
       process.exit(0);
     }
@@ -598,5 +800,129 @@ async function shutdown() {
   }
 }
 
-process.on("SIGINT", shutdown);
+// Synchronous shutdown for when async isn't possible (Windows Ctrl+C)
+function syncShutdown() {
+  if (shutdownComplete) return;
+  
+  console.log("");
+  console.log(T.dim("  " + dayjs().format("HH:mm:ss") + " Stopping watcher..."));
+  
+  // Show quick summary synchronously
+  console.log("");
+  console.log(T.accent(`
+  ╔══════════════════════════════════════════════════════════════╗
+  ║                    📊 SESSION SUMMARY                        ║
+  ╚══════════════════════════════════════════════════════════════╝
+`));
+  console.log(`  ${T.dim("Duration:")}    ${chalk.magenta(getUptime())}`);
+  console.log(`  ${T.dim("Analyzed:")}    ${T.success(stats.analyzed)} files`);
+  console.log(`  ${T.dim("Issues:")}      ${stats.issues > 0 ? T.warning(stats.issues) : T.success("0")}`);
+  console.log(`  ${T.dim("Fixed:")}       ${T.accent(stats.fixed)}`);
+  console.log("");
+  
+  if (changedFiles.size > 0) {
+    // Generate commit message synchronously
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, "0");
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const year = String(now.getFullYear()).slice(-2);
+    const dateStr = `${day}${month}${year}`;
+    const commitMsg = `${dateStr} - Update ${changedFiles.size} file(s)`;
+    
+    console.log(T.dim("  " + "─".repeat(60)));
+    console.log("");
+    console.log(T.success("  📝 Quick commit command:"));
+    console.log("");
+    console.log(chalk.bgBlack.white(`     ${commitMsg}     `));
+    console.log("");
+    console.log(T.accent(`     git add -A && git commit -m "${commitMsg}"`));
+    console.log("");
+  }
+  
+  console.log(T.dim("  " + "─".repeat(60)));
+  console.log(T.accent("\n  ♥ Thanks for using Letta! Happy coding!\n"));
+  console.log(T.dim("  To see full options, press 'q' instead of Ctrl+C next time.\n"));
+}
+
+// Handle various termination signals
+process.on("SIGINT", () => {
+  // On Windows, SIGINT from Ctrl+C may not allow async operations
+  // Try async first, but have sync fallback ready
+  if (process.platform === "win32") {
+    // Windows: Show sync summary immediately, then try async
+    syncShutdown();
+    process.exit(0);
+  } else {
+    shutdown();
+  }
+});
+
 process.on("SIGTERM", shutdown);
+
+// Fallback for Windows - runs when process is about to exit
+process.on("exit", (code) => {
+  if (!shutdownComplete && !isShuttingDown && stats.analyzed > 0) {
+    syncShutdown();
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Keyboard Input - Press 'q' or 'Q' to quit gracefully
+// ═══════════════════════════════════════════════════════════════════════════
+
+function setupKeyboardListener() {
+  // Set up raw mode to capture individual keypresses
+  if (process.stdin.isTTY) {
+    process.stdin.setRawMode(true);
+    process.stdin.resume();
+    process.stdin.setEncoding("utf8");
+    
+    process.stdin.on("data", (key) => {
+      // Ctrl+C - on Windows this shows quick summary
+      if (key === "\u0003") {
+        if (process.platform === "win32") {
+          syncShutdown();
+          process.exit(0);
+        } else {
+          shutdown();
+        }
+        return;
+      }
+      
+      // 'q' or 'Q' to quit - FULL interactive shutdown
+      if (key === "q" || key === "Q") {
+        shutdown();
+        return;
+      }
+      
+      // Escape key
+      if (key === "\u001B") {
+        shutdown();
+        return;
+      }
+    });
+    
+    if (process.platform === "win32") {
+      log(T.success("Press 'q' for full summary + commit options (recommended)"));
+    } else {
+      log(T.dim("Press 'q' or Ctrl+C to stop and see session summary"));
+    }
+    console.log("");
+  } else {
+    // Non-TTY fallback (e.g., piped input)
+    const rlShutdown = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+    });
+    
+    rlShutdown.on("SIGINT", () => {
+      shutdown();
+    });
+    
+    rlShutdown.on("line", (line) => {
+      if (line.trim().toLowerCase() === "q" || line.trim().toLowerCase() === "quit") {
+        shutdown();
+      }
+    });
+  }
+}
