@@ -112,6 +112,8 @@ async function arrowMenu(title, options, { showBack = false } = {}) {
   return new Promise((resolve) => {
     let selectedIndex = 0;
     const items = [...options];
+    let menuLineCount = 0;
+    let isFirstDraw = true;
     
     if (showBack) {
       items.push({ label: chalk.yellow("← Back"), value: "back" });
@@ -121,28 +123,50 @@ async function arrowMenu(title, options, { showBack = false } = {}) {
       selectedIndex++;
     }
     
-    const draw = () => {
-      showBanner();
-      console.log(chalk.gray("  ↑↓ Navigate  •  Enter Select  •  Esc Back  •  Ctrl+C Exit"));
-      console.log(chalk.gray("─".repeat(66)));
-      console.log("");
-      console.log(chalk.bold.white(`  ${title}`));
-      console.log("");
+    // Build menu content without banner (banner shown once at start)
+    const buildMenu = () => {
+      let lines = [];
+      lines.push(chalk.gray("  ↑↓ Navigate  •  Enter Select  •  Esc Back  •  Ctrl+C Exit"));
+      lines.push(chalk.gray("─".repeat(66)));
+      lines.push("");
+      lines.push(chalk.bold.white(`  ${title}`));
+      lines.push("");
       
       items.forEach((item, index) => {
         const isSelected = index === selectedIndex;
         const isSeparator = item.value?.startsWith?.("separator");
         
         if (isSeparator) {
-          console.log(chalk.gray(`    ${item.label}`));
+          lines.push(chalk.gray(`    ${item.label}`));
         } else if (isSelected) {
-          console.log(chalk.cyan.bold(`  ❯ ${item.label}`));
+          lines.push(chalk.cyan.bold(`  ❯ ${item.label}`));
         } else {
-          console.log(chalk.white(`    ${item.label}`));
+          lines.push(chalk.white(`    ${item.label}`));
         }
       });
       
-      console.log("");
+      lines.push("");
+      return lines;
+    };
+    
+    const draw = () => {
+      const menuLines = buildMenu();
+      
+      if (isFirstDraw) {
+        // First draw: show banner and menu
+        showBanner();
+        menuLines.forEach(line => console.log(line));
+        menuLineCount = menuLines.length;
+        isFirstDraw = false;
+      } else {
+        // Subsequent draws: move cursor up and overwrite menu only
+        // Move cursor up by menuLineCount lines
+        process.stdout.write(`\x1b[${menuLineCount}A`);
+        // Clear from cursor to end of screen
+        process.stdout.write('\x1b[J');
+        // Redraw menu lines
+        menuLines.forEach(line => console.log(line));
+      }
     };
     
     draw();
