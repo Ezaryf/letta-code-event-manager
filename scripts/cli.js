@@ -99,21 +99,23 @@ function showBanner(subtitle = null) {
 }
 
 async function arrowMenu(title, options, { showBack = false } = {}) {
-  // Flush any pending input
+  // Ensure stdin is in a clean state before starting
   if (process.stdin.isTTY) {
-    process.stdin.setRawMode(true);
-    process.stdin.resume();
-    await new Promise(r => setTimeout(r, 50));
-    process.stdin.read(); // Clear buffer
-    process.stdin.setRawMode(false);
-    process.stdin.pause();
+    try {
+      process.stdin.setRawMode(false);
+    } catch (e) {}
   }
+  process.stdin.pause();
+  
+  // Small delay to let any pending events clear
+  await new Promise(r => setTimeout(r, 30));
   
   return new Promise((resolve) => {
     let selectedIndex = 0;
     const items = [...options];
     let menuLineCount = 0;
     let isFirstDraw = true;
+    let resolved = false;
     
     if (showBack) {
       items.push({ label: chalk.yellow("← Back"), value: "back" });
@@ -153,35 +155,29 @@ async function arrowMenu(title, options, { showBack = false } = {}) {
       const menuLines = buildMenu();
       
       if (isFirstDraw) {
-        // First draw: show banner and menu
         showBanner();
         menuLines.forEach(line => console.log(line));
         menuLineCount = menuLines.length;
         isFirstDraw = false;
       } else {
-        // Subsequent draws: move cursor up and overwrite menu only
-        // Move cursor up by menuLineCount lines
         process.stdout.write(`\x1b[${menuLineCount}A`);
-        // Clear from cursor to end of screen
         process.stdout.write('\x1b[J');
-        // Redraw menu lines
         menuLines.forEach(line => console.log(line));
       }
     };
     
-    draw();
-    
-    readline.emitKeypressEvents(process.stdin);
-    if (process.stdin.isTTY) process.stdin.setRawMode(true);
-    
     const cleanup = () => {
-      process.stdin.removeListener("keypress", onKeypress);
-      if (process.stdin.isTTY) process.stdin.setRawMode(false);
+      if (resolved) return;
+      resolved = true;
+      process.stdin.removeAllListeners("keypress");
+      if (process.stdin.isTTY) {
+        try { process.stdin.setRawMode(false); } catch (e) {}
+      }
       process.stdin.pause();
     };
     
     const onKeypress = (_, key) => {
-      if (!key) return;
+      if (!key || resolved) return;
       
       if (key.name === "up") {
         do {
@@ -206,12 +202,23 @@ async function arrowMenu(title, options, { showBack = false } = {}) {
       }
     };
     
+    draw();
+    
+    readline.emitKeypressEvents(process.stdin);
+    if (process.stdin.isTTY) process.stdin.setRawMode(true);
     process.stdin.on("keypress", onKeypress);
     process.stdin.resume();
   });
 }
 
 async function inputPrompt(message, { allowEmpty = false, isPath = false } = {}) {
+  // Ensure stdin is clean
+  if (process.stdin.isTTY) {
+    try { process.stdin.setRawMode(false); } catch (e) {}
+  }
+  process.stdin.pause();
+  await new Promise(r => setTimeout(r, 30));
+  
   return new Promise((resolve) => {
     console.log(chalk.gray("  (Press Enter to cancel)"));
     
@@ -246,6 +253,13 @@ async function inputPrompt(message, { allowEmpty = false, isPath = false } = {})
 }
 
 async function confirmPrompt(message, { defaultYes = false } = {}) {
+  // Ensure stdin is clean
+  if (process.stdin.isTTY) {
+    try { process.stdin.setRawMode(false); } catch (e) {}
+  }
+  process.stdin.pause();
+  await new Promise(r => setTimeout(r, 30));
+  
   return new Promise((resolve) => {
     const hint = defaultYes ? "(Y/n/b)" : "(y/N/b)";
     console.log(chalk.gray("  b = back"));
@@ -273,6 +287,13 @@ async function confirmPrompt(message, { defaultYes = false } = {}) {
 }
 
 async function waitForKey(message = "Press Enter to continue...") {
+  // Ensure stdin is clean
+  if (process.stdin.isTTY) {
+    try { process.stdin.setRawMode(false); } catch (e) {}
+  }
+  process.stdin.pause();
+  await new Promise(r => setTimeout(r, 30));
+  
   return new Promise((resolve) => {
     const rl = readline.createInterface({
       input: process.stdin,
@@ -286,6 +307,13 @@ async function waitForKey(message = "Press Enter to continue...") {
 }
 
 async function secureInput(message) {
+  // Ensure stdin is clean
+  if (process.stdin.isTTY) {
+    try { process.stdin.setRawMode(false); } catch (e) {}
+  }
+  process.stdin.pause();
+  await new Promise(r => setTimeout(r, 30));
+  
   return new Promise((resolve) => {
     const stdin = process.stdin;
     const stdout = process.stdout;
@@ -293,26 +321,35 @@ async function secureInput(message) {
     stdout.write(chalk.white(`  ${message} `));
     
     let input = "";
+    let resolved = false;
     
     if (stdin.isTTY) stdin.setRawMode(true);
     stdin.resume();
     stdin.setEncoding("utf8");
     
+    const cleanup = () => {
+      if (resolved) return;
+      resolved = true;
+      stdin.removeAllListeners("data");
+      if (stdin.isTTY) {
+        try { stdin.setRawMode(false); } catch (e) {}
+      }
+      stdin.pause();
+    };
+    
     const onData = (char) => {
+      if (resolved) return;
+      
       if (char === "\u0003") {
         stdout.write("\n");
-        stdin.removeListener("data", onData);
-        if (stdin.isTTY) stdin.setRawMode(false);
-        stdin.pause();
+        cleanup();
         resolve(null);
         return;
       }
       
       if (char === "\r" || char === "\n") {
         stdout.write("\n");
-        stdin.removeListener("data", onData);
-        if (stdin.isTTY) stdin.setRawMode(false);
-        stdin.pause();
+        cleanup();
         resolve(input);
         return;
       }
@@ -327,9 +364,7 @@ async function secureInput(message) {
       
       if (char === "\u001B") {
         stdout.write("\n");
-        stdin.removeListener("data", onData);
-        if (stdin.isTTY) stdin.setRawMode(false);
-        stdin.pause();
+        cleanup();
         resolve(null);
         return;
       }
