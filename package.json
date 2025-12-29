@@ -13,6 +13,8 @@
     "fix": "node scripts/autoTestFix.js",
     "chat": "node scripts/cli.js chat",
     "setup": "node scripts/createAgent.js",
+    "setup:force": "node scripts/createAgent.js --force",
+    "setup:upgrade": "node scripts/createAgent.js --upgrade",
     "cleanup": "node scripts/cleanupAgents.js",
     "help": "node scripts/cli.js --help",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",

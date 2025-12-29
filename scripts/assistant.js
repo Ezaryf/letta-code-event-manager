@@ -16,12 +16,14 @@ import {
   getGitContext,
 } from "./analyzer.js";
 
+// Load environment variables FIRST before using them
+dotenv.config();
+
+// Now create the client with loaded env vars
 const client = new Letta({
   apiKey: process.env.LETTA_API_KEY,
   projectID: process.env.LETTA_PROJECT_ID,
 });
-
-dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -43,11 +45,13 @@ Usage:
 
 Options:
   --auto-fix     Automatically apply safe fixes
+  --all          Watch ALL files (not just common folders)
   --debug        Enable debug logging
 
 Examples:
   npm run watch ../my-project
   npm run watch "C:\\Projects\\my-app" --auto-fix
+  npm run watch . --all
 `);
   process.exit(0);
 }
@@ -59,6 +63,11 @@ const agentId = fs.existsSync(path.join(ROOT, ".letta_agent_id"))
 
 if (!agentId) {
   console.error("❌ No agent. Run: npm run setup");
+  process.exit(1);
+}
+
+if (!process.env.LETTA_API_KEY || process.env.LETTA_API_KEY === "sk-let-your-api-key-here") {
+  console.error("❌ LETTA_API_KEY not configured. Run: npm start → Quick Setup");
   process.exit(1);
 }
 
@@ -108,6 +117,10 @@ async function analyzeWithContext(filePath) {
     const response = await client.agents.messages.create(agentId, { input: prompt });
     const text = response?.messages?.map((m) => m.text || m.content).join("\n") || "";
     
+    if (DEBUG) {
+      console.log(`   [DEBUG] Raw response length: ${text.length}`);
+    }
+    
     // Parse structured response
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
@@ -115,7 +128,7 @@ async function analyzeWithContext(filePath) {
         const result = JSON.parse(jsonMatch[0]);
         return { ...result, raw: text };
       } catch (e) {
-        if (DEBUG) console.log(`   [DEBUG] JSON parse failed, using text response`);
+        if (DEBUG) console.log(`   [DEBUG] JSON parse failed: ${e.message}`);
       }
     }
     
@@ -131,6 +144,13 @@ async function analyzeWithContext(filePath) {
     
   } catch (err) {
     console.log(`   ❌ Analysis error: ${err.message}`);
+    if (err.message.includes("401") || err.message.includes("unauthorized")) {
+      console.log(`   💡 Check your LETTA_API_KEY in .env`);
+    } else if (err.message.includes("404") || err.message.includes("not found")) {
+      console.log(`   💡 Agent may have been deleted. Run: npm run setup`);
+    } else if (err.message.includes("timeout") || err.message.includes("ETIMEDOUT")) {
+      console.log(`   💡 Request timed out. Will retry on next change.`);
+    }
     return null;
   }
 }
@@ -534,20 +554,38 @@ Respond with ONLY the commit message.`;
 projectType = detectProjectType(PROJECT_PATH);
 projectStructure = scanProjectStructure(PROJECT_PATH);
 
+// Check if user wants to watch all files
+const WATCH_ALL = process.argv.includes("--all") || process.env.WATCH_ALL === "true";
+
 // Determine watch patterns
-const POSSIBLE_FOLDERS = ["src", "app", "components", "pages", "lib", "utils", "hooks", "types", "features", "modules", "__tests__"];
+const POSSIBLE_FOLDERS = [
+  "src", "app", "components", "pages", "lib", "utils", "hooks", "types", 
+  "features", "modules", "__tests__", "tests", "scripts", "templates",
+  "api", "services", "models", "controllers", "routes", "middleware"
+];
 const WATCH_PATTERNS = [];
 
-for (const folder of POSSIBLE_FOLDERS) {
-  const fullPath = path.join(PROJECT_PATH, folder);
-  if (fs.existsSync(fullPath)) {
-    WATCH_PATTERNS.push(fullPath.replace(/\\/g, "/"));
-  }
-}
-
-// Fallback to project root
-if (WATCH_PATTERNS.length === 0) {
+if (WATCH_ALL) {
+  // Watch entire project
   WATCH_PATTERNS.push(PROJECT_PATH.replace(/\\/g, "/"));
+} else {
+  // Watch specific folders that exist
+  for (const folder of POSSIBLE_FOLDERS) {
+    const fullPath = path.join(PROJECT_PATH, folder);
+    if (fs.existsSync(fullPath)) {
+      WATCH_PATTERNS.push(fullPath.replace(/\\/g, "/"));
+    }
+  }
+  
+  // Also watch root-level JS/TS files
+  WATCH_PATTERNS.push(path.join(PROJECT_PATH, "*.js").replace(/\\/g, "/"));
+  WATCH_PATTERNS.push(path.join(PROJECT_PATH, "*.ts").replace(/\\/g, "/"));
+  
+  // Fallback to project root if no folders found
+  if (WATCH_PATTERNS.length === 2) { // Only the root *.js and *.ts patterns
+    WATCH_PATTERNS.length = 0;
+    WATCH_PATTERNS.push(PROJECT_PATH.replace(/\\/g, "/"));
+  }
 }
 
 const IGNORE = [
@@ -576,27 +614,39 @@ Framework:  ${projectType.framework || projectType.type}
 Language:   ${projectType.language}
 Files:      ${projectStructure.totalFiles} total
 Auto-fix:   ${AUTO_FIX ? "ON" : "OFF"}
+Watch mode: ${WATCH_ALL ? "ALL FILES" : "Smart (common folders)"}
 ════════════════════════════════════════════════════════════════
 `);
 
 console.log("📁 Watching:");
-WATCH_PATTERNS.forEach(p => console.log(`   • ${path.relative(PROJECT_PATH, p) || "."}`));
+if (WATCH_ALL) {
+  console.log(`   • ${path.basename(PROJECT_PATH)} (entire project)`);
+} else {
+  WATCH_PATTERNS.forEach(p => {
+    const rel = path.relative(PROJECT_PATH, p.replace(/\*\.(js|ts)$/, ""));
+    console.log(`   • ${rel || "."}`);
+  });
+}
 console.log("");
 
 const watcher = chokidar.watch(WATCH_PATTERNS, {
   ignored: IGNORE,
   ignoreInitial: true,
   persistent: true,
-  usePolling: true,
-  interval: 300,
-  awaitWriteFinish: { stabilityThreshold: 300, pollInterval: 100 },
+  usePolling: process.platform === "win32", // Use polling on Windows for reliability
+  interval: 500,
+  binaryInterval: 500,
+  awaitWriteFinish: { stabilityThreshold: 500, pollInterval: 100 },
   depth: 10,
 });
 
 watcher.on("ready", () => {
   if (!isReady) {
     isReady = true;
-    console.log("🟢 Ready! Edit your code - I'll analyze it with full context.");
+    const watchedPaths = watcher.getWatched();
+    const totalWatched = Object.values(watchedPaths).flat().length;
+    console.log(`🟢 Ready! Watching ${totalWatched} files.`);
+    console.log("   Edit your code - I'll analyze it with full context.");
     console.log("   Press Ctrl+C to stop and see commit options.\n");
   }
 });
@@ -606,7 +656,7 @@ watcher.on("change", (filePath) => {
   if (!VALID_EXTENSIONS.includes(ext)) return;
   
   const rel = path.relative(PROJECT_PATH, filePath);
-  console.log(`\n📝 ${rel}`);
+  console.log(`\n📝 Changed: ${rel}`);
   scheduleAnalysis(filePath);
 });
 
@@ -617,12 +667,25 @@ watcher.on("add", (filePath) => {
   if (!VALID_EXTENSIONS.includes(ext)) return;
   
   const rel = path.relative(PROJECT_PATH, filePath);
-  console.log(`\n➕ ${rel}`);
+  console.log(`\n➕ Added: ${rel}`);
   scheduleAnalysis(filePath);
+});
+
+watcher.on("unlink", (filePath) => {
+  const ext = path.extname(filePath);
+  if (!VALID_EXTENSIONS.includes(ext)) return;
+  
+  const rel = path.relative(PROJECT_PATH, filePath);
+  console.log(`\n➖ Deleted: ${rel}`);
+  // Clear from cache
+  analysisCache.delete(filePath);
 });
 
 watcher.on("error", (err) => {
   console.error("❌ Watcher error:", err.message);
+  if (DEBUG) {
+    console.error(err.stack);
+  }
 });
 
 if (DEBUG) {

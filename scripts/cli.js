@@ -29,6 +29,16 @@ function getAgentId() {
   return fs.readFileSync(path.join(ROOT, ".letta_agent_id"), "utf8").trim();
 }
 
+function getAgentConfig() {
+  const configPath = path.join(ROOT, ".letta_agent_config.json");
+  if (fs.existsSync(configPath)) {
+    try {
+      return JSON.parse(fs.readFileSync(configPath, "utf8"));
+    } catch (e) {}
+  }
+  return null;
+}
+
 function getRecentProjects() {
   const historyFile = path.join(ROOT, ".letta_history.json");
   if (fs.existsSync(historyFile)) {
@@ -55,8 +65,6 @@ function saveToHistory(projectPath) {
 
 function showBanner(subtitle = null) {
   console.clear();
-  // Box width = 66 chars inside (between ║ and ║)
-  // Note: emoji 🤖 takes 2 char widths visually
   const title = "LETTA CODING ASSISTANT";
   const desc = "AI-powered code analysis, fixes & commit generation";
   
@@ -71,13 +79,15 @@ function showBanner(subtitle = null) {
   if (hasApiKey()) {
     console.log(chalk.green("  ✓ API Key configured"));
   } else {
-    console.log(chalk.red("  ✗ API Key missing") + chalk.gray(" - edit .env file"));
+    console.log(chalk.red("  ✗ API Key missing") + chalk.gray(" - select 'Quick Setup'"));
   }
   
   if (hasAgent()) {
-    console.log(chalk.green(`  ✓ Agent ready`) + chalk.gray(` (${getAgentId().slice(0, 20)}...)`));
+    const config = getAgentConfig();
+    const version = config?.template_version || "unknown";
+    console.log(chalk.green(`  ✓ Agent ready`) + chalk.gray(` (${config?.name || "LettaCode"} v${version})`));
   } else {
-    console.log(chalk.yellow("  ○ No agent") + chalk.gray(" - select 'Setup' to create one"));
+    console.log(chalk.yellow("  ○ No agent") + chalk.gray(" - select 'Quick Setup'"));
   }
   
   if (subtitle) {
@@ -88,18 +98,25 @@ function showBanner(subtitle = null) {
   console.log("");
 }
 
-// Arrow key menu with full back/escape support
-async function arrowMenu(title, options, { showBack = false, showExit = false } = {}) {
+async function arrowMenu(title, options, { showBack = false } = {}) {
+  // Flush any pending input
+  if (process.stdin.isTTY) {
+    process.stdin.setRawMode(true);
+    process.stdin.resume();
+    await new Promise(r => setTimeout(r, 50));
+    process.stdin.read(); // Clear buffer
+    process.stdin.setRawMode(false);
+    process.stdin.pause();
+  }
+  
   return new Promise((resolve) => {
     let selectedIndex = 0;
     const items = [...options];
     
-    // Add back option if requested
     if (showBack) {
-      items.push({ label: chalk.yellow("← Back to Main Menu"), value: "back" });
+      items.push({ label: chalk.yellow("← Back"), value: "back" });
     }
     
-    // Find first non-separator
     while (items[selectedIndex]?.value?.startsWith?.("separator")) {
       selectedIndex++;
     }
@@ -136,6 +153,7 @@ async function arrowMenu(title, options, { showBack = false, showExit = false } 
     const cleanup = () => {
       process.stdin.removeListener("keypress", onKeypress);
       if (process.stdin.isTTY) process.stdin.setRawMode(false);
+      process.stdin.pause();
     };
     
     const onKeypress = (_, key) => {
@@ -169,7 +187,6 @@ async function arrowMenu(title, options, { showBack = false, showExit = false } 
   });
 }
 
-// Input prompt with escape/back support
 async function inputPrompt(message, { allowEmpty = false, isPath = false } = {}) {
   return new Promise((resolve) => {
     console.log(chalk.gray("  (Press Enter to cancel)"));
@@ -184,7 +201,7 @@ async function inputPrompt(message, { allowEmpty = false, isPath = false } = {})
       const trimmed = answer.trim();
       
       if (!trimmed && !allowEmpty) {
-        resolve(null); // Cancelled
+        resolve(null);
         return;
       }
       
@@ -204,7 +221,6 @@ async function inputPrompt(message, { allowEmpty = false, isPath = false } = {})
   });
 }
 
-// Confirm prompt with back support (y/n/b)
 async function confirmPrompt(message, { defaultYes = false } = {}) {
   return new Promise((resolve) => {
     const hint = defaultYes ? "(Y/n/b)" : "(y/N/b)";
@@ -232,7 +248,6 @@ async function confirmPrompt(message, { defaultYes = false } = {}) {
   });
 }
 
-// Wait for any key
 async function waitForKey(message = "Press Enter to continue...") {
   return new Promise((resolve) => {
     const rl = readline.createInterface({
@@ -246,28 +261,116 @@ async function waitForKey(message = "Press Enter to continue...") {
   });
 }
 
+async function secureInput(message) {
+  return new Promise((resolve) => {
+    const stdin = process.stdin;
+    const stdout = process.stdout;
+    
+    stdout.write(chalk.white(`  ${message} `));
+    
+    let input = "";
+    
+    if (stdin.isTTY) stdin.setRawMode(true);
+    stdin.resume();
+    stdin.setEncoding("utf8");
+    
+    const onData = (char) => {
+      if (char === "\u0003") {
+        stdout.write("\n");
+        stdin.removeListener("data", onData);
+        if (stdin.isTTY) stdin.setRawMode(false);
+        stdin.pause();
+        resolve(null);
+        return;
+      }
+      
+      if (char === "\r" || char === "\n") {
+        stdout.write("\n");
+        stdin.removeListener("data", onData);
+        if (stdin.isTTY) stdin.setRawMode(false);
+        stdin.pause();
+        resolve(input);
+        return;
+      }
+      
+      if (char === "\u007F" || char === "\b") {
+        if (input.length > 0) {
+          input = input.slice(0, -1);
+          stdout.write("\b \b");
+        }
+        return;
+      }
+      
+      if (char === "\u001B") {
+        stdout.write("\n");
+        stdin.removeListener("data", onData);
+        if (stdin.isTTY) stdin.setRawMode(false);
+        stdin.pause();
+        resolve(null);
+        return;
+      }
+      
+      input += char;
+      stdout.write("*");
+    };
+    
+    stdin.on("data", onData);
+  });
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // MENUS
 // ═══════════════════════════════════════════════════════════════════════════
 
 const MAIN_MENU = [
+  { label: `🚀 Quick Setup         ${chalk.gray("API key + Agent (first time)")}`, value: "quicksetup" },
+  { label: chalk.gray("────────────────────────────────────────────"), value: "separator0" },
   { label: `👁️  Watch & Analyze     ${chalk.gray("Monitor code changes")}`, value: "watch" },
   { label: `🔧 Auto Test-Fix       ${chalk.gray("Fix failing tests")}`, value: "fix" },
+  { label: `🔍 Analyze Project     ${chalk.gray("Deep code analysis")}`, value: "analyze" },
   { label: `💬 Chat with Agent     ${chalk.gray("Ask questions")}`, value: "chat" },
-  { label: `📝 Generate Commit     ${chalk.gray("Create commit message")}`, value: "commit" },
   { label: chalk.gray("────────────────────────────────────────────"), value: "separator1" },
-  { label: `⚙️  Setup Agent         ${chalk.gray("Create agent")}`, value: "setup" },
-  { label: `🧹 Cleanup Agents       ${chalk.gray("Remove old agents")}`, value: "cleanup" },
-  { label: `❓ Help                 ${chalk.gray("Documentation")}`, value: "help" },
+  { label: `📄 Code Tools          ${chalk.gray("Review, explain, refactor")}`, value: "codetools" },
+  { label: `🧪 Generate Tests      ${chalk.gray("Create tests for code")}`, value: "gentests" },
+  { label: `🐛 Find Bugs           ${chalk.gray("Scan for potential issues")}`, value: "findbugs" },
+  { label: `📝 Git Tools           ${chalk.gray("Commit, diff, status")}`, value: "gittools" },
   { label: chalk.gray("────────────────────────────────────────────"), value: "separator2" },
+  { label: `📊 Agent Status        ${chalk.gray("View agent info & memory")}`, value: "status" },
+  { label: `⚙️  Settings            ${chalk.gray("Configure options")}`, value: "settings" },
+  { label: `❓ Help                 ${chalk.gray("Documentation")}`, value: "help" },
+  { label: chalk.gray("────────────────────────────────────────────"), value: "separator3" },
   { label: chalk.red("✖  Exit"), value: "exit" },
+];
+
+const CODE_TOOLS_MENU = [
+  { label: `📖 Review Code         ${chalk.gray("Get AI code review")}`, value: "review" },
+  { label: `💡 Explain Code        ${chalk.gray("Understand what code does")}`, value: "explain" },
+  { label: `♻️  Refactor            ${chalk.gray("Improve code structure")}`, value: "refactor" },
+  { label: `📚 Add Documentation   ${chalk.gray("Generate comments/docs")}`, value: "document" },
+  { label: `🔒 Security Check      ${chalk.gray("Find security issues")}`, value: "security" },
+];
+
+const GIT_TOOLS_MENU = [
+  { label: `📝 Generate Commit     ${chalk.gray("AI commit message")}`, value: "commit" },
+  { label: `📊 Git Status          ${chalk.gray("View changes")}`, value: "gitstatus" },
+  { label: `📜 View Diff           ${chalk.gray("See what changed")}`, value: "gitdiff" },
+  { label: `🌿 Branch Info         ${chalk.gray("Current branch details")}`, value: "branchinfo" },
+  { label: `📋 Recent Commits      ${chalk.gray("View commit history")}`, value: "gitlog" },
+];
+
+const SETTINGS_MENU = [
+  { label: `🔑 Configure API Key   ${chalk.gray("Update Letta API key")}`, value: "apikey" },
+  { label: `🤖 Setup Agent         ${chalk.gray("Create/recreate agent")}`, value: "setup" },
+  { label: `⬆️  Upgrade Agent       ${chalk.gray("Update to latest template")}`, value: "upgrade" },
+  { label: `🧹 Cleanup Agents      ${chalk.gray("Remove old agents")}`, value: "cleanup" },
+  { label: `🗑️  Clear History       ${chalk.gray("Clear recent projects")}`, value: "clearhistory" },
+  { label: `📋 View Config         ${chalk.gray("Show current settings")}`, value: "viewconfig" },
 ];
 
 async function selectProject() {
   const recentProjects = getRecentProjects();
   const options = [];
   
-  // Recent projects
   for (const proj of recentProjects) {
     if (fs.existsSync(proj)) {
       const shortPath = proj.length > 40 ? "..." + proj.slice(-37) : proj;
@@ -295,17 +398,196 @@ async function selectProject() {
   return choice;
 }
 
+// Select a file from project
+async function selectFile(projectPath) {
+  const options = [];
+  const VALID_EXTENSIONS = [".js", ".jsx", ".ts", ".tsx", ".py", ".go", ".rs", ".java", ".c", ".cpp", ".h"];
+  
+  // Scan for files
+  const scanDir = (dir, depth = 0) => {
+    if (depth > 3) return;
+    const IGNORE = ["node_modules", ".git", ".next", "dist", "build", "coverage"];
+    
+    try {
+      const items = fs.readdirSync(dir);
+      for (const item of items) {
+        if (IGNORE.includes(item)) continue;
+        const fullPath = path.join(dir, item);
+        const stat = fs.statSync(fullPath);
+        
+        if (stat.isDirectory()) {
+          scanDir(fullPath, depth + 1);
+        } else if (stat.isFile() && VALID_EXTENSIONS.includes(path.extname(item))) {
+          const relPath = path.relative(projectPath, fullPath);
+          if (options.length < 20) { // Limit to 20 files
+            options.push({ label: `📄 ${relPath}`, value: fullPath });
+          }
+        }
+      }
+    } catch (e) {}
+  };
+  
+  scanDir(projectPath);
+  
+  if (options.length === 0) {
+    console.log(chalk.yellow("\n  No code files found in project.\n"));
+    await waitForKey();
+    return null;
+  }
+  
+  options.push({ label: chalk.gray("────────────────────────────────────────────"), value: "separator" });
+  options.push({ label: "📝 Enter file path manually", value: "manual" });
+  
+  const choice = await arrowMenu("SELECT FILE", options, { showBack: true });
+  
+  if (choice === "back" || choice === null) return null;
+  
+  if (choice === "manual") {
+    console.log("");
+    const manualPath = await inputPrompt("Enter file path:", { isPath: true });
+    return manualPath;
+  }
+  
+  return choice;
+}
+
+// Get Letta client
+async function getLettaClient() {
+  const { Letta } = await import("@letta-ai/letta-client");
+  return new Letta({
+    apiKey: process.env.LETTA_API_KEY,
+    projectID: process.env.LETTA_PROJECT_ID,
+  });
+}
+
+// Send prompt to agent and get response
+async function askAgent(prompt) {
+  const client = await getLettaClient();
+  const agentId = getAgentId();
+  const response = await client.agents.messages.create(agentId, { input: prompt });
+  return response?.messages?.map((m) => m.text || m.content).join("\n") || "No response";
+}
+
+
 // ═══════════════════════════════════════════════════════════════════════════
 // COMMANDS
 // ═══════════════════════════════════════════════════════════════════════════
 
-async function runWatch() {
-  const project = await selectProject();
-  if (!project) return; // User went back
+async function runQuickSetup() {
+  showBanner("🚀 QUICK SETUP");
   
-  // Ask for auto-fix
+  // Step 1: API Key
+  if (!hasApiKey()) {
+    console.log(chalk.bold.white("  Step 1: Configure API Key\n"));
+    console.log(chalk.gray("  Get your key from: https://app.letta.ai\n"));
+    
+    const apiKey = await secureInput("API Key:");
+    
+    if (!apiKey) {
+      console.log(chalk.yellow("\n  Setup cancelled.\n"));
+      await waitForKey();
+      return;
+    }
+    
+    if (!apiKey.startsWith("sk-let-") || apiKey.length < 20) {
+      console.log(chalk.red("\n  ❌ Invalid API key format."));
+      console.log(chalk.gray("     Key should start with 'sk-let-'\n"));
+      await waitForKey();
+      return;
+    }
+    
+    // Save API key
+    const envPath = path.join(ROOT, ".env");
+    const examplePath = path.join(ROOT, ".env.example");
+    let envContent = fs.existsSync(envPath) 
+      ? fs.readFileSync(envPath, "utf8")
+      : fs.existsSync(examplePath) 
+        ? fs.readFileSync(examplePath, "utf8")
+        : "LETTA_API_KEY=\n";
+    
+    envContent = envContent.replace(/^LETTA_API_KEY=.*/m, `LETTA_API_KEY=${apiKey}`);
+    if (!envContent.includes("LETTA_API_KEY=")) {
+      envContent += `\nLETTA_API_KEY=${apiKey}\n`;
+    }
+    
+    fs.writeFileSync(envPath, envContent, { encoding: "utf8", mode: 0o600 });
+    dotenv.config({ override: true });
+    
+    console.log(chalk.green("\n  ✓ API key saved!\n"));
+  } else {
+    console.log(chalk.green("  ✓ API key already configured\n"));
+  }
+  
+  // Step 2: Create Agent
+  if (!hasAgent()) {
+    console.log(chalk.bold.white("  Step 2: Creating Agent...\n"));
+    
+    const spinner = ora("  Setting up your AI agent...").start();
+    
+    try {
+      const { spawn } = await import("child_process");
+      const child = spawn("node", [path.join(ROOT, "scripts/createAgent.js")], {
+        cwd: ROOT,
+        env: { ...process.env, LETTA_API_KEY: process.env.LETTA_API_KEY },
+        stdio: "pipe",
+      });
+      
+      let output = "";
+      child.stdout.on("data", (data) => { output += data.toString(); });
+      child.stderr.on("data", (data) => { output += data.toString(); });
+      
+      await new Promise((resolve) => child.on("close", resolve));
+      
+      if (hasAgent()) {
+        spinner.succeed("  Agent created successfully!");
+        const config = getAgentConfig();
+        console.log(chalk.gray(`\n  Name: ${config?.name || "LettaCode"}`));
+        console.log(chalk.gray(`  Version: ${config?.template_version || "1.0.0"}`));
+      } else {
+        spinner.fail("  Failed to create agent");
+        console.log(chalk.gray(output));
+      }
+    } catch (err) {
+      spinner.fail("  Error: " + err.message);
+    }
+  } else {
+    console.log(chalk.green("  ✓ Agent already configured\n"));
+  }
+  
+  console.log(chalk.green.bold("\n  🎉 Setup complete! You're ready to go.\n"));
+  console.log(chalk.gray("  Try 'Watch & Analyze' to monitor your code,"));
+  console.log(chalk.gray("  or 'Chat with Agent' to ask questions.\n"));
+  
+  await waitForKey();
+}
+
+async function runWatch() {
+  if (!hasAgent()) {
+    console.log(chalk.red("\n  ❌ No agent configured. Run Quick Setup first.\n"));
+    await waitForKey();
+    return;
+  }
+  
+  const project = await selectProject();
+  if (!project) return;
+  
+  // Small delay to ensure stdin is ready
+  await new Promise(r => setTimeout(r, 100));
+  
+  // Watch mode selection
+  const watchModeOptions = [
+    { label: `📂 Watch ALL     ${chalk.gray("Monitor entire project")}`, value: "all" },
+    { label: `📁 Smart mode    ${chalk.gray("Common folders only")}`, value: "smart" },
+  ];
+  
+  const watchMode = await arrowMenu("WATCH MODE", watchModeOptions, { showBack: true });
+  if (watchMode === "back") return;
+  
+  // Small delay before next prompt
+  await new Promise(r => setTimeout(r, 100));
+  
   const autoFix = await confirmPrompt("Enable auto-fix?");
-  if (autoFix === "back") return; // User went back
+  if (autoFix === "back") return;
   
   saveToHistory(project);
   
@@ -313,6 +595,7 @@ async function runWatch() {
   console.log(chalk.gray("  Press Ctrl+C to stop watching\n"));
   
   const args = [project];
+  if (watchMode === "all") args.push("--all");
   if (autoFix) args.push("--auto-fix");
   
   const { spawn } = await import("child_process");
@@ -326,6 +609,12 @@ async function runWatch() {
 }
 
 async function runTestFix() {
+  if (!hasAgent()) {
+    console.log(chalk.red("\n  ❌ No agent configured. Run Quick Setup first.\n"));
+    await waitForKey();
+    return;
+  }
+  
   const project = await selectProject();
   if (!project) return;
   
@@ -350,16 +639,99 @@ async function runTestFix() {
   await new Promise((resolve) => child.on("close", resolve));
 }
 
+async function runAnalyze() {
+  const project = await selectProject();
+  if (!project) return;
+  
+  saveToHistory(project);
+  showBanner("🔍 PROJECT ANALYSIS");
+  
+  const spinner = ora("  Analyzing project structure...").start();
+  
+  try {
+    const { detectProjectType, scanProjectStructure, getGitContext } = await import("./analyzer.js");
+    
+    const projectType = detectProjectType(project);
+    const structure = scanProjectStructure(project);
+    const git = getGitContext(project);
+    
+    spinner.succeed("  Analysis complete!\n");
+    
+    // Project Info
+    console.log(chalk.bold.white("  📁 PROJECT INFO"));
+    console.log(chalk.gray("  ─".repeat(30)));
+    console.log(`  Path:       ${project}`);
+    console.log(`  Type:       ${projectType.framework || projectType.type}`);
+    console.log(`  Language:   ${projectType.language}`);
+    if (git.branch) console.log(`  Branch:     ${git.branch}`);
+    console.log("");
+    
+    // Structure
+    console.log(chalk.bold.white("  📊 STRUCTURE"));
+    console.log(chalk.gray("  ─".repeat(30)));
+    console.log(`  Total Files:   ${structure.totalFiles}`);
+    console.log(`  Components:    ${structure.components.length}`);
+    console.log(`  Utilities:     ${structure.utils.length}`);
+    console.log(`  Hooks:         ${structure.hooks.length}`);
+    console.log(`  Tests:         ${structure.testFiles.length}`);
+    console.log(`  Config Files:  ${structure.configFiles.length}`);
+    console.log("");
+    
+    // Tools
+    console.log(chalk.bold.white("  🛠️  TOOLS DETECTED"));
+    console.log(chalk.gray("  ─".repeat(30)));
+    if (projectType.hasJest) console.log("  ✓ Jest");
+    if (projectType.hasVitest) console.log("  ✓ Vitest");
+    if (projectType.hasMocha) console.log("  ✓ Mocha");
+    if (projectType.hasEslint) console.log("  ✓ ESLint");
+    if (projectType.hasPrettier) console.log("  ✓ Prettier");
+    if (projectType.language === "typescript") console.log("  ✓ TypeScript");
+    console.log("");
+    
+    // Scripts
+    if (Object.keys(projectType.scripts).length > 0) {
+      console.log(chalk.bold.white("  📜 AVAILABLE SCRIPTS"));
+      console.log(chalk.gray("  ─".repeat(30)));
+      const importantScripts = ["dev", "start", "build", "test", "lint"];
+      for (const script of importantScripts) {
+        if (projectType.scripts[script]) {
+          console.log(`  npm run ${script.padEnd(8)} → ${projectType.scripts[script].slice(0, 40)}`);
+        }
+      }
+      console.log("");
+    }
+    
+    // Git Status
+    if (git.isGitRepo && git.uncommittedChanges.length > 0) {
+      console.log(chalk.bold.white("  📝 UNCOMMITTED CHANGES"));
+      console.log(chalk.gray("  ─".repeat(30)));
+      for (const change of git.uncommittedChanges.slice(0, 5)) {
+        const icon = change.status === "M" ? "📝" : change.status === "A" ? "➕" : change.status === "D" ? "➖" : "❓";
+        console.log(`  ${icon} ${change.file}`);
+      }
+      if (git.uncommittedChanges.length > 5) {
+        console.log(chalk.gray(`  ... and ${git.uncommittedChanges.length - 5} more`));
+      }
+      console.log("");
+    }
+    
+  } catch (err) {
+    spinner.fail("  Error: " + err.message);
+  }
+  
+  await waitForKey();
+}
+
 async function runChat() {
   if (!hasAgent()) {
-    console.log(chalk.red("\n  ❌ No agent configured. Run Setup first.\n"));
+    console.log(chalk.red("\n  ❌ No agent configured. Run Quick Setup first.\n"));
     await waitForKey();
     return;
   }
   
   showBanner("💬 CHAT WITH AGENT");
   console.log(chalk.gray("  Type your message and press Enter"));
-  console.log(chalk.gray("  Type 'exit' or press Enter on empty line to go back\n"));
+  console.log(chalk.gray("  Commands: 'exit' to quit, 'clear' to clear screen\n"));
   
   const { Letta } = await import("@letta-ai/letta-client");
   const client = new Letta({
@@ -381,10 +753,16 @@ async function runChat() {
       });
     });
     
-    // Exit conditions
     if (!message || message.toLowerCase() === "exit" || message.toLowerCase() === "back") {
       console.log(chalk.gray("\n  Returning to main menu...\n"));
       break;
+    }
+    
+    if (message.toLowerCase() === "clear") {
+      showBanner("💬 CHAT WITH AGENT");
+      console.log(chalk.gray("  Type your message and press Enter"));
+      console.log(chalk.gray("  Commands: 'exit' to quit, 'clear' to clear screen\n"));
+      continue;
     }
     
     const spinner = ora("  Thinking...").start();
@@ -404,7 +782,7 @@ async function runChat() {
 
 async function runCommit() {
   if (!hasAgent()) {
-    console.log(chalk.red("\n  ❌ No agent configured. Run Setup first.\n"));
+    console.log(chalk.red("\n  ❌ No agent configured. Run Quick Setup first.\n"));
     await waitForKey();
     return;
   }
@@ -416,7 +794,6 @@ async function runCommit() {
   
   const { execSync } = await import("child_process");
   
-  // Get diff
   let diff;
   try {
     diff = execSync("git diff --staged", { cwd: project, encoding: "utf8" });
@@ -450,7 +827,6 @@ async function runCommit() {
     const response = await client.agents.messages.create(getAgentId(), { input: prompt });
     let message = response?.messages?.map((m) => m.text || m.content).join("").trim().split("\n")[0] || "";
     
-    // Ensure format
     if (!message.startsWith(today)) message = `${today} - ${message}`;
     
     spinner.succeed("  Generated!");
@@ -484,26 +860,594 @@ async function runCommit() {
   await waitForKey();
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// CODE TOOLS
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function runCodeTools() {
+  if (!hasAgent()) {
+    console.log(chalk.red("\n  ❌ No agent configured. Run Quick Setup first.\n"));
+    await waitForKey();
+    return;
+  }
+  
+  while (true) {
+    const action = await arrowMenu("CODE TOOLS", CODE_TOOLS_MENU, { showBack: true });
+    
+    if (action === "back") return;
+    
+    const project = await selectProject();
+    if (!project) continue;
+    
+    const file = await selectFile(project);
+    if (!file) continue;
+    
+    saveToHistory(project);
+    
+    const content = fs.readFileSync(file, "utf8");
+    const relPath = path.relative(project, file);
+    
+    let prompt;
+    let title;
+    
+    switch (action) {
+      case "review":
+        title = "📖 CODE REVIEW";
+        prompt = `Review this code file and provide feedback on:
+1. Code quality and best practices
+2. Potential bugs or issues
+3. Performance concerns
+4. Suggestions for improvement
+
+File: ${relPath}
+\`\`\`
+${content.slice(0, 8000)}
+\`\`\`
+
+Provide a structured review with specific line references where applicable.`;
+        break;
+        
+      case "explain":
+        title = "💡 CODE EXPLANATION";
+        prompt = `Explain what this code does in detail:
+1. Overall purpose
+2. Key functions/components and what they do
+3. Data flow
+4. Any complex logic explained simply
+
+File: ${relPath}
+\`\`\`
+${content.slice(0, 8000)}
+\`\`\``;
+        break;
+        
+      case "refactor":
+        title = "♻️ REFACTORING SUGGESTIONS";
+        prompt = `Suggest refactoring improvements for this code:
+1. Code structure improvements
+2. Better naming conventions
+3. DRY principle violations
+4. Modern syntax/patterns that could be used
+5. Provide specific code examples for each suggestion
+
+File: ${relPath}
+\`\`\`
+${content.slice(0, 8000)}
+\`\`\``;
+        break;
+        
+      case "document":
+        title = "📚 DOCUMENTATION";
+        prompt = `Generate documentation for this code:
+1. File-level JSDoc/docstring
+2. Function/method documentation
+3. Inline comments for complex logic
+4. Usage examples
+
+File: ${relPath}
+\`\`\`
+${content.slice(0, 8000)}
+\`\`\`
+
+Provide the documented version of the code.`;
+        break;
+        
+      case "security":
+        title = "🔒 SECURITY ANALYSIS";
+        prompt = `Perform a security analysis on this code:
+1. Identify potential vulnerabilities (XSS, injection, etc.)
+2. Check for exposed secrets or sensitive data
+3. Authentication/authorization issues
+4. Input validation problems
+5. Rate each issue by severity (Critical/High/Medium/Low)
+
+File: ${relPath}
+\`\`\`
+${content.slice(0, 8000)}
+\`\`\``;
+        break;
+        
+      default:
+        continue;
+    }
+    
+    showBanner(title);
+    console.log(chalk.gray(`  File: ${relPath}\n`));
+    
+    const spinner = ora("  Analyzing...").start();
+    
+    try {
+      const response = await askAgent(prompt);
+      spinner.stop();
+      console.log(chalk.green("\n  Result:\n"));
+      console.log(response);
+      console.log("");
+    } catch (err) {
+      spinner.fail("  Error: " + err.message);
+    }
+    
+    await waitForKey();
+  }
+}
+
+async function runGenerateTests() {
+  if (!hasAgent()) {
+    console.log(chalk.red("\n  ❌ No agent configured. Run Quick Setup first.\n"));
+    await waitForKey();
+    return;
+  }
+  
+  const project = await selectProject();
+  if (!project) return;
+  
+  const file = await selectFile(project);
+  if (!file) return;
+  
+  saveToHistory(project);
+  
+  const content = fs.readFileSync(file, "utf8");
+  const relPath = path.relative(project, file);
+  const ext = path.extname(file);
+  
+  // Detect test framework
+  const pkgPath = path.join(project, "package.json");
+  let testFramework = "jest";
+  if (fs.existsSync(pkgPath)) {
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+    const deps = { ...pkg.dependencies, ...pkg.devDependencies };
+    if (deps.vitest) testFramework = "vitest";
+    else if (deps.mocha) testFramework = "mocha";
+  }
+  
+  showBanner("🧪 GENERATE TESTS");
+  console.log(chalk.gray(`  File: ${relPath}`));
+  console.log(chalk.gray(`  Framework: ${testFramework}\n`));
+  
+  const spinner = ora("  Generating tests...").start();
+  
+  const prompt = `Generate comprehensive unit tests for this code using ${testFramework}:
+
+File: ${relPath}
+\`\`\`${ext.slice(1)}
+${content.slice(0, 8000)}
+\`\`\`
+
+Requirements:
+1. Test all exported functions/components
+2. Include edge cases and error scenarios
+3. Use descriptive test names
+4. Mock external dependencies
+5. Aim for high coverage
+
+Provide complete, runnable test code.`;
+
+  try {
+    const response = await askAgent(prompt);
+    spinner.stop();
+    
+    console.log(chalk.green("\n  Generated Tests:\n"));
+    console.log(response);
+    console.log("");
+    
+    // Offer to save
+    const testFileName = relPath.replace(ext, `.test${ext}`);
+    const save = await confirmPrompt(`Save to ${testFileName}?`);
+    
+    if (save === true) {
+      // Extract code from response
+      const codeMatch = response.match(/```[\w]*\n([\s\S]*?)```/);
+      if (codeMatch) {
+        const testPath = path.join(project, testFileName);
+        fs.mkdirSync(path.dirname(testPath), { recursive: true });
+        fs.writeFileSync(testPath, codeMatch[1], "utf8");
+        console.log(chalk.green(`\n  ✅ Saved to ${testFileName}\n`));
+      } else {
+        console.log(chalk.yellow("\n  Could not extract code from response.\n"));
+      }
+    }
+  } catch (err) {
+    spinner.fail("  Error: " + err.message);
+  }
+  
+  await waitForKey();
+}
+
+async function runFindBugs() {
+  if (!hasAgent()) {
+    console.log(chalk.red("\n  ❌ No agent configured. Run Quick Setup first.\n"));
+    await waitForKey();
+    return;
+  }
+  
+  const project = await selectProject();
+  if (!project) return;
+  
+  saveToHistory(project);
+  
+  showBanner("🐛 FIND BUGS");
+  
+  // Scan multiple files
+  const VALID_EXTENSIONS = [".js", ".jsx", ".ts", ".tsx"];
+  const files = [];
+  
+  const scanDir = (dir, depth = 0) => {
+    if (depth > 3 || files.length >= 10) return;
+    const IGNORE = ["node_modules", ".git", ".next", "dist", "build", "coverage", "__tests__", "tests"];
+    
+    try {
+      const items = fs.readdirSync(dir);
+      for (const item of items) {
+        if (IGNORE.includes(item) || files.length >= 10) continue;
+        const fullPath = path.join(dir, item);
+        const stat = fs.statSync(fullPath);
+        
+        if (stat.isDirectory()) {
+          scanDir(fullPath, depth + 1);
+        } else if (stat.isFile() && VALID_EXTENSIONS.includes(path.extname(item))) {
+          files.push(fullPath);
+        }
+      }
+    } catch (e) {}
+  };
+  
+  scanDir(project);
+  
+  if (files.length === 0) {
+    console.log(chalk.yellow("  No code files found.\n"));
+    await waitForKey();
+    return;
+  }
+  
+  console.log(chalk.gray(`  Scanning ${files.length} files...\n`));
+  
+  const spinner = ora("  Analyzing for bugs...").start();
+  
+  // Build context from files
+  let context = "";
+  for (const file of files) {
+    const content = fs.readFileSync(file, "utf8");
+    const relPath = path.relative(project, file);
+    context += `\n--- ${relPath} ---\n${content.slice(0, 2000)}\n`;
+  }
+  
+  const prompt = `Scan these code files for potential bugs and issues:
+
+${context.slice(0, 15000)}
+
+Look for:
+1. Logic errors and edge cases
+2. Null/undefined handling issues
+3. Race conditions or async problems
+4. Memory leaks
+5. Type mismatches
+6. Error handling gaps
+
+For each bug found, provide:
+- File and approximate location
+- Description of the issue
+- Severity (Critical/High/Medium/Low)
+- Suggested fix`;
+
+  try {
+    const response = await askAgent(prompt);
+    spinner.stop();
+    
+    console.log(chalk.green("\n  Bug Analysis Results:\n"));
+    console.log(response);
+    console.log("");
+  } catch (err) {
+    spinner.fail("  Error: " + err.message);
+  }
+  
+  await waitForKey();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GIT TOOLS
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function runGitTools() {
+  while (true) {
+    const action = await arrowMenu("GIT TOOLS", GIT_TOOLS_MENU, { showBack: true });
+    
+    if (action === "back") return;
+    
+    const project = await selectProject();
+    if (!project) continue;
+    
+    saveToHistory(project);
+    
+    const { execSync } = await import("child_process");
+    
+    // Check if git repo
+    try {
+      execSync("git rev-parse --git-dir", { cwd: project, stdio: "pipe" });
+    } catch (e) {
+      console.log(chalk.red("\n  ❌ Not a git repository.\n"));
+      await waitForKey();
+      continue;
+    }
+    
+    switch (action) {
+      case "commit":
+        await runCommit();
+        break;
+        
+      case "gitstatus":
+        showBanner("📊 GIT STATUS");
+        try {
+          const status = execSync("git status", { cwd: project, encoding: "utf8" });
+          console.log(status);
+        } catch (e) {
+          console.log(chalk.red("  Error: " + e.message));
+        }
+        await waitForKey();
+        break;
+        
+      case "gitdiff":
+        showBanner("📜 GIT DIFF");
+        try {
+          let diff = execSync("git diff --staged", { cwd: project, encoding: "utf8" });
+          if (!diff) diff = execSync("git diff", { cwd: project, encoding: "utf8" });
+          if (diff) {
+            console.log(diff.slice(0, 5000));
+            if (diff.length > 5000) console.log(chalk.gray("\n  ... (truncated)"));
+          } else {
+            console.log(chalk.gray("  No changes to show."));
+          }
+        } catch (e) {
+          console.log(chalk.red("  Error: " + e.message));
+        }
+        await waitForKey();
+        break;
+        
+      case "branchinfo":
+        showBanner("🌿 BRANCH INFO");
+        try {
+          const branch = execSync("git branch --show-current", { cwd: project, encoding: "utf8" }).trim();
+          const remote = execSync("git remote -v", { cwd: project, encoding: "utf8" });
+          const lastCommit = execSync("git log -1 --oneline", { cwd: project, encoding: "utf8" }).trim();
+          
+          console.log(chalk.bold.white(`  Current Branch: ${branch}\n`));
+          console.log(chalk.gray("  Remote:"));
+          console.log(remote);
+          console.log(chalk.gray("  Last Commit:"));
+          console.log(`  ${lastCommit}\n`);
+        } catch (e) {
+          console.log(chalk.red("  Error: " + e.message));
+        }
+        await waitForKey();
+        break;
+        
+      case "gitlog":
+        showBanner("📋 RECENT COMMITS");
+        try {
+          const log = execSync("git log --oneline -15", { cwd: project, encoding: "utf8" });
+          console.log(log);
+        } catch (e) {
+          console.log(chalk.red("  Error: " + e.message));
+        }
+        await waitForKey();
+        break;
+    }
+  }
+}
+
+
+async function runStatus() {
+  showBanner("📊 AGENT STATUS");
+  
+  // API Key Status
+  console.log(chalk.bold.white("  🔑 API CONFIGURATION"));
+  console.log(chalk.gray("  ─".repeat(30)));
+  if (hasApiKey()) {
+    console.log(chalk.green("  ✓ API Key: Configured"));
+    if (process.env.LETTA_PROJECT_ID) {
+      console.log(chalk.green(`  ✓ Project ID: ${process.env.LETTA_PROJECT_ID.slice(0, 20)}...`));
+    }
+  } else {
+    console.log(chalk.red("  ✗ API Key: Not configured"));
+  }
+  console.log("");
+  
+  // Agent Status
+  console.log(chalk.bold.white("  🤖 AGENT"));
+  console.log(chalk.gray("  ─".repeat(30)));
+  if (hasAgent()) {
+    const config = getAgentConfig();
+    console.log(chalk.green(`  ✓ Status: Active`));
+    console.log(`  Name: ${config?.name || "Unknown"}`);
+    console.log(`  ID: ${getAgentId().slice(0, 30)}...`);
+    console.log(`  Template Version: ${config?.template_version || "Unknown"}`);
+    console.log(`  Model: ${config?.model || "Unknown"}`);
+    console.log(`  Created: ${config?.created ? new Date(config.created).toLocaleDateString() : "Unknown"}`);
+    
+    if (config?.memory_blocks) {
+      console.log(`  Memory Blocks: ${config.memory_blocks.join(", ")}`);
+    }
+  } else {
+    console.log(chalk.red("  ✗ Status: Not configured"));
+  }
+  console.log("");
+  
+  // Memory Status
+  console.log(chalk.bold.white("  🧠 MEMORY"));
+  console.log(chalk.gray("  ─".repeat(30)));
+  try {
+    const shortTermPath = path.join(ROOT, "memory/short_term.json");
+    const longTermPath = path.join(ROOT, "memory/long_term.json");
+    
+    if (fs.existsSync(shortTermPath)) {
+      const shortTerm = JSON.parse(fs.readFileSync(shortTermPath, "utf8"));
+      console.log(`  Short-term entries: ${Array.isArray(shortTerm) ? shortTerm.length : 0}`);
+    }
+    
+    if (fs.existsSync(longTermPath)) {
+      const longTerm = JSON.parse(fs.readFileSync(longTermPath, "utf8"));
+      const keys = Object.keys(longTerm);
+      console.log(`  Long-term keys: ${keys.length}`);
+      if (longTerm.common_failures) {
+        console.log(`  Learned failures: ${longTerm.common_failures.length}`);
+      }
+    }
+  } catch (e) {
+    console.log(chalk.gray("  Memory files not initialized"));
+  }
+  console.log("");
+  
+  // Recent Projects
+  const recentProjects = getRecentProjects();
+  if (recentProjects.length > 0) {
+    console.log(chalk.bold.white("  📁 RECENT PROJECTS"));
+    console.log(chalk.gray("  ─".repeat(30)));
+    for (const proj of recentProjects.slice(0, 3)) {
+      const exists = fs.existsSync(proj);
+      const icon = exists ? "✓" : "✗";
+      const color = exists ? chalk.green : chalk.red;
+      console.log(color(`  ${icon} ${proj.slice(-50)}`));
+    }
+    console.log("");
+  }
+  
+  // Check for updates
+  const templatePath = path.join(ROOT, "templates/agent/code_agent.json");
+  if (fs.existsSync(templatePath) && hasAgent()) {
+    const template = JSON.parse(fs.readFileSync(templatePath, "utf8"));
+    const config = getAgentConfig();
+    if (config?.template_version && template.version !== config.template_version) {
+      console.log(chalk.yellow(`  ⚠️  Update available: v${config.template_version} → v${template.version}`));
+      console.log(chalk.gray("     Run 'Settings → Upgrade Agent' to update\n"));
+    }
+  }
+  
+  await waitForKey();
+}
+
+async function runSettings() {
+  while (true) {
+    const action = await arrowMenu("SETTINGS", SETTINGS_MENU, { showBack: true });
+    
+    switch (action) {
+      case "apikey":
+        await runConfigureApiKey();
+        break;
+      case "setup":
+        await runSetup();
+        break;
+      case "upgrade":
+        await runUpgrade();
+        break;
+      case "cleanup":
+        await runCleanup();
+        break;
+      case "clearhistory":
+        await runClearHistory();
+        break;
+      case "viewconfig":
+        await runViewConfig();
+        break;
+      case "back":
+        return;
+    }
+  }
+}
+
+async function runConfigureApiKey() {
+  showBanner("🔑 CONFIGURE API KEY");
+  
+  console.log(chalk.gray("  Your API key will be stored locally in .env"));
+  console.log(chalk.gray("  Get your key from: https://app.letta.ai\n"));
+  
+  if (hasApiKey()) {
+    console.log(chalk.green("  ✓ API key is already configured\n"));
+    
+    const confirm = await confirmPrompt("Replace existing API key?");
+    if (confirm === "back" || confirm === false) return;
+  }
+  
+  console.log(chalk.yellow("\n  Enter your Letta API key (input is hidden):"));
+  console.log(chalk.gray("  Press Esc to cancel\n"));
+  
+  const apiKey = await secureInput("API Key:");
+  
+  if (!apiKey) {
+    console.log(chalk.yellow("\n  Cancelled.\n"));
+    await waitForKey();
+    return;
+  }
+  
+  if (!apiKey.startsWith("sk-let-") || apiKey.length < 20) {
+    console.log(chalk.red("\n  ❌ Invalid API key format.\n"));
+    await waitForKey();
+    return;
+  }
+  
+  const spinner = ora("  Saving configuration...").start();
+  
+  try {
+    const envPath = path.join(ROOT, ".env");
+    const examplePath = path.join(ROOT, ".env.example");
+    let envContent = fs.existsSync(envPath) 
+      ? fs.readFileSync(envPath, "utf8")
+      : fs.existsSync(examplePath) 
+        ? fs.readFileSync(examplePath, "utf8")
+        : "LETTA_API_KEY=\n";
+    
+    envContent = envContent.replace(/^LETTA_API_KEY=.*/m, `LETTA_API_KEY=${apiKey}`);
+    if (!envContent.includes("LETTA_API_KEY=")) {
+      envContent += `\nLETTA_API_KEY=${apiKey}\n`;
+    }
+    
+    fs.writeFileSync(envPath, envContent, { encoding: "utf8", mode: 0o600 });
+    dotenv.config({ override: true });
+    
+    spinner.succeed("  API key saved!");
+  } catch (err) {
+    spinner.fail("  Failed to save: " + err.message);
+  }
+  
+  await waitForKey();
+}
+
 async function runSetup() {
   showBanner("⚙️ AGENT SETUP");
   
   if (!hasApiKey()) {
-    console.log(chalk.red("  ❌ LETTA_API_KEY not set in .env file"));
-    console.log(chalk.gray("     Get your API key from https://app.letta.ai\n"));
+    console.log(chalk.red("  ❌ LETTA_API_KEY not set. Configure API key first.\n"));
     await waitForKey();
     return;
   }
   
   if (hasAgent()) {
-    const confirm = await confirmPrompt("Agent already exists. Create a new one?");
+    const confirm = await confirmPrompt("Agent already exists. Recreate?");
     if (confirm === "back" || confirm === false) return;
   }
   
-  const spinner = ora("  Creating agent...").start();
+  const spinner = ora("  Creating agent from template...").start();
   
   try {
     const { spawn } = await import("child_process");
-    const child = spawn("node", [path.join(ROOT, "scripts/createAgent.js")], {
+    const child = spawn("node", [path.join(ROOT, "scripts/createAgent.js"), "--force"], {
       cwd: ROOT,
       env: { ...process.env },
       stdio: "pipe",
@@ -517,11 +1461,58 @@ async function runSetup() {
     
     if (hasAgent()) {
       spinner.succeed("  Agent created successfully!");
-      console.log(chalk.gray(`  ID: ${getAgentId()}\n`));
+      const config = getAgentConfig();
+      console.log(chalk.gray(`\n  ID: ${getAgentId().slice(0, 30)}...`));
+      console.log(chalk.gray(`  Version: ${config?.template_version || "1.0.0"}\n`));
     } else {
       spinner.fail("  Failed to create agent");
       if (output) console.log(chalk.gray(output));
     }
+  } catch (err) {
+    spinner.fail("  Error: " + err.message);
+  }
+  
+  await waitForKey();
+}
+
+async function runUpgrade() {
+  showBanner("⬆️ UPGRADE AGENT");
+  
+  if (!hasAgent()) {
+    console.log(chalk.red("  ❌ No agent to upgrade. Run Setup first.\n"));
+    await waitForKey();
+    return;
+  }
+  
+  const templatePath = path.join(ROOT, "templates/agent/code_agent.json");
+  const template = JSON.parse(fs.readFileSync(templatePath, "utf8"));
+  const config = getAgentConfig();
+  
+  console.log(`  Current version: ${config?.template_version || "unknown"}`);
+  console.log(`  Latest version:  ${template.version}\n`);
+  
+  if (config?.template_version === template.version) {
+    console.log(chalk.green("  ✓ Agent is already up to date!\n"));
+    await waitForKey();
+    return;
+  }
+  
+  const confirm = await confirmPrompt("Upgrade to latest version?");
+  if (confirm === "back" || confirm === false) return;
+  
+  const spinner = ora("  Upgrading agent...").start();
+  
+  try {
+    const { spawn } = await import("child_process");
+    const child = spawn("node", [path.join(ROOT, "scripts/createAgent.js"), "--upgrade"], {
+      cwd: ROOT,
+      env: { ...process.env },
+      stdio: "pipe",
+    });
+    
+    await new Promise((resolve) => child.on("close", resolve));
+    
+    spinner.succeed("  Agent upgraded successfully!");
   } catch (err) {
     spinner.fail("  Error: " + err.message);
   }
@@ -562,29 +1553,99 @@ async function runCleanup() {
   await waitForKey();
 }
 
+async function runClearHistory() {
+  showBanner("🗑️ CLEAR HISTORY");
+  
+  const confirm = await confirmPrompt("Clear recent projects history?");
+  if (confirm === "back" || confirm === false) return;
+  
+  const historyFile = path.join(ROOT, ".letta_history.json");
+  if (fs.existsSync(historyFile)) {
+    fs.unlinkSync(historyFile);
+    console.log(chalk.green("\n  ✓ History cleared!\n"));
+  } else {
+    console.log(chalk.gray("\n  No history to clear.\n"));
+  }
+  
+  await waitForKey();
+}
+
+async function runViewConfig() {
+  showBanner("📋 CURRENT CONFIGURATION");
+  
+  // Environment
+  console.log(chalk.bold.white("  Environment Variables (.env)"));
+  console.log(chalk.gray("  ─".repeat(30)));
+  console.log(`  LETTA_API_KEY:      ${hasApiKey() ? "✓ Set" : "✗ Not set"}`);
+  console.log(`  LETTA_PROJECT_ID:   ${process.env.LETTA_PROJECT_ID || "Not set"}`);
+  console.log(`  AUTO_APPLY:         ${process.env.AUTO_APPLY || "false"}`);
+  console.log(`  MIN_CONFIDENCE:     ${process.env.MIN_CONFIDENCE || "0.7"}`);
+  console.log(`  MAX_FIX_ATTEMPTS:   ${process.env.MAX_FIX_ATTEMPTS || "10"}`);
+  console.log(`  DEBUG:              ${process.env.DEBUG || "false"}`);
+  console.log("");
+  
+  // Agent Config
+  if (hasAgent()) {
+    const config = getAgentConfig();
+    console.log(chalk.bold.white("  Agent Configuration"));
+    console.log(chalk.gray("  ─".repeat(30)));
+    console.log(`  Name:     ${config?.name || "Unknown"}`);
+    console.log(`  Version:  ${config?.template_version || "Unknown"}`);
+    console.log(`  Model:    ${config?.model || "Unknown"}`);
+    console.log(`  Created:  ${config?.created || "Unknown"}`);
+    console.log("");
+  }
+  
+  // Template Info
+  const templatePath = path.join(ROOT, "templates/agent/code_agent.json");
+  if (fs.existsSync(templatePath)) {
+    const template = JSON.parse(fs.readFileSync(templatePath, "utf8"));
+    console.log(chalk.bold.white("  Agent Template"));
+    console.log(chalk.gray("  ─".repeat(30)));
+    console.log(`  Version:      ${template.version}`);
+    console.log(`  Memory Blocks: ${template.memory_blocks.length}`);
+    console.log("");
+  }
+  
+  await waitForKey();
+}
+
 async function showHelp() {
   showBanner("❓ HELP");
   
-  console.log(chalk.bold.white("  COMMANDS\n"));
-  console.log(chalk.cyan("  👁️  Watch & Analyze"));
-  console.log(chalk.gray("      Monitor code changes in real-time, get AI analysis and suggestions\n"));
-  console.log(chalk.green("  🔧 Auto Test-Fix"));
-  console.log(chalk.gray("      Run tests, detect failures, and automatically generate fixes\n"));
-  console.log(chalk.blue("  💬 Chat"));
-  console.log(chalk.gray("      Have a conversation with your AI agent about code\n"));
-  console.log(chalk.magenta("  📝 Generate Commit"));
-  console.log(chalk.gray("      AI-generated commit messages in DDMMYY format\n"));
+  console.log(chalk.bold.white("  GETTING STARTED\n"));
+  console.log(chalk.gray("  1. Run 'Quick Setup' to configure API key and create agent"));
+  console.log(chalk.gray("  2. Select a project to analyze or watch"));
+  console.log(chalk.gray("  3. Use Chat to ask questions about your code\n"));
+  
+  console.log(chalk.bold.white("  MAIN FEATURES\n"));
+  console.log(chalk.cyan("  🚀 Quick Setup") + chalk.gray(" - One-click setup for new users"));
+  console.log(chalk.cyan("  👁️  Watch & Analyze") + chalk.gray(" - Real-time code monitoring"));
+  console.log(chalk.cyan("  🔧 Auto Test-Fix") + chalk.gray(" - Automatically fix failing tests"));
+  console.log(chalk.cyan("  🔍 Analyze Project") + chalk.gray(" - Deep project structure analysis"));
+  console.log(chalk.cyan("  💬 Chat") + chalk.gray(" - Ask questions about code\n"));
+  
+  console.log(chalk.bold.white("  CODE TOOLS\n"));
+  console.log(chalk.cyan("  📖 Review Code") + chalk.gray(" - Get AI code review"));
+  console.log(chalk.cyan("  💡 Explain Code") + chalk.gray(" - Understand what code does"));
+  console.log(chalk.cyan("  ♻️  Refactor") + chalk.gray(" - Improve code structure"));
+  console.log(chalk.cyan("  📚 Add Documentation") + chalk.gray(" - Generate comments/docs"));
+  console.log(chalk.cyan("  🔒 Security Check") + chalk.gray(" - Find security issues\n"));
+  
+  console.log(chalk.bold.white("  MORE TOOLS\n"));
+  console.log(chalk.cyan("  🧪 Generate Tests") + chalk.gray(" - Create tests for code"));
+  console.log(chalk.cyan("  🐛 Find Bugs") + chalk.gray(" - Scan for potential issues"));
+  console.log(chalk.cyan("  📝 Git Tools") + chalk.gray(" - Commit, diff, status, log\n"));
   
   console.log(chalk.bold.white("  NAVIGATION\n"));
-  console.log(chalk.gray("  ↑ ↓       Navigate menu options"));
+  console.log(chalk.gray("  ↑ ↓       Navigate menu"));
   console.log(chalk.gray("  Enter     Select option"));
-  console.log(chalk.gray("  Esc       Go back / Cancel"));
-  console.log(chalk.gray("  b         Go back (in prompts)"));
-  console.log(chalk.gray("  Ctrl+C    Exit application"));
-  console.log("");
+  console.log(chalk.gray("  Esc       Go back"));
+  console.log(chalk.gray("  Ctrl+C    Exit\n"));
   
   await waitForKey("Press Enter to go back...");
 }
+
 
 // ═══════════════════════════════════════════════════════════════════════════
 // MAIN
@@ -615,7 +1676,7 @@ Navigation:
     process.exit(0);
   }
   
-  // Direct path mode (skip menu)
+  // Direct path mode
   const argPath = process.argv[2];
   if (argPath && fs.existsSync(path.resolve(argPath))) {
     const options = process.argv.includes("--auto-fix") ? ["autoFix"] : [];
@@ -635,28 +1696,51 @@ Navigation:
     return;
   }
   
+  // First-time user check
+  if (!hasApiKey() && !hasAgent()) {
+    showBanner();
+    console.log(chalk.yellow("  👋 Welcome! Looks like this is your first time.\n"));
+    console.log(chalk.gray("  Select 'Quick Setup' to get started in seconds.\n"));
+    await waitForKey();
+  }
+  
   // Interactive menu loop
   while (true) {
     const action = await arrowMenu("MAIN MENU", MAIN_MENU);
     
     switch (action) {
+      case "quicksetup":
+        await runQuickSetup();
+        break;
       case "watch":
         await runWatch();
         break;
       case "fix":
         await runTestFix();
         break;
+      case "analyze":
+        await runAnalyze();
+        break;
       case "chat":
         await runChat();
         break;
-      case "commit":
-        await runCommit();
+      case "codetools":
+        await runCodeTools();
         break;
-      case "setup":
-        await runSetup();
+      case "gentests":
+        await runGenerateTests();
         break;
-      case "cleanup":
-        await runCleanup();
+      case "findbugs":
+        await runFindBugs();
+        break;
+      case "gittools":
+        await runGitTools();
+        break;
+      case "status":
+        await runStatus();
+        break;
+      case "settings":
+        await runSettings();
         break;
       case "help":
         await showHelp();
@@ -665,7 +1749,6 @@ Navigation:
         console.log(chalk.cyan("\n  👋 Goodbye!\n"));
         process.exit(0);
       case "back":
-        // Already at main menu, do nothing
         break;
     }
   }

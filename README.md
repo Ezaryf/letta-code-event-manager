@@ -9,6 +9,7 @@ Production-grade CLI tool for real-time code analysis, intelligent fixes, and au
 - **🔧 Auto Test-Fix** - Automatically fix failing tests
 - **💬 Chat** - Interactive AI conversation for coding help
 - **📝 Smart Commits** - AI-generated commit messages (DDMMYY format)
+- **🧠 Persistent Memory** - Agent remembers project context and preferences
 
 ## 🚀 Quick Start
 
@@ -16,13 +17,37 @@ Production-grade CLI tool for real-time code analysis, intelligent fixes, and au
 # Install dependencies
 npm install
 
-# Configure API key
-cp .env.example .env
-# Edit .env and add your LETTA_API_KEY from https://app.letta.ai
-
 # Launch interactive menu
 npm start
+
+# First time? Select:
+# 1. 🔑 Configure API Key - Enter your key from https://app.letta.ai
+# 2. ⚙️ Setup Agent - Creates your AI agent from template
 ```
+
+## 🤖 Agent System
+
+The agent is created from a **versioned template** (`templates/agent/code_agent.json`). This ensures:
+
+- **Consistency**: Everyone gets the same powerful base agent
+- **Upgradability**: When the template improves, run `npm run setup:upgrade`
+- **Customizability**: Fork and modify the template for your needs
+
+### Agent Commands
+
+```bash
+npm run setup           # Create agent (if none exists)
+npm run setup:upgrade   # Upgrade to latest template version
+npm run setup:force     # Recreate agent from scratch
+```
+
+### Customizing the Agent
+
+Edit `templates/agent/code_agent.json` to customize:
+- System prompt and capabilities
+- Memory blocks (persona, coding standards, etc.)
+- Model selection
+- Communication style
 
 ## 📖 Usage
 
