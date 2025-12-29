@@ -10,7 +10,6 @@
   "scripts": {
     "start": "node scripts/cli.js",
     "watch": "node scripts/assistant.js",
-    "watch:simple": "node scripts/fileWatcher.js",
     "demo": "node scripts/dashboardDemo.js",
     "demo:forest": "node scripts/dashboardDemo.js forest",
     "demo:sunset": "node scripts/dashboardDemo.js sunset",
@@ -51,7 +50,6 @@
     "figures": "^6.1.0",
     "fs-extra": "^11.3.3",
     "gradient-string": "^3.0.0",
-    "log-update": "^7.0.2",
     "ora": "^9.0.0"
   },
   "devDependencies": {

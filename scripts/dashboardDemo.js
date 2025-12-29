@@ -1,290 +1,141 @@
 #!/usr/bin/env node
-// Dashboard Demo - Preview themes and live dashboard
+// Dashboard Demo - Preview the file watcher output
 import chalk from "chalk";
-import logUpdate from "log-update";
 
 const THEME_NAME = process.argv[2] || "ocean";
 
-// ═══════════════════════════════════════════════════════════════════════════
-// THEMES
-// ═══════════════════════════════════════════════════════════════════════════
-
 const THEMES = {
-  ocean: {
-    name: "Ocean",
-    header: chalk.cyan,
-    box1: chalk.cyan,
-    box2: chalk.blue,
-    box3: chalk.green,
-    box4: chalk.yellow,
-    box5: chalk.red,
-    box6: chalk.magenta,
-    accent: chalk.cyan,
-    success: chalk.green,
-    warning: chalk.yellow,
-    error: chalk.red,
-    dim: chalk.dim,
-    bold: chalk.bold,
-  },
-  forest: {
-    name: "Forest",
-    header: chalk.green,
-    box1: chalk.green,
-    box2: chalk.hex("#90EE90"),
-    box3: chalk.hex("#32CD32"),
-    box4: chalk.yellow,
-    box5: chalk.hex("#FF6347"),
-    box6: chalk.hex("#98FB98"),
-    accent: chalk.green,
-    success: chalk.hex("#32CD32"),
-    warning: chalk.yellow,
-    error: chalk.red,
-    dim: chalk.dim,
-    bold: chalk.bold,
-  },
-  sunset: {
-    name: "Sunset",
-    header: chalk.hex("#FF6B6B"),
-    box1: chalk.hex("#FF6B6B"),
-    box2: chalk.hex("#FFA07A"),
-    box3: chalk.hex("#FFD93D"),
-    box4: chalk.hex("#FF8C00"),
-    box5: chalk.hex("#DC143C"),
-    box6: chalk.hex("#FF69B4"),
-    accent: chalk.hex("#FF6B6B"),
-    success: chalk.hex("#98FB98"),
-    warning: chalk.hex("#FFD93D"),
-    error: chalk.hex("#DC143C"),
-    dim: chalk.dim,
-    bold: chalk.bold,
-  },
-  midnight: {
-    name: "Midnight",
-    header: chalk.hex("#9D4EDD"),
-    box1: chalk.hex("#9D4EDD"),
-    box2: chalk.hex("#7B68EE"),
-    box3: chalk.hex("#00CED1"),
-    box4: chalk.hex("#FFD700"),
-    box5: chalk.hex("#FF4500"),
-    box6: chalk.hex("#DA70D6"),
-    accent: chalk.hex("#9D4EDD"),
-    success: chalk.hex("#00FA9A"),
-    warning: chalk.hex("#FFD700"),
-    error: chalk.hex("#FF4500"),
-    dim: chalk.dim,
-    bold: chalk.bold,
-  },
-  mono: {
-    name: "Monochrome",
-    header: chalk.white,
-    box1: chalk.white,
-    box2: chalk.gray,
-    box3: chalk.white,
-    box4: chalk.gray,
-    box5: chalk.white,
-    box6: chalk.gray,
-    accent: chalk.white,
-    success: chalk.white,
-    warning: chalk.gray,
-    error: chalk.white,
-    dim: chalk.dim,
-    bold: chalk.bold,
-  },
+  ocean: { accent: chalk.cyan, success: chalk.green, warning: chalk.yellow, error: chalk.red, dim: chalk.dim },
+  forest: { accent: chalk.green, success: chalk.hex("#32CD32"), warning: chalk.yellow, error: chalk.red, dim: chalk.dim },
+  sunset: { accent: chalk.hex("#FF6B6B"), success: chalk.hex("#98FB98"), warning: chalk.hex("#FFD93D"), error: chalk.hex("#DC143C"), dim: chalk.dim },
+  midnight: { accent: chalk.hex("#9D4EDD"), success: chalk.hex("#00FA9A"), warning: chalk.hex("#FFD700"), error: chalk.hex("#FF4500"), dim: chalk.dim },
+  mono: { accent: chalk.white, success: chalk.white, warning: chalk.gray, error: chalk.white, dim: chalk.dim },
 };
 
 const T = THEMES[THEME_NAME] || THEMES.ocean;
-const LINE = "─";
-const W = 70;
 
-function stripAnsi(str) {
-  return str.replace(/\x1b\[[0-9;]*m/g, "");
+function log(time, message) {
+  console.log(`  ${T.dim(time)} ${message}`);
 }
 
-function box(title, lines, width, color) {
-  const inner = width - 4;
-  let out = color(`  ┌─ `) + T.bold(title) + color(` ${LINE.repeat(Math.max(0, inner - title.length - 1))}┐\n`);
-  for (const line of lines) {
-    const clean = stripAnsi(String(line));
-    const padding = Math.max(0, inner - clean.length);
-    out += color(`  │ `) + line + " ".repeat(padding) + color(` │\n`);
-  }
-  out += color(`  └${LINE.repeat(width - 2)}┘`);
-  return out;
-}
+// Get correct date
+const now = new Date();
+const day = String(now.getDate()).padStart(2, "0");
+const month = String(now.getMonth() + 1).padStart(2, "0");
+const year = String(now.getFullYear()).slice(-2);
+const dateStr = `${day}${month}${year}`;
 
-function bar(val, max = 10, w = 10) {
-  const f = Math.min(val, max);
-  return T.success("█".repeat(f)) + T.dim("░".repeat(w - f));
-}
-
-// Demo data
-let stats = { analyzed: 0, issues: 0, fixed: 0, skipped: 0 };
-let issuesByType = { bugs: 0, security: 0, performance: 0, style: 0 };
-let severityCounts = { critical: 0, high: 0, medium: 0, low: 0 };
-let recentFiles = [];
-let logs = ["Waiting for file changes..."];
-let uptime = 0;
-let currentStatus = "Initializing...";
-
-function render() {
-  const mins = Math.floor(uptime / 60);
-  const secs = uptime % 60;
-  const uptimeStr = `${mins}m ${secs}s`;
-  
-  let output = "";
-  
-  // Header
-  output += T.header(`
-  ┌${LINE.repeat(W - 4)}┐
-  │  🤖 Letta Coding Assistant              Theme: ${T.bold(T.name)}  │
-  └${LINE.repeat(W - 4)}┘
-`);
-
-  // Project Info
-  output += box("Project Info", [
-    `${T.dim("Project:")}   ${T.bold("letta-code-event-manager")}`,
-    `${T.dim("Path:")}      ${T.accent("C:\\Users\\...\\letta-code-event-manager")}`,
-    `${T.dim("Framework:")} ${chalk.yellow("node")}`,
-    `${T.dim("Language:")}  ${chalk.blue("javascript")}`,
-    `${T.dim("Files:")}     ${T.success("204")} total (45 comps, 32 utils, 28 tests)`,
-    `${T.dim("Auto-fix:")}  ${T.success("ON")}`,
-  ], W, T.box1);
-
-  output += "\n\n";
-
-  // Watching
-  output += box("Watching", [
-    `${T.accent("›")} All directories`,
-    `${T.dim("Extensions:")} .js, .jsx, .ts, .tsx...`,
-  ], 35, T.box2);
-
-  output += "\n\n";
-
-  // Stats
-  output += box("Stats", [
-    `Analyzed  ${T.success(String(stats.analyzed).padStart(3))}`,
-    `Issues    ${T.warning(String(stats.issues).padStart(3))}`,
-    `Fixed     ${T.accent(String(stats.fixed).padStart(3))}`,
-    `Skipped   ${T.dim(String(stats.skipped).padStart(3))}`,
-    `Uptime    ${chalk.magenta(uptimeStr)}`,
-  ], 24, T.box3);
-
-  output += "\n\n";
-
-  // Issues
-  output += box("Issues", [
-    `${T.error("●")} Bugs     ${bar(issuesByType.bugs)} ${String(issuesByType.bugs).padStart(2)}`,
-    `${T.warning("!")} Security ${bar(issuesByType.security)} ${String(issuesByType.security).padStart(2)}`,
-    `${T.accent("⚡")} Perf     ${bar(issuesByType.performance)} ${String(issuesByType.performance).padStart(2)}`,
-    `${T.dim("○")} Style    ${bar(issuesByType.style)} ${String(issuesByType.style).padStart(2)}`,
-  ], 34, T.box4);
-
-  output += "\n\n";
-
-  // Severity
-  output += box("Severity", [
-    `${T.error("●")} Critical ${T.error(String(severityCounts.critical).padStart(2))}`,
-    `${T.warning("●")} High     ${T.warning(String(severityCounts.high).padStart(2))}`,
-    `${chalk.white("●")} Medium   ${String(severityCounts.medium).padStart(2)}`,
-    `${T.dim("●")} Low      ${T.dim(String(severityCounts.low).padStart(2))}`,
-  ], 22, T.box5);
-
-  output += "\n\n";
-
-  // Recent Activity
-  let recentLines = recentFiles.length === 0 
-    ? [T.dim("No files analyzed yet...")]
-    : recentFiles.slice(-5).reverse().map(f => {
-        const icon = f.hasIssues ? T.error("×") : T.success("✓");
-        return `${icon} ${f.name.padEnd(20)} ${T.dim(f.time)}${f.fixed ? T.accent(" [fix]") : ""}`;
-      });
-  output += box("Recent Activity", recentLines, 42, T.box6);
-
-  output += "\n\n";
-
-  // Activity Log
-  output += T.dim(`  ─── Activity Log ${"─".repeat(40)}\n`);
-  for (const log of logs.slice(-3)) {
-    output += `  ${log}\n`;
-  }
-
-  output += "\n";
-
-  // Status
-  const spinner = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
-  const frame = spinner[Math.floor(Date.now() / 100) % spinner.length];
-  output += T.accent(`  ${frame} ${currentStatus}\n`);
-  output += T.dim(`\n  ${LINE.repeat(W - 4)}`);
-  output += T.dim(`\n  Press ${T.accent("Ctrl+C")} to stop  |  Theme: ${T.accent(THEME_NAME)}  |  Try: node scripts/dashboardDemo.js sunset\n`);
-
-  return output;
-}
-
-// Simulate live activity
+// Show header
 console.clear();
-currentStatus = "Starting watcher...";
-
-const events = [
-  { delay: 1000, action: () => { currentStatus = "Ready - watching all files for changes..."; logs.push(T.success("✓ Watcher ready - monitoring all project files")); }},
-  { delay: 2000, action: () => { logs.push(T.accent("› Changed: src/core/ideCoordinator.js")); currentStatus = "Analyzing ideCoordinator.js..."; }},
-  { delay: 3500, action: () => { 
-    stats.analyzed++; 
-    stats.issues += 2;
-    issuesByType.bugs++;
-    issuesByType.performance++;
-    severityCounts.high++;
-    severityCounts.medium++;
-    recentFiles.push({ name: "ideCoordinator.js", time: "14:32:15", hasIssues: true, fixed: false });
-    logs.push(`🐛 ${T.warning("[high]")} ideCoordinator.js: Missing null check`);
-    logs.push(`⚡ ${T.warning("[medium]")} ideCoordinator.js: Unnecessary re-render`);
-    currentStatus = "Ready - watching all files for changes...";
-  }},
-  { delay: 5000, action: () => { logs.push(T.accent("› Changed: src/core/lockManager.js")); currentStatus = "Analyzing lockManager.js..."; }},
-  { delay: 6500, action: () => { 
-    stats.analyzed++; 
-    recentFiles.push({ name: "lockManager.js", time: "14:32:18", hasIssues: false, fixed: false });
-    logs.push(T.success("✓ lockManager.js - Looks good! (1.2s)"));
-    currentStatus = "Ready - watching all files for changes...";
-  }},
-  { delay: 8000, action: () => { logs.push(T.success("+ Added: src/utils/newHelper.js")); currentStatus = "Analyzing newHelper.js..."; }},
-  { delay: 9500, action: () => { 
-    stats.analyzed++; 
-    stats.issues++;
-    stats.fixed++;
-    issuesByType.style++;
-    severityCounts.low++;
-    recentFiles.push({ name: "newHelper.js", time: "14:32:22", hasIssues: true, fixed: true });
-    logs.push(`💅 ${T.dim("[low]")} newHelper.js: Missing JSDoc`);
-    logs.push(T.success("✓ Auto-fixed: newHelper.js"));
-    currentStatus = "Ready - watching all files for changes...";
-  }},
-  { delay: 12000, action: () => {
-    logUpdate.clear();
-    console.log(T.header(`
-  ┌─────────────────────────────────────────────────────────────┐
-  │                    📊 Session Summary                       │
-  └─────────────────────────────────────────────────────────────┘
+console.log(T.accent(`
+  ╔══════════════════════════════════════════════════════════════╗
+  ║  🤖 LETTA CODING ASSISTANT - File Watcher Demo               ║
+  ╚══════════════════════════════════════════════════════════════╝
 `));
-    console.log(`  ${T.dim("Analyzed:")}  ${T.success(stats.analyzed)}    ${T.dim("Issues:")} ${T.warning(stats.issues)}    ${T.dim("Fixed:")} ${T.accent(stats.fixed)}`);
-    console.log(`  ${T.dim("Duration:")} ${chalk.magenta("0m 12s")}`);
+console.log(`  ${T.dim("Project:")}   ${chalk.bold("my-awesome-project")}`);
+console.log(`  ${T.dim("Path:")}      /Users/dev/projects/my-awesome-project`);
+console.log(`  ${T.dim("Framework:")} ${chalk.yellow("React")} / ${chalk.blue("TypeScript")}`);
+console.log(`  ${T.dim("Files:")}     ${T.success("156")} total`);
+console.log(`  ${T.dim("Auto-fix:")}  ${T.success("ON")}`);
+console.log(`  ${T.dim("Theme:")}     ${T.accent(THEME_NAME)}`);
+console.log("");
+console.log(T.dim("  " + "─".repeat(60)));
+console.log(T.dim("  Demo mode - simulating file watcher activity"));
+console.log(T.dim("  " + "─".repeat(60)));
+console.log("");
+
+// Simulate events
+const events = [
+  { delay: 500, fn: () => log("14:30:01", T.accent("Starting file watcher...")) },
+  { delay: 1500, fn: () => log("14:30:02", T.success("✓ Watcher ready! Monitoring 156 files")) },
+  { delay: 2000, fn: () => log("14:30:02", T.dim("Waiting for file changes... (edit a file to trigger analysis)")) },
+  { delay: 2500, fn: () => console.log("") },
+  
+  { delay: 3500, fn: () => log("14:30:05", T.accent("📝 File changed: src/components/Button.tsx")) },
+  { delay: 4000, fn: () => log("14:30:06", T.accent("⏳ Analyzing: Button.tsx...")) },
+  { delay: 6000, fn: () => {
+    log("14:30:08", T.success("✓ Button.tsx - Clean component, no issues found (2.0s)"));
     console.log("");
-    console.log(`  ${T.error("●")} Bugs: 1  ${T.warning("●")} Security: 0  ${T.accent("●")} Perf: 1  ${T.dim("●")} Style: 1`);
-    console.log(T.accent(`\n  ♥ Thanks for using Letta!\n`));
-    console.log(T.dim(`  --- Demo complete! Available themes: ocean, forest, sunset, midnight, mono ---\n`));
+  }},
+  
+  { delay: 7500, fn: () => log("14:30:10", T.accent("📝 File changed: src/utils/api.ts")) },
+  { delay: 8000, fn: () => log("14:30:11", T.accent("⏳ Analyzing: api.ts...")) },
+  { delay: 10500, fn: () => {
+    log("14:30:13", T.warning("⚠ api.ts - Found 2 issue(s) (2.5s)"));
+    console.log(`     🔒 ${T.warning("[HIGH]")} API key exposed in source code`);
+    console.log(T.dim("        Line 15"));
+    console.log(`     ⚡ ${chalk.white("[MEDIUM]")} Missing error handling in fetch call`);
+    console.log(T.dim("        Line 28"));
+    console.log("");
+  }},
+  
+  { delay: 12000, fn: () => log("14:30:15", T.success("➕ File added: src/hooks/useAuth.ts")) },
+  { delay: 12500, fn: () => log("14:30:16", T.accent("⏳ Analyzing: useAuth.ts...")) },
+  { delay: 14500, fn: () => {
+    log("14:30:18", T.warning("⚠ useAuth.ts - Found 1 issue(s) (2.0s)"));
+    console.log(`     🐛 ${T.dim("[LOW]")} Missing dependency in useEffect`);
+    console.log(T.dim("        Line 42"));
+    console.log("");
+  }},
+  
+  { delay: 16000, fn: () => {
+    console.log("");
+    log("14:30:20", T.dim("Stopping watcher..."));
+    
+    console.log(T.accent(`
+  ╔══════════════════════════════════════════════════════════════╗
+  ║                    📊 SESSION SUMMARY                        ║
+  ╚══════════════════════════════════════════════════════════════╝
+`));
+    console.log(`  ${T.dim("Duration:")}    ${chalk.magenta("0m 20s")}`);
+    console.log(`  ${T.dim("Analyzed:")}    ${T.success("3")} files`);
+    console.log(`  ${T.dim("Issues:")}      ${T.warning("3")}`);
+    console.log(`  ${T.dim("Fixed:")}       ${T.accent("0")}`);
+    console.log(`  ${T.dim("Skipped:")}     ${T.dim("0")}`);
+    console.log("");
+    console.log(T.dim("  Issue Breakdown:"));
+    console.log(`     🐛 Bugs: 1  🔒 Security: 1  ⚡ Perf: 1  💅 Style: 0`);
+    console.log(`     ${T.error("Critical:")} 0  ${T.warning("High:")} 1  Medium: 1  ${T.dim("Low:")} 1`);
+    console.log("");
+    console.log(T.accent(`  📁 Files Analyzed (3):`));
+    console.log(`     ${T.success("✓")} Button.tsx`);
+    console.log(`     ${T.warning("⚠")} api.ts ${T.warning("(2 issues)")}`);
+    console.log(`     ${T.warning("⚠")} useAuth.ts ${T.warning("(1 issues)")}`);
+    console.log("");
+    console.log(T.warning(`  ⚠ Issues Found (3):`));
+    console.log(`     🔒 ${T.dim("api.ts:")} API key exposed in source code`);
+    console.log(`     ⚡ ${T.dim("api.ts:")} Missing error handling in fetch call`);
+    console.log(`     🐛 ${T.dim("useAuth.ts:")} Missing dependency in useEffect`);
+    console.log("");
+  }},
+  
+  { delay: 17000, fn: () => {
+    console.log(T.dim("  " + "─".repeat(60)));
+    console.log("");
+    console.log(T.accent("  📝 Generating commit message..."));
+    console.log("");
+    console.log(T.success("  ✓ Suggested commit message:"));
+    console.log("");
+    console.log(chalk.bold.white(`     "${dateStr} - Fix security issue and add auth hook"`));
+    console.log("");
+    console.log(T.dim("  To commit your changes, run:"));
+    console.log("");
+    console.log(T.accent(`     git add -A && git commit -m "${dateStr} - Fix security issue and add auth hook"`));
+    console.log("");
+    console.log(T.dim(`  (Message saved to .commit_msg)`));
+    console.log("");
+    console.log(T.dim("  " + "─".repeat(60)));
+    console.log("");
+    console.log(`  ${T.accent("[1]")} Return to main menu`);
+    console.log(`  ${T.accent("[2]")} Exit`);
+    console.log("");
+    console.log(T.accent("  ♥ Demo complete!"));
+    console.log(T.dim(`\n  Available themes: ocean, forest, sunset, midnight, mono`));
+    console.log(T.dim(`  Try: node scripts/dashboardDemo.js sunset\n`));
     process.exit(0);
   }},
 ];
 
-// Schedule events
 for (const event of events) {
-  setTimeout(event.action, event.delay);
+  setTimeout(event.fn, event.delay);
 }
-
-// Live update loop
-const interval = setInterval(() => {
-  uptime++;
-  logUpdate(render());
-}, 1000);
-
-// Initial render
-logUpdate(render());

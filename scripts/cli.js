@@ -418,12 +418,18 @@ const GIT_TOOLS_MENU = [
 ];
 
 const SETTINGS_MENU = [
+  { label: `🎨 Theme & Display     ${chalk.gray("Colors, output style")}`, value: "theme" },
+  { label: `⚙️  Watcher Settings    ${chalk.gray("Analysis behavior")}`, value: "watcher" },
+  { label: `🔧 Auto-fix Settings   ${chalk.gray("Automatic fixes")}`, value: "autofix" },
+  { label: chalk.gray("────────────────────────────────────────────"), value: "separator0" },
   { label: `🔑 Configure API Key   ${chalk.gray("Update Letta API key")}`, value: "apikey" },
   { label: `🤖 Setup Agent         ${chalk.gray("Create/recreate agent")}`, value: "setup" },
   { label: `⬆️  Upgrade Agent       ${chalk.gray("Update to latest template")}`, value: "upgrade" },
   { label: `🧹 Cleanup Agents      ${chalk.gray("Remove old agents")}`, value: "cleanup" },
+  { label: chalk.gray("────────────────────────────────────────────"), value: "separator1" },
   { label: `🗑️  Clear History       ${chalk.gray("Clear recent projects")}`, value: "clearhistory" },
-  { label: `📋 View Config         ${chalk.gray("Show current settings")}`, value: "viewconfig" },
+  { label: `📋 View All Config     ${chalk.gray("Show current settings")}`, value: "viewconfig" },
+  { label: `🔄 Reset to Defaults   ${chalk.gray("Reset all settings")}`, value: "reset" },
 ];
 
 async function selectProject() {
@@ -651,9 +657,9 @@ async function runWatch() {
   saveToHistory(project);
   
   console.log(chalk.cyan("\n  🚀 Starting Watch & Analyze..."));
-  console.log(chalk.gray("  Press Ctrl+C to stop watching\n"));
+  console.log(chalk.gray("  Press Ctrl+C to stop and see options\n"));
   
-  const args = [project];
+  const args = [project, "--return-to-menu"];
   if (watchMode === "all") args.push("--all");
   if (autoFix) args.push("--auto-fix");
   
@@ -664,7 +670,16 @@ async function runWatch() {
     env: { ...process.env },
   });
   
-  await new Promise((resolve) => child.on("close", resolve));
+  // Wait for child to exit and check exit code
+  const exitCode = await new Promise((resolve) => child.on("close", resolve));
+  
+  // If exit code is 100, the user chose to return to menu - we continue
+  // Otherwise, the watcher handles its own exit
+  if (exitCode !== 100 && exitCode !== 0) {
+    console.log(chalk.yellow(`\n  Watcher exited with code ${exitCode}\n`));
+    await waitForKey();
+  }
+  // Return to main menu loop naturally
 }
 
 async function runTestFix() {
@@ -1407,6 +1422,15 @@ async function runSettings() {
     const action = await arrowMenu("SETTINGS", SETTINGS_MENU, { showBack: true });
     
     switch (action) {
+      case "theme":
+        await runThemeSettings();
+        break;
+      case "watcher":
+        await runWatcherSettings();
+        break;
+      case "autofix":
+        await runAutoFixSettings();
+        break;
       case "apikey":
         await runConfigureApiKey();
         break;
@@ -1424,6 +1448,9 @@ async function runSettings() {
         break;
       case "viewconfig":
         await runViewConfig();
+        break;
+      case "reset":
+        await runResetSettings();
         break;
       case "back":
         return;
@@ -1629,42 +1656,423 @@ async function runClearHistory() {
   await waitForKey();
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// NEW SETTINGS FUNCTIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+function getEnvValue(key, defaultValue = "") {
+  return process.env[key] || defaultValue;
+}
+
+function updateEnvFile(updates) {
+  const envPath = path.join(ROOT, ".env");
+  const examplePath = path.join(ROOT, ".env.example");
+  
+  let envContent = fs.existsSync(envPath) 
+    ? fs.readFileSync(envPath, "utf8")
+    : fs.existsSync(examplePath) 
+      ? fs.readFileSync(examplePath, "utf8")
+      : "";
+  
+  for (const [key, value] of Object.entries(updates)) {
+    const regex = new RegExp(`^${key}=.*`, "m");
+    if (envContent.match(regex)) {
+      envContent = envContent.replace(regex, `${key}=${value}`);
+    } else {
+      envContent += `\n${key}=${value}`;
+    }
+  }
+  
+  fs.writeFileSync(envPath, envContent, "utf8");
+  
+  // Reload env
+  dotenv.config({ override: true });
+}
+
+async function runThemeSettings() {
+  const THEME_OPTIONS = [
+    { label: `🌊 Ocean      ${chalk.cyan("█████")} ${chalk.gray("Cool blues and cyans")}`, value: "ocean" },
+    { label: `🌲 Forest     ${chalk.green("█████")} ${chalk.gray("Natural greens")}`, value: "forest" },
+    { label: `🌅 Sunset     ${chalk.hex("#FF6B6B")("█████")} ${chalk.gray("Warm oranges and reds")}`, value: "sunset" },
+    { label: `🌙 Midnight   ${chalk.hex("#9D4EDD")("█████")} ${chalk.gray("Deep purples")}`, value: "midnight" },
+    { label: `⬜ Mono       ${chalk.white("█████")} ${chalk.gray("Clean monochrome")}`, value: "mono" },
+  ];
+  
+  const currentTheme = getEnvValue("LETTA_THEME", "ocean");
+  
+  showBanner("🎨 THEME & DISPLAY SETTINGS");
+  console.log(chalk.gray(`  Current theme: ${chalk.cyan(currentTheme)}\n`));
+  
+  const theme = await arrowMenu("SELECT THEME", THEME_OPTIONS, { showBack: true });
+  
+  if (theme === "back") return;
+  
+  updateEnvFile({ LETTA_THEME: theme });
+  console.log(chalk.green(`\n  ✓ Theme changed to ${theme}!\n`));
+  console.log(chalk.gray("  Restart the watcher to see the new theme.\n"));
+  
+  await waitForKey();
+}
+
+async function runWatcherSettings() {
+  while (true) {
+    const currentDebounce = getEnvValue("WATCHER_DEBOUNCE", "2000");
+    const currentDepth = getEnvValue("WATCHER_DEPTH", "20");
+    const currentExtensions = getEnvValue("WATCH_EXTENSIONS", ".js,.jsx,.ts,.tsx,.json,.css,.scss,.md");
+    const verboseMode = getEnvValue("VERBOSE_OUTPUT", "false");
+    const showTimestamps = getEnvValue("SHOW_TIMESTAMPS", "true");
+    
+    const WATCHER_OPTIONS = [
+      { label: `⏱️  Debounce Delay     ${chalk.gray(`Current: ${currentDebounce}ms`)}`, value: "debounce" },
+      { label: `📁 Watch Depth        ${chalk.gray(`Current: ${currentDepth} levels`)}`, value: "depth" },
+      { label: `📄 File Extensions    ${chalk.gray("Which files to watch")}`, value: "extensions" },
+      { label: `📝 Verbose Output     ${chalk.gray(`Current: ${verboseMode}`)}`, value: "verbose" },
+      { label: `🕐 Show Timestamps    ${chalk.gray(`Current: ${showTimestamps}`)}`, value: "timestamps" },
+      { label: chalk.gray("────────────────────────────────────────────"), value: "separator" },
+      { label: `ℹ️  What do these mean?`, value: "help" },
+    ];
+    
+    showBanner("⚙️ WATCHER SETTINGS");
+    const action = await arrowMenu("WATCHER OPTIONS", WATCHER_OPTIONS, { showBack: true });
+    
+    if (action === "back") return;
+    
+    switch (action) {
+      case "debounce": {
+        console.log(chalk.gray("\n  Debounce delay: How long to wait after a file change before analyzing."));
+        console.log(chalk.gray("  Lower = faster response, Higher = fewer duplicate analyses.\n"));
+        
+        const DEBOUNCE_OPTIONS = [
+          { label: "500ms  - Very fast (may cause duplicates)", value: "500" },
+          { label: "1000ms - Fast", value: "1000" },
+          { label: "1500ms - Balanced (recommended)", value: "1500" },
+          { label: "2000ms - Default", value: "2000" },
+          { label: "3000ms - Slow (for large files)", value: "3000" },
+        ];
+        
+        const debounce = await arrowMenu("SELECT DEBOUNCE DELAY", DEBOUNCE_OPTIONS, { showBack: true });
+        if (debounce !== "back") {
+          updateEnvFile({ WATCHER_DEBOUNCE: debounce });
+          console.log(chalk.green(`\n  ✓ Debounce set to ${debounce}ms\n`));
+          await waitForKey();
+        }
+        break;
+      }
+      
+      case "depth": {
+        console.log(chalk.gray("\n  Watch depth: How many folder levels deep to watch."));
+        console.log(chalk.gray("  Higher = more files watched, but slower startup.\n"));
+        
+        const DEPTH_OPTIONS = [
+          { label: "5 levels  - Shallow", value: "5" },
+          { label: "10 levels - Medium", value: "10" },
+          { label: "20 levels - Deep (default)", value: "20" },
+          { label: "50 levels - Very deep", value: "50" },
+        ];
+        
+        const depth = await arrowMenu("SELECT WATCH DEPTH", DEPTH_OPTIONS, { showBack: true });
+        if (depth !== "back") {
+          updateEnvFile({ WATCHER_DEPTH: depth });
+          console.log(chalk.green(`\n  ✓ Watch depth set to ${depth} levels\n`));
+          await waitForKey();
+        }
+        break;
+      }
+      
+      case "extensions": {
+        console.log(chalk.gray("\n  Current extensions: " + currentExtensions));
+        console.log(chalk.gray("  Enter comma-separated list (e.g., .js,.ts,.py)\n"));
+        
+        const extensions = await inputPrompt("File extensions:", { allowEmpty: false });
+        if (extensions) {
+          updateEnvFile({ WATCH_EXTENSIONS: extensions });
+          console.log(chalk.green(`\n  ✓ Extensions updated!\n`));
+        }
+        await waitForKey();
+        break;
+      }
+      
+      case "verbose": {
+        const newValue = verboseMode === "true" ? "false" : "true";
+        updateEnvFile({ VERBOSE_OUTPUT: newValue });
+        console.log(chalk.green(`\n  ✓ Verbose output ${newValue === "true" ? "enabled" : "disabled"}\n`));
+        await waitForKey();
+        break;
+      }
+      
+      case "timestamps": {
+        const newValue = showTimestamps === "true" ? "false" : "true";
+        updateEnvFile({ SHOW_TIMESTAMPS: newValue });
+        console.log(chalk.green(`\n  ✓ Timestamps ${newValue === "true" ? "enabled" : "disabled"}\n`));
+        await waitForKey();
+        break;
+      }
+      
+      case "help": {
+        console.log(chalk.bold.white("\n  WATCHER SETTINGS EXPLAINED\n"));
+        console.log(chalk.cyan("  Debounce Delay"));
+        console.log(chalk.gray("    When you save a file, the watcher waits this long before"));
+        console.log(chalk.gray("    analyzing. This prevents multiple analyses if you save quickly.\n"));
+        console.log(chalk.cyan("  Watch Depth"));
+        console.log(chalk.gray("    How many folder levels deep to monitor. Deeper = more files,"));
+        console.log(chalk.gray("    but may slow down startup on large projects.\n"));
+        console.log(chalk.cyan("  File Extensions"));
+        console.log(chalk.gray("    Only files with these extensions will be analyzed.\n"));
+        console.log(chalk.cyan("  Verbose Output"));
+        console.log(chalk.gray("    Show more detailed information during analysis.\n"));
+        console.log(chalk.cyan("  Timestamps"));
+        console.log(chalk.gray("    Show time stamps on each log line.\n"));
+        await waitForKey();
+        break;
+      }
+    }
+  }
+}
+
+async function runAutoFixSettings() {
+  while (true) {
+    const autoApply = getEnvValue("AUTO_APPLY", "false");
+    const minConfidence = getEnvValue("MIN_CONFIDENCE", "0.7");
+    const maxAttempts = getEnvValue("MAX_FIX_ATTEMPTS", "10");
+    const backupEnabled = getEnvValue("BACKUP_BEFORE_FIX", "true");
+    const fixTypes = getEnvValue("FIX_TYPES", "bug,security,performance");
+    
+    const AUTOFIX_OPTIONS = [
+      { label: `🔧 Auto-Apply Fixes   ${autoApply === "true" ? chalk.green("ON") : chalk.red("OFF")}`, value: "autoapply" },
+      { label: `📊 Min Confidence     ${chalk.gray(`Current: ${(parseFloat(minConfidence) * 100).toFixed(0)}%`)}`, value: "confidence" },
+      { label: `🔄 Max Fix Attempts   ${chalk.gray(`Current: ${maxAttempts}`)}`, value: "attempts" },
+      { label: `💾 Backup Before Fix  ${backupEnabled === "true" ? chalk.green("ON") : chalk.red("OFF")}`, value: "backup" },
+      { label: `🎯 Fix Types          ${chalk.gray("Which issues to auto-fix")}`, value: "fixtypes" },
+      { label: chalk.gray("────────────────────────────────────────────"), value: "separator" },
+      { label: `ℹ️  What do these mean?`, value: "help" },
+    ];
+    
+    showBanner("🔧 AUTO-FIX SETTINGS");
+    const action = await arrowMenu("AUTO-FIX OPTIONS", AUTOFIX_OPTIONS, { showBack: true });
+    
+    if (action === "back") return;
+    
+    switch (action) {
+      case "autoapply": {
+        const newValue = autoApply === "true" ? "false" : "true";
+        updateEnvFile({ AUTO_APPLY: newValue });
+        console.log(chalk.green(`\n  ✓ Auto-apply ${newValue === "true" ? "enabled" : "disabled"}\n`));
+        if (newValue === "true") {
+          console.log(chalk.yellow("  ⚠ Auto-fix will automatically modify your files!"));
+          console.log(chalk.gray("  Backups are created in .letta-backups/\n"));
+        }
+        await waitForKey();
+        break;
+      }
+      
+      case "confidence": {
+        console.log(chalk.gray("\n  Minimum confidence required to apply a fix."));
+        console.log(chalk.gray("  Higher = safer but fewer fixes, Lower = more fixes but riskier.\n"));
+        
+        const CONFIDENCE_OPTIONS = [
+          { label: "50%  - Low (more fixes, higher risk)", value: "0.5" },
+          { label: "60%  - Medium-low", value: "0.6" },
+          { label: "70%  - Default (balanced)", value: "0.7" },
+          { label: "80%  - Medium-high", value: "0.8" },
+          { label: "90%  - High (safer, fewer fixes)", value: "0.9" },
+          { label: "95%  - Very high (only very confident fixes)", value: "0.95" },
+        ];
+        
+        const confidence = await arrowMenu("SELECT CONFIDENCE LEVEL", CONFIDENCE_OPTIONS, { showBack: true });
+        if (confidence !== "back") {
+          updateEnvFile({ MIN_CONFIDENCE: confidence });
+          console.log(chalk.green(`\n  ✓ Confidence set to ${(parseFloat(confidence) * 100).toFixed(0)}%\n`));
+          await waitForKey();
+        }
+        break;
+      }
+      
+      case "attempts": {
+        console.log(chalk.gray("\n  Maximum number of fix attempts per file."));
+        console.log(chalk.gray("  Prevents infinite loops if a fix keeps failing.\n"));
+        
+        const ATTEMPTS_OPTIONS = [
+          { label: "3 attempts", value: "3" },
+          { label: "5 attempts", value: "5" },
+          { label: "10 attempts (default)", value: "10" },
+          { label: "20 attempts", value: "20" },
+        ];
+        
+        const attempts = await arrowMenu("SELECT MAX ATTEMPTS", ATTEMPTS_OPTIONS, { showBack: true });
+        if (attempts !== "back") {
+          updateEnvFile({ MAX_FIX_ATTEMPTS: attempts });
+          console.log(chalk.green(`\n  ✓ Max attempts set to ${attempts}\n`));
+          await waitForKey();
+        }
+        break;
+      }
+      
+      case "backup": {
+        const newValue = backupEnabled === "true" ? "false" : "true";
+        updateEnvFile({ BACKUP_BEFORE_FIX: newValue });
+        console.log(chalk.green(`\n  ✓ Backup ${newValue === "true" ? "enabled" : "disabled"}\n`));
+        if (newValue === "false") {
+          console.log(chalk.yellow("  ⚠ Warning: Files will be modified without backup!\n"));
+        }
+        await waitForKey();
+        break;
+      }
+      
+      case "fixtypes": {
+        console.log(chalk.gray("\n  Select which issue types to auto-fix:"));
+        console.log(chalk.gray("  Current: " + fixTypes + "\n"));
+        
+        const FIX_TYPE_OPTIONS = [
+          { label: "All types (bug, security, performance, style)", value: "bug,security,performance,style" },
+          { label: "Critical only (bug, security)", value: "bug,security" },
+          { label: "Bug and performance", value: "bug,performance" },
+          { label: "Style only (safe)", value: "style" },
+          { label: "Custom (enter manually)", value: "custom" },
+        ];
+        
+        const types = await arrowMenu("SELECT FIX TYPES", FIX_TYPE_OPTIONS, { showBack: true });
+        if (types === "custom") {
+          const custom = await inputPrompt("Enter types (comma-separated):", { allowEmpty: false });
+          if (custom) {
+            updateEnvFile({ FIX_TYPES: custom });
+            console.log(chalk.green(`\n  ✓ Fix types updated!\n`));
+          }
+        } else if (types !== "back") {
+          updateEnvFile({ FIX_TYPES: types });
+          console.log(chalk.green(`\n  ✓ Fix types set to: ${types}\n`));
+        }
+        await waitForKey();
+        break;
+      }
+      
+      case "help": {
+        console.log(chalk.bold.white("\n  AUTO-FIX SETTINGS EXPLAINED\n"));
+        console.log(chalk.cyan("  Auto-Apply Fixes"));
+        console.log(chalk.gray("    When enabled, the AI will automatically apply fixes to your code."));
+        console.log(chalk.gray("    When disabled, it only suggests fixes.\n"));
+        console.log(chalk.cyan("  Min Confidence"));
+        console.log(chalk.gray("    The AI rates its confidence in each fix (0-100%)."));
+        console.log(chalk.gray("    Only fixes above this threshold will be applied.\n"));
+        console.log(chalk.cyan("  Max Fix Attempts"));
+        console.log(chalk.gray("    Limits how many times the AI will try to fix a single file."));
+        console.log(chalk.gray("    Prevents infinite loops.\n"));
+        console.log(chalk.cyan("  Backup Before Fix"));
+        console.log(chalk.gray("    Creates a backup copy before modifying any file."));
+        console.log(chalk.gray("    Backups are stored in .letta-backups/\n"));
+        console.log(chalk.cyan("  Fix Types"));
+        console.log(chalk.gray("    Choose which types of issues to auto-fix:"));
+        console.log(chalk.gray("    • bug - Logic errors, null checks, etc."));
+        console.log(chalk.gray("    • security - XSS, injection, exposed secrets"));
+        console.log(chalk.gray("    • performance - Slow code, memory leaks"));
+        console.log(chalk.gray("    • style - Formatting, naming conventions\n"));
+        await waitForKey();
+        break;
+      }
+    }
+  }
+}
+
+async function runResetSettings() {
+  showBanner("🔄 RESET SETTINGS");
+  
+  console.log(chalk.yellow("  This will reset all settings to their defaults.\n"));
+  console.log(chalk.gray("  The following will be reset:"));
+  console.log(chalk.gray("  • Theme → ocean"));
+  console.log(chalk.gray("  • Watcher debounce → 2000ms"));
+  console.log(chalk.gray("  • Auto-apply → false"));
+  console.log(chalk.gray("  • Min confidence → 70%"));
+  console.log(chalk.gray("  • And other settings...\n"));
+  console.log(chalk.gray("  Your API key and agent will NOT be affected.\n"));
+  
+  const confirm = await confirmPrompt("Reset all settings to defaults?");
+  if (confirm === "back" || confirm === false) return;
+  
+  // Preserve API key
+  const apiKey = process.env.LETTA_API_KEY;
+  const projectId = process.env.LETTA_PROJECT_ID;
+  
+  const defaults = {
+    LETTA_API_KEY: apiKey || "sk-let-your-api-key-here",
+    LETTA_PROJECT_ID: projectId || "",
+    AUTO_APPLY: "false",
+    MIN_CONFIDENCE: "0.7",
+    MAX_FIX_ATTEMPTS: "10",
+    WATCHER_DEBOUNCE: "2000",
+    WATCH_ALL: "false",
+    LETTA_THEME: "ocean",
+    AUTO_REMEMBER: "false",
+    VERBOSE_OUTPUT: "false",
+    SHOW_TIMESTAMPS: "true",
+    WATCHER_DEPTH: "20",
+    WATCH_EXTENSIONS: ".js,.jsx,.ts,.tsx,.json,.css,.scss,.md",
+    BACKUP_BEFORE_FIX: "true",
+    FIX_TYPES: "bug,security,performance",
+  };
+  
+  const envPath = path.join(ROOT, ".env");
+  let content = "";
+  for (const [key, value] of Object.entries(defaults)) {
+    content += `${key}=${value}\n`;
+  }
+  
+  fs.writeFileSync(envPath, content, "utf8");
+  dotenv.config({ override: true });
+  
+  console.log(chalk.green("\n  ✓ All settings reset to defaults!\n"));
+  await waitForKey();
+}
+
 async function runViewConfig() {
   showBanner("📋 CURRENT CONFIGURATION");
   
-  // Environment
-  console.log(chalk.bold.white("  Environment Variables (.env)"));
+  // Theme & Display
+  console.log(chalk.bold.cyan("  🎨 Theme & Display"));
   console.log(chalk.gray("  ─".repeat(30)));
-  console.log(`  LETTA_API_KEY:      ${hasApiKey() ? "✓ Set" : "✗ Not set"}`);
-  console.log(`  LETTA_PROJECT_ID:   ${process.env.LETTA_PROJECT_ID || "Not set"}`);
-  console.log(`  AUTO_APPLY:         ${process.env.AUTO_APPLY || "false"}`);
-  console.log(`  MIN_CONFIDENCE:     ${process.env.MIN_CONFIDENCE || "0.7"}`);
-  console.log(`  MAX_FIX_ATTEMPTS:   ${process.env.MAX_FIX_ATTEMPTS || "10"}`);
-  console.log(`  DEBUG:              ${process.env.DEBUG || "false"}`);
+  console.log(`  Theme:            ${chalk.cyan(getEnvValue("LETTA_THEME", "ocean"))}`);
+  console.log(`  Show Timestamps:  ${getEnvValue("SHOW_TIMESTAMPS", "true") === "true" ? chalk.green("ON") : chalk.red("OFF")}`);
+  console.log(`  Verbose Output:   ${getEnvValue("VERBOSE_OUTPUT", "false") === "true" ? chalk.green("ON") : chalk.red("OFF")}`);
   console.log("");
   
-  // Agent Config
+  // Watcher Settings
+  console.log(chalk.bold.blue("  ⚙️ Watcher Settings"));
+  console.log(chalk.gray("  ─".repeat(30)));
+  console.log(`  Debounce:         ${getEnvValue("WATCHER_DEBOUNCE", "2000")}ms`);
+  console.log(`  Watch Depth:      ${getEnvValue("WATCHER_DEPTH", "20")} levels`);
+  console.log(`  Watch All:        ${getEnvValue("WATCH_ALL", "false") === "true" ? chalk.green("ON") : chalk.red("OFF")}`);
+  console.log(`  Extensions:       ${getEnvValue("WATCH_EXTENSIONS", ".js,.jsx,.ts,.tsx")}`);
+  console.log("");
+  
+  // Auto-Fix Settings
+  console.log(chalk.bold.yellow("  🔧 Auto-Fix Settings"));
+  console.log(chalk.gray("  ─".repeat(30)));
+  console.log(`  Auto-Apply:       ${getEnvValue("AUTO_APPLY", "false") === "true" ? chalk.green("ON") : chalk.red("OFF")}`);
+  console.log(`  Min Confidence:   ${(parseFloat(getEnvValue("MIN_CONFIDENCE", "0.7")) * 100).toFixed(0)}%`);
+  console.log(`  Max Attempts:     ${getEnvValue("MAX_FIX_ATTEMPTS", "10")}`);
+  console.log(`  Backup Enabled:   ${getEnvValue("BACKUP_BEFORE_FIX", "true") === "true" ? chalk.green("ON") : chalk.red("OFF")}`);
+  console.log(`  Fix Types:        ${getEnvValue("FIX_TYPES", "bug,security,performance")}`);
+  console.log("");
+  
+  // API & Agent
+  console.log(chalk.bold.green("  🔑 API & Agent"));
+  console.log(chalk.gray("  ─".repeat(30)));
+  console.log(`  API Key:          ${hasApiKey() ? chalk.green("✓ Configured") : chalk.red("✗ Not set")}`);
+  console.log(`  Project ID:       ${process.env.LETTA_PROJECT_ID || chalk.gray("Not set")}`);
+  
   if (hasAgent()) {
     const config = getAgentConfig();
-    console.log(chalk.bold.white("  Agent Configuration"));
-    console.log(chalk.gray("  ─".repeat(30)));
-    console.log(`  Name:     ${config?.name || "Unknown"}`);
-    console.log(`  Version:  ${config?.template_version || "Unknown"}`);
-    console.log(`  Model:    ${config?.model || "Unknown"}`);
-    console.log(`  Created:  ${config?.created || "Unknown"}`);
-    console.log("");
+    console.log(`  Agent:            ${chalk.green("✓ " + (config?.name || "LettaCode"))}`);
+    console.log(`  Agent Version:    ${config?.template_version || "Unknown"}`);
+  } else {
+    console.log(`  Agent:            ${chalk.red("✗ Not configured")}`);
   }
+  console.log("");
   
-  // Template Info
-  const templatePath = path.join(ROOT, "templates/agent/code_agent.json");
-  if (fs.existsSync(templatePath)) {
-    const template = JSON.parse(fs.readFileSync(templatePath, "utf8"));
-    console.log(chalk.bold.white("  Agent Template"));
-    console.log(chalk.gray("  ─".repeat(30)));
-    console.log(`  Version:      ${template.version}`);
-    console.log(`  Memory Blocks: ${template.memory_blocks.length}`);
-    console.log("");
-  }
+  // Debug
+  console.log(chalk.bold.magenta("  🐛 Debug"));
+  console.log(chalk.gray("  ─".repeat(30)));
+  console.log(`  Debug Mode:       ${getEnvValue("DEBUG", "false") === "true" ? chalk.green("ON") : chalk.red("OFF")}`);
+  console.log(`  Auto Remember:    ${getEnvValue("AUTO_REMEMBER", "false") === "true" ? chalk.green("ON") : chalk.red("OFF")}`);
+  console.log("");
   
   await waitForKey();
 }
