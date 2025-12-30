@@ -382,8 +382,6 @@ function showHeader() {
   // Get package.json info
   const pkg = projectType?.packageJson || {};
   const description = pkg.description || null;
-  const author = pkg.author ? (typeof pkg.author === "string" ? pkg.author : pkg.author.name) : null;
-  const license = pkg.license || null;
   const deps = Object.keys(pkg.dependencies || {}).length;
   const devDeps = Object.keys(pkg.devDependencies || {}).length;
   
@@ -396,191 +394,136 @@ function showHeader() {
   if (projectType?.hasPrettier) tools.push("Prettier");
   if (lang === "typescript") tools.push("TypeScript");
   
-  // Check for more tools
   const allDeps = { ...pkg.dependencies, ...pkg.devDependencies };
   if (allDeps.webpack) tools.push("Webpack");
   if (allDeps.vite) tools.push("Vite");
-  if (allDeps.rollup) tools.push("Rollup");
-  if (allDeps.esbuild) tools.push("esbuild");
-  if (allDeps.babel || allDeps["@babel/core"]) tools.push("Babel");
-  if (allDeps.husky) tools.push("Husky");
-  if (allDeps["lint-staged"]) tools.push("lint-staged");
   if (allDeps.nodemon) tools.push("Nodemon");
-  if (allDeps.pm2) tools.push("PM2");
-  if (allDeps.docker || fs.existsSync(path.join(PROJECT_PATH, "Dockerfile"))) tools.push("Docker");
   
   // Available scripts
   const npmScripts = projectType?.scripts || {};
-  const availableScripts = ["dev", "start", "build", "test", "lint", "format", "watch", "serve", "deploy"].filter(s => npmScripts[s]);
+  const availableScripts = ["dev", "start", "build", "test", "lint", "watch"].filter(s => npmScripts[s]);
 
   console.clear();
   
   // ═══════════════════════════════════════════════════════════════════════
-  // HEADER BANNER
+  // CLEAN HEADER - Minimal and elegant
   // ═══════════════════════════════════════════════════════════════════════
   console.log("");
-  console.log(T.accent("  ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓"));
-  console.log(T.accent("  ┃") + chalk.bold.white("  🤖 LETTA CODE WATCHER                                        ") + T.accent("┃"));
-  console.log(T.accent("  ┃") + T.dim("     Real-time AI code analysis & smart commits                ") + T.accent("┃"));
-  console.log(T.accent("  ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛"));
+  console.log(T.accent("  ╭─────────────────────────────────────────────────────────────────╮"));
+  console.log(T.accent("  │") + chalk.bold.white("  🤖 LETTA CODE WATCHER                                         ") + T.accent("│"));
+  console.log(T.accent("  ╰─────────────────────────────────────────────────────────────────╯"));
   console.log("");
   
   // ═══════════════════════════════════════════════════════════════════════
-  // PROJECT OVERVIEW - Enhanced with more info
+  // PROJECT CARD - Clean two-column layout
   // ═══════════════════════════════════════════════════════════════════════
-  const versionStr = version ? T.dim(` v${version}`) : "";
-  const frameworkBadge = fw !== "node" ? chalk.bgBlue.white(` ${fw} `) : chalk.bgGray.white(" Node.js ");
-  const langBadge = lang === "typescript" ? chalk.bgBlue.white(" TS ") : chalk.bgYellow.black(" JS ");
+  const versionStr = version ? chalk.dim(`v${version}`) : "";
+  const langIcon = lang === "typescript" ? chalk.blue("TS") : chalk.yellow("JS");
+  const fwIcon = fw === "node" ? "⬢" : fw === "react" ? "⚛" : fw === "vue" ? "🟢" : fw === "next" ? "▲" : "◆";
   
-  console.log(T.dim("  ─── Project ───────────────────────────────────────────────────────"));
-  console.log(`  📁 ${chalk.bold.white(projectName)}${versionStr}`);
-  if (description) {
-    console.log(T.dim(`     ${description.slice(0, 55)}${description.length > 55 ? "..." : ""}`));
-  }
-  console.log(`     ${frameworkBadge} ${langBadge}${author ? T.dim(` by ${author}`) : ""}${license ? T.dim(` · ${license}`) : ""}`);
-  console.log("");
-  
-  // File stats with visual bar and size
-  const barLength = Math.min(10, Math.ceil(total / 20));
-  const fileBar = `${T.success("■".repeat(barLength))}${T.dim("□".repeat(10 - barLength))}`;
+  // Size formatting
   const sizeStr = totalSize > 1024 * 1024 
     ? `${(totalSize / (1024 * 1024)).toFixed(1)}MB` 
-    : totalSize > 1024 
-      ? `${(totalSize / 1024).toFixed(0)}KB` 
-      : `${totalSize}B`;
-  console.log(`  ${T.dim("Files")}     ${chalk.white(total)} ${fileBar} ${T.dim(`${totalDirs} dirs · ${sizeStr}`)}`);
+    : `${Math.round(totalSize / 1024)}KB`;
   
-  // Dependencies count
-  if (deps > 0 || devDeps > 0) {
-    console.log(`  ${T.dim("Deps")}      ${chalk.cyan(deps)} prod ${T.dim("·")} ${chalk.yellow(devDeps)} dev`);
-  }
-  
-  // Structure breakdown - Row 1: Main categories
-  const structRow1 = [];
-  if (core > 0) structRow1.push(`${chalk.magenta(core)} core`);
-  if (scripts > 0) structRow1.push(`${chalk.blue(scripts)} scripts`);
-  if (api > 0) structRow1.push(`${chalk.cyan(api)} api`);
-  if (services > 0) structRow1.push(`${chalk.green(services)} services`);
-  if (models > 0) structRow1.push(`${chalk.yellow(models)} models`);
-  
-  // Structure breakdown - Row 2: Secondary categories
-  const structRow2 = [];
-  if (comps > 0) structRow2.push(`${chalk.magenta(comps)} components`);
-  if (utils > 0) structRow2.push(`${chalk.blue(utils)} utils`);
-  if (hooks > 0) structRow2.push(`${chalk.cyan(hooks)} hooks`);
-  if (templates > 0) structRow2.push(`${chalk.green(templates)} templates`);
-  if (styles > 0) structRow2.push(`${chalk.yellow(styles)} styles`);
-  
-  // Structure breakdown - Row 3: Support files
-  const structRow3 = [];
-  if (tests > 0) structRow3.push(`${chalk.green(tests)} tests`);
-  if (types > 0) structRow3.push(`${chalk.yellow(types)} types`);
-  if (configs > 0) structRow3.push(`${chalk.gray(configs)} configs`);
-  if (docs > 0) structRow3.push(`${chalk.cyan(docs)} docs`);
-  
-  if (structRow1.length > 0) {
-    console.log(`  ${T.dim("Source")}    ${structRow1.slice(0, 5).join(" · ")}`);
-  }
-  if (structRow2.length > 0) {
-    console.log(`  ${T.dim("UI/Lib")}    ${structRow2.slice(0, 5).join(" · ")}`);
-  }
-  if (structRow3.length > 0) {
-    console.log(`  ${T.dim("Support")}   ${structRow3.slice(0, 5).join(" · ")}`);
-  }
-  
-  // Tools detected (show more)
-  if (tools.length > 0) {
-    const toolsRow1 = tools.slice(0, 5).map(t => chalk.gray(`◆ ${t}`)).join("  ");
-    const toolsRow2 = tools.slice(5, 10).map(t => chalk.gray(`◆ ${t}`)).join("  ");
-    console.log(`  ${T.dim("Tools")}     ${toolsRow1}`);
-    if (toolsRow2) {
-      console.log(`            ${toolsRow2}`);
-    }
-  }
-  
-  // Scripts available (show more)
-  if (availableScripts.length > 0) {
-    console.log(`  ${T.dim("Scripts")}   ${availableScripts.map(s => T.accent(s)).join(" │ ")}`);
-  }
-  
-  // Recently modified files
-  if (recentlyModified.length > 0) {
-    console.log(`  ${T.dim("Recent")}    ${recentlyModified.slice(0, 3).map(f => chalk.white(f.name)).join(", ")}${recentlyModified.length > 3 ? T.dim(` +${recentlyModified.length - 3}`) : ""}`);
+  console.log(`  ${chalk.bold.white(projectName)} ${versionStr}`);
+  if (description) {
+    const shortDesc = description.length > 50 ? description.slice(0, 47) + "..." : description;
+    console.log(T.dim(`  ${shortDesc}`));
   }
   console.log("");
   
+  // Stats row - compact and visual
+  console.log(`  ${fwIcon} ${chalk.white(fw)} ${langIcon}  ${T.dim("│")}  ${chalk.white(total)} files  ${T.dim("│")}  ${chalk.cyan(deps)}+${chalk.yellow(devDeps)} deps  ${T.dim("│")}  ${sizeStr}`);
+  console.log("");
+  
+  // Structure - smart grouping (only show what exists)
+  const structItems = [];
+  if (core > 0) structItems.push(`${chalk.magenta(core)} core`);
+  if (scripts > 0) structItems.push(`${chalk.blue(scripts)} scripts`);
+  if (api > 0) structItems.push(`${chalk.cyan(api)} api`);
+  if (services > 0) structItems.push(`${chalk.green(services)} services`);
+  if (comps > 0) structItems.push(`${chalk.magenta(comps)} components`);
+  if (utils > 0) structItems.push(`${chalk.blue(utils)} utils`);
+  if (templates > 0) structItems.push(`${chalk.green(templates)} templates`);
+  if (tests > 0) structItems.push(`${chalk.green(tests)} tests`);
+  if (configs > 0) structItems.push(`${chalk.gray(configs)} configs`);
+  
+  if (structItems.length > 0) {
+    // Show in rows of 4
+    const row1 = structItems.slice(0, 4).join(T.dim(" · "));
+    const row2 = structItems.slice(4, 8).join(T.dim(" · "));
+    console.log(`  ${row1}`);
+    if (row2) console.log(`  ${row2}`);
+    console.log("");
+  }
+  
+  // Tools & Scripts - single line each
+  if (tools.length > 0) {
+    console.log(`  ${T.dim("Tools")} ${tools.slice(0, 6).map(t => T.accent(t)).join(T.dim(" · "))}`);
+  }
+  if (availableScripts.length > 0) {
+    console.log(`  ${T.dim("npm")}   ${availableScripts.map(s => chalk.white(s)).join(T.dim(" │ "))}`);
+  }
+  
+  console.log("");
+  console.log(T.dim("  ─────────────────────────────────────────────────────────────────"));
+  console.log("");
+  
   // ═══════════════════════════════════════════════════════════════════════
-  // GIT STATUS - Compact and informative
+  // GIT & IDE - Side by side info
   // ═══════════════════════════════════════════════════════════════════════
+  
+  // Git status
   if (gitBranch) {
-    const branchIcon = gitBranch === "main" || gitBranch === "master" ? "🌿" : "🔀";
-    const statusIcon = gitStatus?.total > 0 ? T.warning("●") : T.success("●");
+    const branchIcon = gitBranch === "main" || gitBranch === "master" ? "●" : "○";
+    const statusDot = gitStatus?.total > 0 ? T.warning("◆") : T.success("◆");
     const statusText = gitStatus?.total > 0 
-      ? T.warning(`${gitStatus.total} changes`)
+      ? T.warning(`${gitStatus.total} uncommitted`)
       : T.success("clean");
     
-    console.log(T.dim("  ─── Git ───────────────────────────────────────────────────────────"));
-    console.log(`  ${branchIcon} ${chalk.magenta(gitBranch)} ${statusIcon} ${statusText}`);
-    
-    if (gitStatus?.total > 0) {
-      const changes = [];
-      if (gitStatus.modified > 0) changes.push(`${gitStatus.modified} modified`);
-      if (gitStatus.added > 0) changes.push(`${gitStatus.added} new`);
-      if (gitStatus.deleted > 0) changes.push(`${gitStatus.deleted} deleted`);
-      console.log(T.dim(`     ${changes.join(", ")}`));
-    }
+    console.log(`  ${T.dim("git")} ${branchIcon} ${chalk.magenta(gitBranch)} ${statusDot} ${statusText}`);
     
     if (lastCommit) {
-      const msgDisplay = lastCommit.message?.length >= 40 ? lastCommit.message + "..." : lastCommit.message;
-      console.log(T.dim(`     Last: ${chalk.gray(lastCommit.hash)} ${msgDisplay} (${lastCommit.time})`));
+      const shortMsg = lastCommit.message?.length > 35 ? lastCommit.message.slice(0, 32) + "..." : lastCommit.message;
+      console.log(T.dim(`      ${lastCommit.hash} ${shortMsg}`));
     }
     console.log("");
   }
   
-  // ═══════════════════════════════════════════════════════════════════════
-  // IDE DETECTION - Show detected IDE and collaboration status
-  // ═══════════════════════════════════════════════════════════════════════
+  // IDE Detection
   detectedIDE = detectIDE(PROJECT_PATH);
   collaborationSettings = getCollaborationSettings(PROJECT_PATH);
   
   const ide = detectedIDE.primary;
-  const ideIcon = ide.type === "agentic" ? "🤖" : ide.type === "modern" ? "⚡" : ide.type === "terminal" ? "💻" : "📝";
-  const ideTypeBadge = ide.type === "agentic" 
-    ? chalk.bgMagenta.white(" AGENTIC ") 
-    : ide.type === "modern" 
-      ? chalk.bgCyan.black(" MODERN ") 
-      : chalk.bgGray.white(" EDITOR ");
-  
-  console.log(T.dim("  ─── IDE ───────────────────────────────────────────────────────────"));
-  console.log(`  ${ideIcon} ${chalk.bold.white(ide.name)} ${ideTypeBadge}${ide.confidence > 0 ? T.dim(` ${ide.confidence.toFixed(0)}% confidence`) : ""}`);
+  const ideIcon = ide.type === "agentic" ? "🤖" : ide.type === "modern" ? "⚡" : "📝";
   
   if (ide.type === "agentic") {
-    console.log(T.success(`     ✓ AI Collaboration enabled - will sync with ${ide.name}'s AI`));
-    if (ide.features?.length > 0) {
-      console.log(T.dim(`     Features: ${ide.features.slice(0, 4).join(", ")}`));
-    }
-  } else if (collaborationSettings.canCollaborate) {
-    console.log(T.accent(`     ◆ Collaboration available`));
+    console.log(`  ${ideIcon} ${chalk.bold.white(ide.name)} ${chalk.bgMagenta.white(" AI ")} ${T.success("collaboration enabled")}`);
+  } else {
+    console.log(`  ${ideIcon} ${chalk.white(ide.name)}`);
   }
+  
+  console.log("");
+  console.log(T.dim("  ─────────────────────────────────────────────────────────────────"));
   console.log("");
   
   // ═══════════════════════════════════════════════════════════════════════
-  // CURRENT SESSION SETTINGS - Minimal badges
+  // SESSION STATUS - Clean badges
   // ═══════════════════════════════════════════════════════════════════════
-  const autoFixBadge = AUTO_FIX ? chalk.bgGreen.black(" AUTO-FIX ON ") : chalk.bgRed.white(" MANUAL ");
-  const themeBadge = chalk.bgBlack.white(` ${THEME_NAME.toUpperCase()} `);
+  const modeBadge = AUTO_FIX 
+    ? chalk.bgGreen.black(" AUTO-FIX ") 
+    : chalk.bgBlue.white(" WATCH ");
   
-  console.log(T.dim("  ─── Session ───────────────────────────────────────────────────────"));
-  console.log(`  ${autoFixBadge} ${themeBadge} ${T.dim(`Debounce: ${WATCHER_DEBOUNCE}ms`)}`);
+  console.log(`  ${modeBadge} ${T.dim("Theme:")} ${T.accent(THEME_NAME)} ${T.dim("│")} ${T.dim("Debounce:")} ${chalk.white(WATCHER_DEBOUNCE + "ms")}`);
   console.log("");
   
   // ═══════════════════════════════════════════════════════════════════════
-  // QUICK HELP - Clean and minimal
+  // CONTROLS - Clear and helpful
   // ═══════════════════════════════════════════════════════════════════════
-  console.log(T.dim("  ─── Controls ──────────────────────────────────────────────────────"));
-  console.log(`  ${T.accent("q")} ${T.dim("quit + summary")}    ${T.accent("Ctrl+C")} ${T.dim("quick exit")}    ${T.accent("npm start")} ${T.dim("settings")}`);
-  console.log("");
-  console.log(T.dim("  ═══════════════════════════════════════════════════════════════════"));
+  console.log(T.dim("  ─────────────────────────────────────────────────────────────────"));
+  console.log(`  ${T.accent("q")} quit & commit  ${T.dim("│")}  ${T.accent("Ctrl+C")} quick exit  ${T.dim("│")}  ${T.accent("npm start")} menu`);
+  console.log(T.dim("  ─────────────────────────────────────────────────────────────────"));
   console.log("");
 }
 
@@ -680,7 +623,7 @@ async function processFile(filePath) {
     return;
   }
   
-  log(T.accent(`⏳ Analyzing: ${fileName}...`));
+  log(`${T.accent("●")} ${fileName}...`);
   logVerbose(`File size: ${content.length} chars, ${content.split("\n").length} lines`);
   
   stats.analyzed++;
@@ -710,12 +653,12 @@ async function processFile(filePath) {
     summary: result.summary,
   });
   
-  // CLEAR OUTPUT
+  // Clean output
   if (hasIssues) {
     stats.issues += result.issues.length;
-    log(T.warning(`⚠ ${fileName} - Found ${result.issues.length} issue(s) (${duration}s)`));
+    log(`${T.warning("⚠")} ${fileName} ${T.dim(`(${result.issues.length} issues, ${duration}s)`)}`);
     
-    // Show each issue clearly
+    // Show issues compactly
     for (const issue of result.issues) {
       if (issue.type === "bug") stats.issuesByType.bugs++;
       else if (issue.type === "security") stats.issuesByType.security++;
@@ -726,19 +669,15 @@ async function processFile(filePath) {
         stats.severityCounts[issue.severity] = (stats.severityCounts[issue.severity] || 0) + 1;
       }
       
-      const icon = { bug: "🐛", security: "🔒", performance: "⚡", style: "💅" }[issue.type] || "⚠";
+      const sevIcon = { critical: "!", high: "!", medium: "·", low: "·" }[issue.severity] || "·";
       const sevColor = { critical: T.error, high: T.warning, medium: chalk.white, low: T.dim }[issue.severity] || T.dim;
+      const lineInfo = issue.line ? T.dim(` L${issue.line}`) : "";
       
-      console.log(`     ${icon} ${sevColor(`[${issue.severity?.toUpperCase() || "INFO"}]`)} ${issue.description || "Issue detected"}`);
-      if (issue.line) {
-        console.log(T.dim(`        Line ${issue.line}`));
-      }
+      console.log(`       ${sevColor(sevIcon)} ${issue.description || "Issue detected"}${lineInfo}`);
     }
   } else {
-    log(T.success(`✓ ${fileName} - ${result.summary || "No issues found"} (${duration}s)`));
+    log(`${T.success("✓")} ${fileName} ${T.dim(`(${duration}s)`)}`);
   }
-  
-  console.log(""); // Empty line for readability
 }
 
 function simpleHash(str) {
@@ -930,38 +869,50 @@ function generateFallbackMessage(gitStatus, categories) {
 
 async function showSessionSummary() {
   console.log("");
-  console.log(T.accent("  ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓"));
-  console.log(T.accent("  ┃") + chalk.bold.white("  📊 SESSION COMPLETE                                          ") + T.accent("┃"));
-  console.log(T.accent("  ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛"));
+  console.log(T.accent("  ╭─────────────────────────────────────────────────────────────────╮"));
+  console.log(T.accent("  │") + chalk.bold.white("  📊 SESSION SUMMARY                                            ") + T.accent("│"));
+  console.log(T.accent("  ╰─────────────────────────────────────────────────────────────────╯"));
   console.log("");
   
-  // Stats in a clean row
-  console.log(`  ${chalk.magenta("⏱ " + getUptime())}  ${T.success(stats.analyzed + " analyzed")}  ${stats.issues > 0 ? T.warning(stats.issues + " issues") : T.success("0 issues")}  ${T.accent(stats.fixed + " fixed")}`);
+  // Stats row - clean and visual
+  const uptimeStr = chalk.white(getUptime());
+  const analyzedStr = stats.analyzed > 0 ? T.success(`${stats.analyzed} analyzed`) : T.dim("0 analyzed");
+  const issuesStr = stats.issues > 0 ? T.warning(`${stats.issues} issues`) : T.success("no issues");
+  
+  console.log(`  ⏱ ${uptimeStr}  │  ${analyzedStr}  │  ${issuesStr}`);
   console.log("");
   
   // Issue breakdown (if any)
   if (stats.issues > 0) {
-    const parts = [];
-    if (stats.issuesByType.bugs > 0) parts.push(`🐛 ${stats.issuesByType.bugs}`);
-    if (stats.issuesByType.security > 0) parts.push(`🔒 ${stats.issuesByType.security}`);
-    if (stats.issuesByType.performance > 0) parts.push(`⚡ ${stats.issuesByType.performance}`);
-    if (stats.issuesByType.style > 0) parts.push(`💅 ${stats.issuesByType.style}`);
-    console.log(T.dim("  Issues: ") + parts.join("  "));
+    const issueParts = [];
+    if (stats.issuesByType.bugs > 0) issueParts.push(`${stats.issuesByType.bugs} bugs`);
+    if (stats.issuesByType.security > 0) issueParts.push(`${stats.issuesByType.security} security`);
+    if (stats.issuesByType.performance > 0) issueParts.push(`${stats.issuesByType.performance} perf`);
+    if (stats.issuesByType.style > 0) issueParts.push(`${stats.issuesByType.style} style`);
+    console.log(T.dim(`  Found: ${issueParts.join(", ")}`));
     console.log("");
   }
   
-  // Files analyzed
+  // Files analyzed - compact list
   if (analysisResults.length > 0) {
-    console.log(T.accent("  Files:"));
-    for (const result of analysisResults.slice(-8)) {
-      const icon = result.hasIssues ? T.warning("⚠") : T.success("✓");
-      const issueText = result.issues?.length > 0 ? T.dim(` (${result.issues.length} issues)`) : "";
-      console.log(`     ${icon} ${result.fileName}${issueText}`);
+    const withIssues = analysisResults.filter(r => r.hasIssues);
+    const clean = analysisResults.filter(r => !r.hasIssues);
+    
+    if (withIssues.length > 0) {
+      console.log(`  ${T.warning("⚠")} ${withIssues.length} file(s) with issues:`);
+      for (const result of withIssues.slice(0, 5)) {
+        console.log(T.dim(`    ${result.fileName}`));
+      }
+      if (withIssues.length > 5) {
+        console.log(T.dim(`    +${withIssues.length - 5} more`));
+      }
+      console.log("");
     }
-    if (analysisResults.length > 8) {
-      console.log(T.dim(`     ... and ${analysisResults.length - 8} more`));
+    
+    if (clean.length > 0) {
+      console.log(`  ${T.success("✓")} ${clean.length} file(s) passed`);
+      console.log("");
     }
-    console.log("");
   }
 }
 
@@ -992,55 +943,57 @@ async function showCommitAssistant() {
   const gitBranch = getGitBranch();
   const gitStatus = getGitStatus();
   
-  console.log(T.dim("  ═══════════════════════════════════════════════════════════════════"));
+  console.log(T.dim("  ─────────────────────────────────────────────────────────────────"));
   console.log("");
-  console.log(T.accent("  ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓"));
-  console.log(T.accent("  ┃") + chalk.bold.white("  📝 COMMIT ASSISTANT                                          ") + T.accent("┃"));
-  console.log(T.accent("  ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛"));
+  console.log(T.accent("  ╭─────────────────────────────────────────────────────────────────╮"));
+  console.log(T.accent("  │") + chalk.bold.white("  📝 COMMIT ASSISTANT                                           ") + T.accent("│"));
+  console.log(T.accent("  ╰─────────────────────────────────────────────────────────────────╯"));
   console.log("");
   
   // Check if there are changes to commit
   if (!gitStatus || gitStatus.total === 0) {
-    console.log(T.success("  ✓ Working tree is clean - nothing to commit!"));
+    console.log(`  ${T.success("✓")} Working tree is clean`);
     console.log("");
     return "skip";
   }
   
-  // Show current git status
-  console.log(T.dim("  ─── Current Status ────────────────────────────────────────────────"));
-  console.log(`  🔀 Branch: ${chalk.magenta(gitBranch || "unknown")}`);
+  // Show git status - compact
+  console.log(`  ${T.dim("git")} ● ${chalk.magenta(gitBranch || "unknown")}`);
+  console.log("");
   
-  const changes = [];
-  if (gitStatus.modified > 0) changes.push(`${chalk.yellow(gitStatus.modified)} modified`);
-  if (gitStatus.added > 0) changes.push(`${chalk.green(gitStatus.added)} new`);
-  if (gitStatus.deleted > 0) changes.push(`${chalk.red(gitStatus.deleted)} deleted`);
-  console.log(`  📁 Changes: ${changes.join(", ")} (${gitStatus.total} total)`);
+  // Changes summary
+  const changeTypes = [];
+  if (gitStatus.modified > 0) changeTypes.push(`${gitStatus.modified} modified`);
+  if (gitStatus.added > 0) changeTypes.push(`${gitStatus.added} new`);
+  if (gitStatus.deleted > 0) changeTypes.push(`${gitStatus.deleted} deleted`);
   
-  // Show changed files
+  console.log(`  ${chalk.white(gitStatus.total)} uncommitted changes ${T.dim(`(${changeTypes.join(", ")})`)}`);
+  console.log("");
+  
+  // Show changed files - compact
   if (gitStatus.files && gitStatus.files.length > 0) {
-    console.log("");
-    console.log(T.dim("  Changed files:"));
-    const filesToShow = gitStatus.files.slice(0, 8);
+    const filesToShow = gitStatus.files.slice(0, 6);
     for (const { status, file } of filesToShow) {
-      const icon = status === "M" ? chalk.yellow("M") : status === "A" || status === "?" ? chalk.green("A") : status === "D" ? chalk.red("D") : chalk.gray(status);
-      const fileName = file.length > 50 ? "..." + file.slice(-47) : file;
-      console.log(`     ${icon} ${fileName}`);
+      const icon = status === "M" ? chalk.yellow("~") : status === "A" || status === "?" ? chalk.green("+") : status === "D" ? chalk.red("-") : chalk.gray("?");
+      const fileName = path.basename(file);
+      console.log(`  ${icon} ${fileName}`);
     }
-    if (gitStatus.files.length > 8) {
-      console.log(T.dim(`     ... and ${gitStatus.files.length - 8} more files`));
+    if (gitStatus.files.length > 6) {
+      console.log(T.dim(`  +${gitStatus.files.length - 6} more`));
     }
+    console.log("");
   }
+  
+  console.log(T.dim("  ─────────────────────────────────────────────────────────────────"));
   console.log("");
   
-  // Ask if user wants to commit
-  console.log(T.accent("  Would you like to commit these changes?"));
-  console.log("");
-  console.log(`  ${T.accent("[1]")} ${chalk.bold("Yes, help me commit")} ${T.dim("(guided process)")}`);
-  console.log(`  ${T.accent("[2]")} ${chalk.bold("Auto commit & push")} ${T.dim("(fully automatic)")}`);
-  console.log(`  ${T.accent("[3]")} ${chalk.bold("Skip")} ${T.dim("(I'll do it later)")}`);
+  // Options - cleaner presentation
+  console.log(`  ${T.accent("1")}  Guided commit ${T.dim("— step by step")}`);
+  console.log(`  ${T.accent("2")}  Auto commit ${T.dim("— stage, commit, push")}`);
+  console.log(`  ${T.accent("3")}  Skip ${T.dim("— commit later")}`);
   console.log("");
   
-  const choice = await rlQuestion(T.accent("  Your choice (1-3): "));
+  const choice = await rlQuestion(`  ${T.accent("→")} `);
   
   if (choice === "1") {
     return await runGuidedCommit();
@@ -1048,46 +1001,40 @@ async function showCommitAssistant() {
     return await runAutoCommit();
   } else {
     console.log("");
-    console.log(T.dim("  Skipping commit. You can commit manually later."));
+    console.log(T.dim("  Skipped. Run 'git commit' when ready."));
     return "skip";
   }
 }
 
 async function runGuidedCommit() {
   console.log("");
-  console.log(T.dim("  ─── Guided Commit ─────────────────────────────────────────────────"));
-  console.log("");
   
   // Generate commit message
-  console.log(T.accent("  🤖 Generating AI commit message..."));
+  console.log(`  ${T.accent("●")} Generating commit message...`);
   const aiMessage = await generateCommitMessage();
   
   console.log("");
-  console.log(T.success("  Suggested message:"));
-  console.log("");
-  console.log(chalk.bgBlack.white(`     ${aiMessage}     `));
+  console.log(`  ${T.dim("Message:")} ${chalk.white(aiMessage)}`);
   console.log("");
   
-  // Ask to use or edit
-  console.log(`  ${T.accent("[1]")} Use this message`);
-  console.log(`  ${T.accent("[2]")} Edit message`);
-  console.log(`  ${T.accent("[3]")} Cancel`);
+  // Options
+  console.log(`  ${T.accent("1")}  Use this message`);
+  console.log(`  ${T.accent("2")}  Edit message`);
+  console.log(`  ${T.accent("3")}  Cancel`);
   console.log("");
   
-  const msgChoice = await rlQuestion(T.accent("  Your choice (1-3): "));
+  const msgChoice = await rlQuestion(`  ${T.accent("→")} `);
   
   let finalMessage = aiMessage;
   
   if (msgChoice === "2") {
     console.log("");
-    console.log(T.dim("  Enter your commit message (or press Enter to keep suggested):"));
-    const customMsg = await rlQuestion(T.accent("  Message: "));
+    const customMsg = await rlQuestion(`  ${T.dim("New message:")} `);
     if (customMsg) {
       finalMessage = customMsg;
     }
   } else if (msgChoice === "3") {
-    console.log("");
-    console.log(T.dim("  Commit cancelled."));
+    console.log(T.dim("  Cancelled."));
     return "cancel";
   }
   
@@ -1096,131 +1043,97 @@ async function runGuidedCommit() {
   
   // Stage files
   console.log("");
-  console.log(T.dim("  ─── Staging Changes ───────────────────────────────────────────────"));
-  console.log("");
-  console.log(`  ${T.accent("[1]")} Stage all changes ${T.dim("(git add -A)")}`);
-  console.log(`  ${T.accent("[2]")} Stage only tracked files ${T.dim("(git add -u)")}`);
-  console.log(`  ${T.accent("[3]")} Cancel`);
+  console.log(`  ${T.accent("1")}  Stage all ${T.dim("(git add -A)")}`);
+  console.log(`  ${T.accent("2")}  Stage tracked only ${T.dim("(git add -u)")}`);
+  console.log(`  ${T.accent("3")}  Cancel`);
   console.log("");
   
-  const stageChoice = await rlQuestion(T.accent("  Your choice (1-3): "));
+  const stageChoice = await rlQuestion(`  ${T.accent("→")} `);
   
   if (stageChoice === "3") {
-    console.log("");
-    console.log(T.dim("  Commit cancelled."));
+    console.log(T.dim("  Cancelled."));
     return "cancel";
   }
   
   try {
-    const { execSync } = await import("child_process");
-    
     const stageCmd = stageChoice === "2" ? "git add -u" : "git add -A";
-    console.log(T.dim(`  Running: ${stageCmd}`));
     execSync(stageCmd, { cwd: PROJECT_PATH, stdio: "pipe" });
-    console.log(T.success("  ✓ Changes staged"));
+    console.log(`  ${T.success("✓")} Staged`);
     
     // Commit
-    console.log("");
-    console.log(T.dim("  ─── Committing ────────────────────────────────────────────────────"));
-    console.log(T.dim(`  Message: "${finalMessage}"`));
-    
     execSync(`git commit -m "${finalMessage.replace(/"/g, '\\"')}"`, { cwd: PROJECT_PATH, stdio: "pipe" });
-    console.log(T.success("  ✓ Commit successful!"));
+    console.log(`  ${T.success("✓")} Committed`);
     
     // Ask about push
     console.log("");
-    console.log(T.dim("  ─── Push to Remote? ───────────────────────────────────────────────"));
-    console.log("");
-    console.log(`  ${T.accent("[1]")} Yes, push now`);
-    console.log(`  ${T.accent("[2]")} No, I'll push later`);
+    console.log(`  ${T.accent("1")}  Push now`);
+    console.log(`  ${T.accent("2")}  Push later`);
     console.log("");
     
-    const pushChoice = await rlQuestion(T.accent("  Your choice (1-2): "));
+    const pushChoice = await rlQuestion(`  ${T.accent("→")} `);
     
     if (pushChoice === "1") {
-      console.log("");
-      console.log(T.dim("  Pushing to remote..."));
       try {
         execSync("git push", { cwd: PROJECT_PATH, stdio: "pipe" });
-        console.log(T.success("  ✓ Pushed successfully!"));
+        console.log(`  ${T.success("✓")} Pushed`);
       } catch (pushErr) {
-        console.log(T.warning("  ⚠ Push failed - you may need to set upstream or resolve conflicts"));
-        console.log(T.dim(`     Error: ${pushErr.message?.split("\n")[0] || "Unknown error"}`));
-        console.log(T.dim("     Try: git push -u origin " + (getGitBranch() || "main")));
+        console.log(`  ${T.warning("⚠")} Push failed — try: git push -u origin ${getGitBranch() || "main"}`);
       }
-    } else {
-      console.log("");
-      console.log(T.dim("  Skipped push. Run 'git push' when ready."));
     }
     
+    console.log("");
+    console.log(`  ${T.success("✓")} Done!`);
     return "committed";
     
   } catch (err) {
-    console.log(T.error(`  ✗ Git error: ${err.message?.split("\n")[0] || err}`));
-    console.log("");
-    console.log(T.dim("  You can run the commands manually:"));
-    console.log(T.accent(`     git add -A && git commit -m "${finalMessage}"`));
+    console.log(`  ${T.error("✗")} ${err.message?.split("\n")[0] || "Git error"}`);
+    console.log(T.dim(`  Manual: git add -A && git commit -m "${finalMessage}"`));
     return "error";
   }
 }
 
 async function runAutoCommit() {
   console.log("");
-  console.log(T.dim("  ─── Auto Commit & Push ────────────────────────────────────────────"));
-  console.log("");
+  console.log(`  ${T.accent("●")} Auto commit starting...`);
   
   // Generate commit message
-  console.log(T.accent("  🤖 Generating commit message..."));
   const commitMsg = await generateCommitMessage();
-  console.log(T.success(`  ✓ Message: "${commitMsg}"`));
+  console.log(`  ${T.dim("Message:")} ${chalk.white(commitMsg)}`);
   
   // Save message
   fs.writeFileSync(path.join(PROJECT_PATH, ".commit_msg"), commitMsg, "utf8");
   
   try {
-    const { execSync } = await import("child_process");
-    
     // Stage
-    console.log("");
-    console.log(T.dim("  Staging all changes..."));
     execSync("git add -A", { cwd: PROJECT_PATH, stdio: "pipe" });
-    console.log(T.success("  ✓ Staged"));
+    console.log(`  ${T.success("✓")} Staged`);
     
     // Commit
-    console.log(T.dim("  Committing..."));
     execSync(`git commit -m "${commitMsg.replace(/"/g, '\\"')}"`, { cwd: PROJECT_PATH, stdio: "pipe" });
-    console.log(T.success("  ✓ Committed"));
+    console.log(`  ${T.success("✓")} Committed`);
     
     // Push
-    console.log(T.dim("  Pushing to remote..."));
     try {
       execSync("git push", { cwd: PROJECT_PATH, stdio: "pipe" });
-      console.log(T.success("  ✓ Pushed"));
+      console.log(`  ${T.success("✓")} Pushed`);
     } catch (pushErr) {
-      // Try with upstream
       const branch = getGitBranch() || "main";
-      console.log(T.dim(`  Setting upstream and pushing to ${branch}...`));
       try {
         execSync(`git push -u origin ${branch}`, { cwd: PROJECT_PATH, stdio: "pipe" });
-        console.log(T.success("  ✓ Pushed with upstream set"));
+        console.log(`  ${T.success("✓")} Pushed (upstream set)`);
       } catch (e) {
-        console.log(T.warning("  ⚠ Push failed - please push manually"));
-        console.log(T.dim(`     git push -u origin ${branch}`));
+        console.log(`  ${T.warning("⚠")} Push failed — try: git push -u origin ${branch}`);
       }
     }
     
     console.log("");
-    console.log(T.success("  ════════════════════════════════════════════════════════════════"));
-    console.log(T.success("  ✓ AUTO COMMIT COMPLETE!"));
-    console.log(T.success("  ════════════════════════════════════════════════════════════════"));
+    console.log(`  ${T.success("✓")} Auto commit complete!`);
     
     return "committed";
     
   } catch (err) {
-    console.log(T.error(`  ✗ Error: ${err.message?.split("\n")[0] || err}`));
-    console.log("");
-    console.log(T.dim("  Manual command:"));
-    console.log(T.accent(`     git add -A && git commit -m "${commitMsg}" && git push`));
+    console.log(`  ${T.error("✗")} ${err.message?.split("\n")[0] || "Error"}`);
+    console.log(T.dim(`  Manual: git add -A && git commit -m "${commitMsg}" && git push`));
     return "error";
   }
 }
@@ -1231,13 +1144,11 @@ async function promptNextAction() {
   console.log("");
   console.log(T.dim("  ─────────────────────────────────────────────────────────────────"));
   console.log("");
-  console.log(T.accent("  What's next?"));
-  console.log("");
-  console.log(`  ${T.accent("[1]")} Return to main menu`);
-  console.log(`  ${T.accent("[2]")} Exit`);
+  console.log(`  ${T.accent("1")}  Return to menu`);
+  console.log(`  ${T.accent("2")}  Exit`);
   console.log("");
   
-  const choice = await rlQuestion(T.accent("  Your choice (1-2): "));
+  const choice = await rlQuestion(`  ${T.accent("→")} `);
   
   return choice === "1" ? "menu" : "exit";
 }
@@ -1257,7 +1168,7 @@ const IGNORE = [
 // ═══════════════════════════════════════════════════════════════════════════
 
 showHeader();
-log(T.accent("Starting file watcher..."));
+log(T.dim("Starting watcher..."));
 
 watcher = chokidar.watch(PROJECT_PATH.replace(/\\/g, "/"), {
   ignored: IGNORE,
@@ -1273,8 +1184,7 @@ watcher.on("ready", () => {
   isReady = true;
   const watchedPaths = watcher.getWatched();
   const totalWatched = Object.values(watchedPaths).flat().length;
-  log(T.success(`✓ Watcher ready! Monitoring ${totalWatched} files`));
-  log(T.dim("Waiting for file changes... (edit a file to trigger analysis)"));
+  log(T.success(`✓ Ready — watching ${totalWatched} files`));
   console.log("");
   
   // Start keyboard listener after watcher is ready
@@ -1285,8 +1195,8 @@ watcher.on("change", (filePath) => {
   const ext = path.extname(filePath);
   if (!VALID_EXTENSIONS.includes(ext)) return;
   
-  const rel = path.relative(PROJECT_PATH, filePath);
-  log(T.accent(`📝 File changed: ${rel}`));
+  const fileName = path.basename(filePath);
+  log(`${T.accent("~")} ${fileName}`);
   scheduleAnalysis(filePath);
 });
 
@@ -1295,8 +1205,8 @@ watcher.on("add", (filePath) => {
   const ext = path.extname(filePath);
   if (!VALID_EXTENSIONS.includes(ext)) return;
   
-  const rel = path.relative(PROJECT_PATH, filePath);
-  log(T.success(`➕ File added: ${rel}`));
+  const fileName = path.basename(filePath);
+  log(`${T.success("+")} ${fileName}`);
   scheduleAnalysis(filePath);
 });
 
@@ -1304,13 +1214,13 @@ watcher.on("unlink", (filePath) => {
   const ext = path.extname(filePath);
   if (!VALID_EXTENSIONS.includes(ext)) return;
   
-  const rel = path.relative(PROJECT_PATH, filePath);
-  log(T.error(`➖ File deleted: ${rel}`));
+  const fileName = path.basename(filePath);
+  log(`${T.error("-")} ${fileName}`);
   analysisCache.delete(filePath);
 });
 
 watcher.on("error", (err) => {
-  log(T.error(`✗ Watcher error: ${err.message}`));
+  log(`${T.error("✗")} ${err.message}`);
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1379,54 +1289,50 @@ function syncShutdown() {
   if (shutdownComplete) return;
   
   console.log("");
-  console.log(T.dim("  " + dayjs().format("HH:mm:ss") + " Stopping watcher..."));
-  
-  // Show quick summary
-  console.log("");
-  console.log(T.accent("  ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓"));
-  console.log(T.accent("  ┃") + chalk.bold.white("  📊 QUICK SUMMARY                                             ") + T.accent("┃"));
-  console.log(T.accent("  ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛"));
-  console.log("");
-  console.log(`  ${chalk.magenta("⏱ " + getUptime())}  ${T.success(stats.analyzed + " analyzed")}  ${stats.issues > 0 ? T.warning(stats.issues + " issues") : T.success("0 issues")}`);
+  console.log(T.dim(`  ${dayjs().format("HH:mm:ss")} Stopping...`));
   console.log("");
   
-  // Check actual git status for uncommitted changes
+  // Quick summary
+  console.log(T.accent("  ╭─────────────────────────────────────────────────────────────────╮"));
+  console.log(T.accent("  │") + chalk.bold.white("  📊 QUICK SUMMARY                                              ") + T.accent("│"));
+  console.log(T.accent("  ╰─────────────────────────────────────────────────────────────────╯"));
+  console.log("");
+  
+  const uptimeStr = chalk.white(getUptime());
+  const analyzedStr = stats.analyzed > 0 ? T.success(`${stats.analyzed} analyzed`) : T.dim("0 analyzed");
+  const issuesStr = stats.issues > 0 ? T.warning(`${stats.issues} issues`) : T.success("no issues");
+  
+  console.log(`  ⏱ ${uptimeStr}  │  ${analyzedStr}  │  ${issuesStr}`);
+  console.log("");
+  
+  // Check git status
   const gitStatus = getGitStatus();
   
   if (gitStatus && gitStatus.total > 0) {
-    // Generate commit message synchronously
     const dateStr = getDateStr();
     const diffSummary = getGitDiffSummary();
     const categories = diffSummary?.categories || {};
     const commitMsg = `${dateStr} - ${generateFallbackMessage(gitStatus, categories)}`;
     
-    // Save for later use
     try {
       fs.writeFileSync(path.join(PROJECT_PATH, ".commit_msg"), commitMsg, "utf8");
     } catch (e) {}
     
-    console.log(T.dim("  ─────────────────────────────────────────────────────────────────"));
+    console.log(`  ${T.warning("●")} ${gitStatus.total} uncommitted changes`);
     console.log("");
-    console.log(T.warning(`  📁 ${gitStatus.total} uncommitted changes detected`));
+    console.log(T.dim(`  Commit: ${commitMsg}`));
     console.log("");
-    console.log(T.accent("  📝 Commit command (saved to .commit_msg):"));
-    console.log("");
-    console.log(chalk.bgBlack.white(`     ${commitMsg}     `));
-    console.log("");
-    console.log(T.dim("  Run this to commit:"));
-    console.log(T.accent(`     git add -A && git commit -m "${commitMsg}"`));
-    console.log("");
-    console.log(T.dim("  Or commit and push:"));
-    console.log(T.accent(`     git add -A && git commit -m "${commitMsg}" && git push`));
+    console.log(T.dim(`  git add -A && git commit -m "${commitMsg}"`));
     console.log("");
   } else {
-    console.log(T.success("  ✓ No uncommitted changes"));
+    console.log(`  ${T.success("●")} Working tree clean`);
     console.log("");
   }
   
   console.log(T.dim("  ─────────────────────────────────────────────────────────────────"));
-  console.log(T.accent("\n  ♥ Thanks for using Letta!"));
-  console.log(T.dim("  💡 Tip: Press 'q' instead of Ctrl+C for the full commit assistant.\n"));
+  console.log(`  ${T.accent("♥")} Thanks for using Letta!`);
+  console.log(T.dim("  Tip: Press 'q' for full commit assistant"));
+  console.log("");
 }
 
 // Handle various termination signals
