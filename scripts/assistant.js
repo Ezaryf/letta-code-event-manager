@@ -21,6 +21,11 @@ import {
   isAgenticIDE,
   getCollaborationSettings,
 } from "../src/core/ideDetector.js";
+import {
+  CognitiveEngine,
+  FLOW_STATES,
+  INTENTS,
+} from "../src/cognitive/index.js";
 
 dotenv.config();
 
@@ -48,6 +53,22 @@ const MIN_CONFIDENCE = parseFloat(process.env.MIN_CONFIDENCE || "0.7");
 const BACKUP_BEFORE_FIX = process.env.BACKUP_BEFORE_FIX !== "false";
 const FIX_TYPES = (process.env.FIX_TYPES || "bug,security,performance").split(",");
 
+// Cognitive Engine settings
+const ENABLE_COGNITIVE = process.env.COGNITIVE_ENGINE !== "false";
+const ENABLE_FLOW_PROTECTION = process.env.FLOW_PROTECTION !== "false";
+const ENABLE_INTENT_DETECTION = process.env.INTENT_DETECTION !== "false";
+const ENABLE_PREDICTION = process.env.PREDICTIVE_ANALYSIS !== "false";
+
+// Initialize Cognitive Engine
+let cognitiveEngine = null;
+if (ENABLE_COGNITIVE) {
+  cognitiveEngine = new CognitiveEngine({
+    enableIntentDetection: ENABLE_INTENT_DETECTION,
+    enablePrediction: ENABLE_PREDICTION,
+    enableFlowProtection: ENABLE_FLOW_PROTECTION,
+    enableLearning: true,
+  });
+}
 const THEMES = {
   ocean: { accent: chalk.cyan, success: chalk.green, warning: chalk.yellow, error: chalk.red, dim: chalk.dim },
   forest: { accent: chalk.green, success: chalk.hex("#32CD32"), warning: chalk.yellow, error: chalk.red, dim: chalk.dim },
@@ -515,7 +536,21 @@ function showHeader() {
     ? chalk.bgGreen.black(" AUTO-FIX ") 
     : chalk.bgBlue.white(" WATCH ");
   
-  console.log(`  ${modeBadge} ${T.dim("Theme:")} ${T.accent(THEME_NAME)} ${T.dim("│")} ${T.dim("Debounce:")} ${chalk.white(WATCHER_DEBOUNCE + "ms")}`);
+  // Cognitive Engine badge
+  const cognitiveBadge = ENABLE_COGNITIVE
+    ? chalk.bgMagenta.white(" 🧠 COGNITIVE ")
+    : "";
+  
+  console.log(`  ${modeBadge} ${cognitiveBadge} ${T.dim("Theme:")} ${T.accent(THEME_NAME)} ${T.dim("│")} ${T.dim("Debounce:")} ${chalk.white(WATCHER_DEBOUNCE + "ms")}`);
+  
+  // Show cognitive features if enabled
+  if (ENABLE_COGNITIVE) {
+    const features = [];
+    if (ENABLE_INTENT_DETECTION) features.push("Intent");
+    if (ENABLE_PREDICTION) features.push("Prediction");
+    if (ENABLE_FLOW_PROTECTION) features.push("Flow");
+    console.log(T.dim(`  Cognitive: ${features.join(" · ")}`));
+  }
   console.log("");
   
   // ═══════════════════════════════════════════════════════════════════════
@@ -622,12 +657,56 @@ async function processFile(filePath) {
     logVerbose(`⊘ Skipped (no changes): ${fileName}`);
     return;
   }
+
+  // 🧠 Cognitive Engine: Record file change and check flow state
+  if (cognitiveEngine) {
+    cognitiveEngine.recordChange({ file: relativePath, size: content.length });
+    cognitiveEngine.recordActiveFile(relativePath);
+    
+    // Check if we should analyze (flow protection)
+    const state = cognitiveEngine.getCurrentState();
+    if (state.isInDeepFlow && ENABLE_FLOW_PROTECTION) {
+      // In deep flow - queue for later, don't interrupt
+      logVerbose(`🌊 Deep flow detected - queueing ${fileName}`);
+      cognitiveEngine.flowOptimizer.queueSuggestion({
+        type: 'pending_analysis',
+        file: filePath,
+        timestamp: Date.now(),
+      });
+      return;
+    }
+  }
   
   log(`${T.accent("●")} ${fileName}...`);
   logVerbose(`File size: ${content.length} chars, ${content.split("\n").length} lines`);
   
   stats.analyzed++;
   const startTime = Date.now();
+
+  // 🧠 Cognitive Engine: Run predictive analysis first
+  let cognitiveResult = null;
+  if (cognitiveEngine && ENABLE_PREDICTION) {
+    try {
+      cognitiveResult = await cognitiveEngine.analyze({
+        code: content,
+        activeFileContent: content,
+        filePath: relativePath,
+      });
+      
+      // Show cognitive insights if significant
+      if (cognitiveResult.predictions?.summary?.critical > 0) {
+        log(`${T.warning("🔮")} Predictive: ${cognitiveResult.predictions.summary.message}`);
+      }
+      
+      // Show flow status occasionally
+      if (VERBOSE_OUTPUT && cognitiveResult.flow) {
+        logVerbose(cognitiveEngine.flowOptimizer.formatFlowStatus());
+      }
+    } catch (err) {
+      if (DEBUG) log(T.dim(`Cognitive analysis error: ${err.message}`));
+    }
+  }
+
   const result = await analyzeWithContext(filePath);
   const duration = ((Date.now() - startTime) / 1000).toFixed(1);
   
@@ -643,7 +722,7 @@ async function processFile(filePath) {
   
   const hasIssues = result.status !== "ok" && result.issues?.length > 0;
   
-  // Store result for summary
+  // Store result for summary (include cognitive insights)
   analysisResults.push({
     file: relativePath,
     fileName,
@@ -651,6 +730,11 @@ async function processFile(filePath) {
     hasIssues,
     issues: result.issues || [],
     summary: result.summary,
+    cognitive: cognitiveResult ? {
+      intent: cognitiveResult.intent?.intent,
+      riskLevel: cognitiveResult.predictions?.riskScore?.level,
+      flowState: cognitiveResult.flow?.flowState?.state,
+    } : null,
   });
   
   // Clean output
@@ -674,6 +758,11 @@ async function processFile(filePath) {
       const lineInfo = issue.line ? T.dim(` L${issue.line}`) : "";
       
       console.log(`       ${sevColor(sevIcon)} ${issue.description || "Issue detected"}${lineInfo}`);
+    }
+
+    // 🧠 Show cognitive suggestions if available
+    if (cognitiveResult?.suggestions?.length > 0 && !cognitiveResult.flow?.flowState?.state?.includes('FLOW')) {
+      console.log(T.dim(`       💡 ${cognitiveResult.suggestions[0].message}`));
     }
   } else {
     log(`${T.success("✓")} ${fileName} ${T.dim(`(${duration}s)`)}`);
@@ -907,6 +996,25 @@ async function showSessionSummary() {
   
   console.log(`  ⏱ ${uptimeStr}  │  ${analyzedStr}  │  ${issuesStr}`);
   console.log("");
+  
+  // 🧠 Cognitive Engine stats
+  if (cognitiveEngine && ENABLE_COGNITIVE) {
+    const cogStats = cognitiveEngine.getSessionStats();
+    const flowStats = cogStats.flow;
+    
+    if (flowStats.totalDeepFlowTime > 0) {
+      const deepFlowMins = Math.round(flowStats.totalDeepFlowTime / 60000);
+      const percentage = flowStats.deepFlowPercentage.toFixed(0);
+      console.log(`  🧠 ${T.accent("Cognitive:")} ${deepFlowMins}m deep flow (${percentage}%)`);
+      
+      // Show top mistakes if any
+      if (cogStats.topMistakes?.length > 0) {
+        const topMistake = cogStats.topMistakes[0];
+        console.log(T.dim(`     Common pattern: ${topMistake.type} (${topMistake.frequency}x)`));
+      }
+      console.log("");
+    }
+  }
   
   // Issue breakdown (if any)
   if (stats.issues > 0) {

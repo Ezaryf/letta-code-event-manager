@@ -1,1111 +1,757 @@
-# 🧠 LETTA COGNITIVE ENGINE
+# 🤖 LETTA - AI-Powered Developer Cognitive Engine
 
-> **From Tool to Cognitive Partner — The Future of Developer Intelligence**
+<div align="center">
 
-Letta is not just another coding assistant. It's a **Developer Cognitive Engine** that thinks alongside you, predicts your needs before you know them, protects your flow state, and evolves with every interaction. Built on six foundational pillars of developer intelligence, Letta transforms how humans and AI collaborate on code.
+![Version](https://img.shields.io/badge/version-3.0.0-blue.svg)
+![Node](https://img.shields.io/badge/node-%3E%3D18.0.0-green.svg)
+![License](https://img.shields.io/badge/license-MIT-purple.svg)
+![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
 
----
+**Transform your coding workflow with an AI assistant that thinks alongside you.**
 
-## 🌟 The Paradigm Shift
+*Real-time code analysis • Intelligent auto-fixes • Smart commit generation • Flow protection*
 
-**Traditional tools are reactive.** They wait for you to make mistakes, then offer fixes. They interrupt your flow with irrelevant suggestions. They treat every developer the same.
+[Quick Start](#-quick-start) • [Features](#-features) • [Cognitive Engine](#-cognitive-engine) • [Configuration](#-configuration) • [IDE Integration](#-ide-integration)
 
-**Letta is cognitive.** It understands your intent before you finish typing. It prevents mistakes before they happen. It knows when to help and when to stay silent. It learns YOUR patterns and becomes YOUR personalized coding partner.
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    OLD PARADIGM                                 │
-│                                                                 │
-│   Developer → Makes Mistake → Tool Detects → Suggests Fix       │
-│                                                                 │
-├─────────────────────────────────────────────────────────────────┤
-│                    LETTA PARADIGM                               │
-│                                                                 │
-│   Letta Observes → Predicts Intent → Prevents Mistake →         │
-│   Protects Flow → Learns & Evolves                              │
-└─────────────────────────────────────────────────────────────────┘
-```
+</div>
 
 ---
 
-## 📑 Table of Contents
+## 📖 Table of Contents
 
-1. [The Six Pillars](#-the-six-pillars-of-developer-intelligence)
+1. [What is Letta?](#-what-is-letta)
 2. [Quick Start](#-quick-start)
-3. [Installation](#-installation)
-4. [Core Features](#-core-features)
-5. [Intent Awareness](#-pillar-1-intent-awareness-engine)
-6. [Predictive Assistance](#-pillar-2-predictive-assistance-engine)
-7. [Self-Explaining Code](#-pillar-3-self-explaining-code-system)
-8. [Why-First Debugging](#-pillar-4-why-first-debugging-engine)
-9. [Self-Improving System](#-pillar-5-self-improving-system)
-10. [Flow Optimization](#-pillar-6-programmer-flow-optimizer)
-11. [Developer Twin](#-the-developer-twin)
-12. [Configuration](#-configuration)
-13. [IDE Integration](#-ide-integration)
-14. [Architecture](#-architecture)
-15. [Troubleshooting](#-troubleshooting)
+3. [Features](#-features)
+4. [The Cognitive Engine](#-cognitive-engine)
+5. [File Watcher](#-file-watcher)
+6. [Commit Assistant](#-commit-assistant)
+7. [IDE Integration](#-ide-integration)
+8. [Themes & Customization](#-themes--customization)
+9. [Configuration Reference](#-configuration-reference)
+10. [CLI Commands](#-cli-commands)
+11. [Keyboard Shortcuts](#-keyboard-shortcuts)
+12. [Architecture](#-architecture)
+13. [Troubleshooting](#-troubleshooting)
+14. [FAQ](#-faq)
 
 ---
 
-## 🏛️ The Six Pillars of Developer Intelligence
+## 🎯 What is Letta?
 
-Letta is built on six foundational pillars that work together to create a truly intelligent coding partner:
+Letta is a **Developer Cognitive Engine** - an AI-powered coding assistant that goes beyond simple code analysis. It's designed to be a cognitive partner that:
 
-| Pillar | Purpose | Key Capability |
-|--------|---------|----------------|
-| 🧱 **Intent Awareness** | Reads your mind | Knows what you're trying to do before you finish |
-| 🧱 **Predictive Assistance** | Prevents mistakes | Catches bugs before you write them |
-| 🧱 **Self-Explaining Code** | Living documentation | Code that explains itself in real-time |
-| 🧱 **Why-First Debugging** | Root cause analysis | Explains WHY errors happen, not just WHAT |
-| 🧱 **Self-Improving** | Learns your patterns | Gets smarter with every interaction |
-| 🧱 **Flow Optimization** | Protects deep work | Knows when to help and when to be silent |
+- **Watches** your code in real-time and catches issues before they become bugs
+- **Understands** your intent and adapts its assistance accordingly
+- **Protects** your flow state by knowing when to help and when to stay silent
+- **Learns** your patterns and predicts problems before they happen
+- **Generates** intelligent commit messages based on actual code changes
+- **Collaborates** seamlessly with AI-powered IDEs like Kiro, Cursor, and Windsurf
 
-### How They Work Together
+### Why Letta?
 
-```
-                    ┌─────────────────────┐
-                    │   DEVELOPER TWIN    │
-                    │  (Your Digital You) │
-                    └──────────┬──────────┘
-                               │
-        ┌──────────────────────┼──────────────────────┐
-        │                      │                      │
-        ▼                      ▼                      ▼
-┌───────────────┐    ┌─────────────────┐    ┌───────────────┐
-│    INTENT     │    │   PREDICTIVE    │    │     FLOW      │
-│   AWARENESS   │◄──►│   ASSISTANCE    │◄──►│  OPTIMIZATION │
-└───────┬───────┘    └────────┬────────┘    └───────┬───────┘
-        │                     │                     │
-        └──────────────┬──────┴──────┬──────────────┘
-                       │             │
-                       ▼             ▼
-              ┌────────────┐  ┌─────────────┐
-              │ WHY-FIRST  │  │    SELF-    │
-              │  DEBUGGING │  │  EXPLAINING │
-              └─────┬──────┘  └──────┬──────┘
-                    │                │
-                    └───────┬────────┘
-                            ▼
-                   ┌────────────────┐
-                   │ SELF-IMPROVING │
-                   │     SYSTEM     │
-                   └────────────────┘
-```
+| Traditional Tools | Letta Cognitive Engine |
+|-------------------|------------------------|
+| React to errors after they happen | Predict problems before you write them |
+| Interrupt constantly with suggestions | Protect your flow state, queue suggestions |
+| One-size-fits-all assistance | Adapt to your intent and coding style |
+| Static analysis only | Multi-dimensional signal analysis |
+| Manual commit messages | AI-generated contextual commits |
 
 ---
 
-## ⚡ Quick Start
+## 🚀 Quick Start
 
-### 30-Second Setup
+### Prerequisites
+
+- **Node.js** 18.0.0 or higher
+- **npm** or **yarn**
+- **Git** (for commit features)
+- **Letta API Key** from [app.letta.ai](https://app.letta.ai)
+
+### Installation
 
 ```bash
-# 1. Clone and install
-git clone https://github.com/your-repo/letta-cognitive-engine.git
-cd letta-cognitive-engine
+# Clone or download the repository
+git clone <repository-url>
+cd letta
+
+# Install dependencies
 npm install
 
-# 2. Configure (get API key from https://app.letta.ai)
-cp .env.example .env
-# Edit .env and add your LETTA_API_KEY
-
-# 3. Create your AI agent
-npm run setup
-
-# 4. Launch!
+# Start the interactive CLI
 npm start
 ```
 
-### Your First Session
+### First-Time Setup
+
+1. **Launch Letta:**
+   ```bash
+   npm start
+   ```
+
+2. **Select "🚀 Quick Setup"** from the menu
+
+3. **Enter your API key** when prompted (get it from [app.letta.ai](https://app.letta.ai))
+
+4. **Wait for agent creation** (automatic)
+
+5. **You're ready!** Select "👁️ Watch & Analyze" to start monitoring your code
+
+### One-Liner Start
 
 ```bash
-# Start the cognitive watcher on your project
+# After setup, watch any project:
 npm run watch /path/to/your/project
-
-# Letta will:
-# ✓ Analyze your project structure
-# ✓ Detect your IDE and enable collaboration
-# ✓ Begin learning your patterns
-# ✓ Watch for changes and provide intelligent assistance
 ```
 
 ---
 
-## 📦 Installation
+## ✨ Features
 
-### Requirements
+### 🔍 Real-Time Code Analysis
 
-| Requirement | Version | Purpose |
-|-------------|---------|---------|
-| Node.js | ≥ 18.0.0 | Runtime |
-| npm | ≥ 8.0.0 | Package management |
-| Git | Any | Version control features |
-| Letta API Key | - | AI capabilities |
+Letta watches your files and analyzes them as you code:
 
-### Step-by-Step Installation
+- **Bug Detection** - Catches null pointer risks, unhandled promises, race conditions
+- **Security Scanning** - Identifies XSS vulnerabilities, SQL injection risks, unsafe eval()
+- **Performance Analysis** - Spots inefficient patterns, memory leaks, unnecessary re-renders
+- **Style Checking** - Enforces best practices, catches loose equality, empty catch blocks
 
-#### 1. Get the Code
+### 🔧 Intelligent Auto-Fix
 
-```bash
-git clone https://github.com/your-repo/letta-cognitive-engine.git
-cd letta-cognitive-engine
-```
-
-#### 2. Install Dependencies
+When enabled, Letta can automatically fix safe issues:
 
 ```bash
-npm install
+# Enable auto-fix mode
+npm run watch /path/to/project --auto-fix
 ```
 
-This installs:
-- `@letta-ai/letta-client` - AI agent communication
-- `chokidar` - High-performance file watching
-- `chalk` - Beautiful terminal output
-- `dayjs` - Date/time handling
-- And more...
+- Only applies fixes with high confidence (configurable threshold)
+- Creates backups before modifying files
+- Respects your fix type preferences (bugs, security, performance)
 
-#### 3. Configure Environment
+### 📝 Smart Commit Assistant
 
-```bash
-cp .env.example .env
-```
+Never write a commit message again:
 
-Edit `.env` with your settings:
+- **Analyzes actual code changes** - Not just file names
+- **Uses conventional commit format** - Feat:, Fix:, Refactor:, etc.
+- **Includes date prefix** - Format: DDMMYY (e.g., 311225)
+- **Three commit modes:**
+  - **Guided** - Step-by-step with review
+  - **Auto** - Stage → Commit → Push automatically
+  - **Skip** - Commit later manually
 
-```env
-# Required: Your Letta API key
-LETTA_API_KEY=sk-let-your-api-key-here
+### 🧠 Cognitive Engine
 
-# Theme: ocean, forest, sunset, midnight, mono
-LETTA_THEME=ocean
+The brain of Letta - a six-pillar system that thinks alongside you:
 
-# Watcher settings
-WATCHER_DEBOUNCE=2000
-WATCH_EXTENSIONS=.js,.jsx,.ts,.tsx,.json,.css,.md
-```
+1. **Intent Awareness** - Knows what you're trying to do
+2. **Predictive Analysis** - Catches bugs before you write them
+3. **Flow Optimizer** - Protects your deep work
+4. **Self-Learning** - Adapts to your patterns
+5. **Self-Explaining Code** - Living documentation (coming soon)
+6. **Why-First Debugging** - Root cause analysis (coming soon)
 
-#### 4. Create Your AI Agent
+### 🖥️ IDE Detection
 
-```bash
-npm run setup
-```
+Automatically detects and optimizes for your IDE:
 
-This creates a personalized AI agent with:
-- Code analysis capabilities
-- Memory blocks for learning
-- Your project context
-- Customizable behavior
+**Agentic IDEs (Full AI Collaboration):**
+- Kiro (AWS AI IDE)
+- Cursor
+- Windsurf (Codeium)
+- Antigravity
 
-#### 5. Verify Installation
-
-```bash
-npm start
-```
-
-You should see the Letta CLI menu with all options available.
+**Traditional IDEs:**
+- VS Code
+- JetBrains (IntelliJ, WebStorm, PyCharm)
+- Neovim / Vim
+- Sublime Text
+- Zed
 
 ---
 
-## 🎯 Core Features
+## 🧠 Cognitive Engine
 
-### Feature Overview
+The Cognitive Engine is what makes Letta different from traditional linters and analyzers. It's a multi-dimensional intelligence system that understands context, intent, and flow.
 
-| Feature | Description | Status |
-|---------|-------------|--------|
-| 🔍 **Real-time Code Watching** | Monitors files, analyzes changes instantly | ✅ Available |
-| 🧠 **Intent Detection** | Understands what you're trying to accomplish | ✅ Available |
-| 🔮 **Predictive Analysis** | Catches potential bugs before they happen | ✅ Available |
-| 🐛 **Why-First Debugging** | Explains root causes, not just symptoms | ✅ Available |
-| 📝 **Smart Commits** | Context-aware commit message generation | ✅ Available |
-| 🔧 **Auto Test-Fix** | Automatically fixes failing tests | ✅ Available |
-| 💻 **IDE Detection** | Integrates with 10+ IDEs | ✅ Available |
-| 🎨 **5 Color Themes** | Ocean, Forest, Sunset, Midnight, Mono | ✅ Available |
-| 🧬 **Developer Twin** | Digital model that learns your patterns | 🚧 Beta |
-| 🌊 **Flow Protection** | Knows when to help, when to be silent | 🚧 Beta |
-| 📖 **Self-Explaining Code** | Living documentation system | 🔜 Coming |
+### Pillar 1: Intent Awareness Engine
 
-### Available Commands
+**What it does:** Detects what you're trying to accomplish through multi-signal analysis.
+
+**Detected Intents:**
+| Intent | Description | Letta's Response |
+|--------|-------------|------------------|
+| `WRITING_NEW_FEATURE` | Creating new functionality | Proactive API docs, patterns |
+| `DEBUGGING_ERROR` | Fixing a bug | Detailed causal analysis |
+| `REFACTORING_CODE` | Improving structure | Safety checks, impact analysis |
+| `WRITING_TESTS` | Creating tests | Test patterns, edge cases |
+| `EXPLORING_CODEBASE` | Learning the code | Navigation help, architecture |
+| `STUCK_AND_SEARCHING` | Struggling with something | Immediate comprehensive help |
+| `FLOW_STATE_DEEP_WORK` | In the zone | **Complete silence** |
+
+**How it works:**
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    SIGNAL COLLECTION                        │
+├─────────────────┬─────────────────┬─────────────────────────┤
+│   TEMPORAL      │    SEMANTIC     │      BEHAVIORAL         │
+│ • Typing speed  │ • Code patterns │ • Git actions           │
+│ • Pause freq    │ • API usage     │ • Test runs             │
+│ • Edit rate     │ • Error density │ • File navigation       │
+└────────┬────────┴────────┬────────┴────────────┬────────────┘
+         │                 │                      │
+         └─────────────────┼──────────────────────┘
+                           ▼
+                  ┌─────────────────┐
+                  │ INTENT CLASSIFIER│
+                  │   (ML-based)    │
+                  └────────┬────────┘
+                           ▼
+                  ┌─────────────────┐
+                  │ ADAPTIVE UI     │
+                  │ CONFIGURATION   │
+                  └─────────────────┘
+```
+
+### Pillar 2: Predictive Assistance Engine
+
+**What it does:** Catches bugs before you write them using pattern analysis.
+
+**Prediction Types:**
+- `NULL_POINTER` - Property access without null checks
+- `ASYNC_ISSUE` - Unhandled promises, race conditions
+- `MEMORY_LEAK` - Event listeners without cleanup
+- `SECURITY_VULNERABILITY` - eval(), innerHTML, SQL injection
+- `PERFORMANCE_BOTTLENECK` - Inefficient loops, unnecessary operations
+- `ERROR_PRONE_PATTERN` - Loose equality, empty catch blocks
+
+**Risk Scoring System:**
+```
+Risk Score = Σ (Factor × Weight)
+
+Factors:
+├── Code Complexity (25%)
+├── Task Complexity (25%)
+├── Test Coverage (15%)
+├── Change Size (10%)
+├── External Dependencies (10%)
+├── Concurrency Level (10%)
+└── Developer Fatigue (5%)
+```
+
+**Risk Levels:**
+| Level | Score | Action |
+|-------|-------|--------|
+| LOW | 0-30% | Minimal suggestions |
+| MEDIUM | 30-60% | Contextual help available |
+| HIGH | 60-80% | Proactive warnings |
+| CRITICAL | 80-100% | Immediate intervention |
+
+### Pillar 6: Flow Optimizer
+
+**What it does:** Protects your deep work by knowing when to help and when to stay silent.
+
+**Flow States:**
+| State | Description | Letta's Behavior |
+|-------|-------------|------------------|
+| `DEEP_FLOW` | Peak productivity | **No interruptions** |
+| `FLOW` | Good focus | Minimal suggestions only |
+| `ENGAGED` | Working normally | Standard assistance |
+| `DISTRACTED` | Losing focus | Focus assistance |
+| `STRUGGLING` | Needs help | Comprehensive support |
+
+**Flow Detection Metrics:**
+- Typing speed and consistency
+- Pause frequency and duration
+- Edit patterns and velocity
+- Error rate
+- Task switching frequency
+
+**Cognitive Load Monitoring:**
+```
+Cognitive Load = f(
+  code_complexity,
+  task_complexity,
+  context_switches,
+  open_files,
+  pending_tasks,
+  time_working
+)
+```
+
+### Enabling/Disabling Cognitive Features
+
+In your `.env` file:
 
 ```bash
-# Main CLI (recommended)
-npm start                    # Interactive menu
+# Master switch
+COGNITIVE_ENGINE=true
 
-# Direct commands
-npm run watch <path>         # Watch and analyze project
-npm run fix <path>           # Auto-fix failing tests
-npm run chat                 # Chat with AI agent
-npm run demo                 # Preview themes
-
-# Agent management
-npm run setup                # Create AI agent
-npm run setup:force          # Recreate agent
-npm run setup:upgrade        # Upgrade agent template
-npm run cleanup              # Remove old agents
-```
-
----
-
-## 🧱 PILLAR 1: Intent Awareness Engine
-
-> **"Letta knows what you're trying to do before you finish typing."**
-
-### How It Works
-
-The Intent Awareness Engine analyzes multiple signals to understand your current goal:
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    SIGNAL COLLECTION                            │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  TEMPORAL          SPATIAL           SEMANTIC        BEHAVIORAL │
-│  ─────────         ───────           ────────        ────────── │
-│  • Typing speed    • Cursor moves    • Code focus    • Git      │
-│  • Pause duration  • File switches   • Concepts      • Tests    │
-│  • Edit frequency  • Viewport        • Abstraction   • Errors   │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    INTENT CLASSIFICATION                        │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  WRITING_NEW_FEATURE    │  DEBUGGING_ERROR      │  REFACTORING │
-│  EXPLORING_CODEBASE     │  OPTIMIZING_PERF      │  WRITING_TESTS│
-│  FIXING_BUG             │  LEARNING_NEW_API     │  CODE_REVIEW  │
-│  STUCK_AND_SEARCHING    │  FLOW_STATE_DEEP_WORK │  DESIGNING    │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    ADAPTIVE RESPONSE                            │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  Intent: DEBUGGING_ERROR                                        │
-│  ───────────────────────                                        │
-│  Suggestions: CAUSAL_ANALYSIS, STACK_TRACE, FIXES               │
-│  Verbosity: DETAILED                                            │
-│  Timing: IMMEDIATE                                              │
-│  UI Elements: [causal_graph, variable_inspector, timeline]      │
-│                                                                 │
-│  Intent: FLOW_STATE_DEEP_WORK                                   │
-│  ─────────────────────────                                      │
-│  Suggestions: NONE                                              │
-│  Verbosity: SILENT                                              │
-│  Timing: NEVER                                                  │
-│  UI Elements: []  ← Letta stays completely silent!              │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Intent-Driven Behavior
-
-| Detected Intent | Letta's Response |
-|-----------------|------------------|
-| **Writing New Feature** | Proactive API docs, patterns, examples |
-| **Debugging Error** | Immediate causal analysis, fix suggestions |
-| **Refactoring Code** | Safety checks, test coverage, impact analysis |
-| **Stuck and Searching** | Comprehensive help, related code, documentation |
-| **Deep Flow State** | **Complete silence** — protects your focus |
-| **Exploring Codebase** | Navigation hints, architecture overview |
-| **Writing Tests** | Test patterns, edge cases, coverage gaps |
-
-### Example: Intent in Action
-
-```
-You're typing quickly, making small edits across multiple files,
-running tests frequently...
-
-┌─────────────────────────────────────────────────────────────────┐
-│ 🧠 INTENT DETECTED: DEBUGGING_ERROR (87% confidence)           │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│ Letta automatically:                                            │
-│ • Switches to detailed error analysis mode                      │
-│ • Prepares causal graph of recent changes                       │
-│ • Pre-loads related test files                                  │
-│ • Offers immediate help when you pause                          │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+# Individual features
+FLOW_PROTECTION=true      # Protect deep work
+INTENT_DETECTION=true     # Detect developer intent
+PREDICTIVE_ANALYSIS=true  # Predict problems
 ```
 
 ---
 
-## 🧱 PILLAR 2: Predictive Assistance Engine
+## 👁️ File Watcher
 
-> **"Catch bugs before you write them."**
+The file watcher is Letta's real-time monitoring system.
 
-### Before-the-Mistake Prediction
+### Starting the Watcher
 
-Traditional tools wait for errors. Letta predicts them:
+```bash
+# Basic usage
+npm run watch /path/to/project
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    PREDICTION LAYERS                            │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  STATIC PREDICTION (Code hasn't run yet)                        │
-│  ─────────────────────────────────────────                      │
-│  • Null pointer risks                                           │
-│  • Race conditions                                               │
-│  • Memory leak patterns                                          │
-│  • Security vulnerabilities                                      │
-│  • Type safety issues                                            │
-│  • API misuse patterns                                           │
-│                                                                 │
-│  DYNAMIC PREDICTION (Based on runtime patterns)                 │
-│  ──────────────────────────────────────────────                 │
-│  • Unhandled edge cases                                          │
-│  • Resource usage spikes                                         │
-│  • Concurrency problems                                          │
-│  • State management issues                                       │
-│                                                                 │
-│  HISTORICAL PREDICTION (Based on YOUR past mistakes)            │
-│  ───────────────────────────────────────────────────            │
-│  • Recurring bug patterns                                        │
-│  • Your common error types                                       │
-│  • Project-specific issues                                       │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+# With auto-fix enabled
+npm run watch /path/to/project --auto-fix
+
+# With debug output
+npm run watch /path/to/project --debug
 ```
 
-### Risk Scoring System
+### What Gets Watched
 
-Every piece of code gets a risk score:
+**Default Extensions:**
+`.js`, `.jsx`, `.ts`, `.tsx`, `.json`, `.css`, `.scss`, `.md`
+
+**Ignored Paths:**
+- `node_modules/`
+- `.git/`
+- `dist/`, `build/`
+- `.next/`
+- `coverage/`
+- `*.min.js`, `*.map`
+
+### Watcher Output
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    RISK FACTORS                                 │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  Factor              Weight    Your Score                       │
-│  ──────              ──────    ──────────                       │
-│  Complexity          15%       ████████░░ 0.8                   │
-│  Novelty             10%       ██████░░░░ 0.6                   │
-│  Criticality         20%       █████████░ 0.9                   │
-│  Change Size         10%       ████░░░░░░ 0.4                   │
-│  Test Coverage       15%       ███░░░░░░░ 0.3  ⚠️ LOW           │
-│  Developer Fatigue   10%       █████░░░░░ 0.5                   │
-│  External Deps       10%       ██████░░░░ 0.6                   │
-│  Concurrency         10%       ████████░░ 0.8                   │
-│                                                                 │
-│  ═══════════════════════════════════════════════════════════   │
-│  OVERALL RISK: HIGH (0.72)                                      │
-│                                                                 │
-│  🚨 Recommendation: Add tests before deploying                  │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+  ╭─────────────────────────────────────────────────────────────────╮
+  │  🤖 LETTA CODE WATCHER                                         │
+  ╰─────────────────────────────────────────────────────────────────╯
+
+  my-project v1.0.0
+  A sample project description
+
+  ⬢ node JS  │  42 files  │  12+8 deps  │  156KB
+
+  15 core · 8 scripts · 12 tests · 5 configs
+
+  Tools Jest · ESLint · TypeScript
+  npm   dev │ start │ build │ test
+
+  ─────────────────────────────────────────────────────────────────
+
+  git ● main ◆ 3 uncommitted
+      abc1234 Last commit message
+
+  🤖 Kiro  AI  collaboration enabled
+
+  ─────────────────────────────────────────────────────────────────
+
+   WATCH   🧠 COGNITIVE  Theme: ocean │ Debounce: 2000ms
+  Cognitive: Intent · Prediction · Flow
+
+  ─────────────────────────────────────────────────────────────────
+  q quit & commit  │  Ctrl+C quick exit  │  npm start menu
+  ─────────────────────────────────────────────────────────────────
+
+  14:32:15 Starting watcher...
+  14:32:16 ✓ Ready — watching 42 files
+
+  14:32:20 ~ Button.jsx
+  14:32:21 ● Button.jsx...
+  14:32:23 ✓ Button.jsx (2.1s)
+
+  14:32:45 ~ utils.js
+  14:32:46 ● utils.js...
+  14:32:48 ⚠ utils.js (2 issues, 1.8s)
+       ! Potential null pointer at line 15
+       · Consider using optional chaining
 ```
 
-### Predictive Warnings
+### Skip Analysis for Specific Files
+
+Add `@letta-ignore` comment to skip analysis:
 
 ```javascript
-// You're writing this code:
-async function fetchUserData(userId) {
-  const response = await api.get(`/users/${userId}`);
-  return response.data.profile.name;  // ← Letta sees risk here
-}
-
-// Letta predicts (before you even run it):
-┌─────────────────────────────────────────────────────────────────┐
-│ 🔮 PREDICTION: Potential null pointer (78% confidence)         │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│ Risk: response.data.profile may be undefined                    │
-│                                                                 │
-│ Historical data: You've had 3 similar bugs this month           │
-│                                                                 │
-│ Suggested fix:                                                  │
-│ return response.data?.profile?.name ?? 'Unknown';               │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+// @letta-ignore
+// This file is auto-generated, skip analysis
+export const generated = { ... };
 ```
 
 ---
 
-## 🧱 PILLAR 3: Self-Explaining Code System
+## 📝 Commit Assistant
 
-> **"Code that explains itself in real-time."**
+The commit assistant helps you create meaningful commit messages.
 
-### Living Documentation
+### Accessing the Commit Assistant
 
-Letta generates and maintains documentation that evolves with your code:
+1. **Press `q`** while the watcher is running
+2. **Or** let the watcher detect uncommitted changes on exit
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    EXPLANATION LAYERS                           │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  SURFACE    → What it does (quick overview)                     │
-│  DEEP       → How it works (implementation details)             │
-│  CONTEXT    → Why it exists (business/technical reason)         │
-│  ALTERNATIVES → What could be different (other approaches)      │
-│  HISTORY    → How it evolved (git history insights)             │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Hover Explanations
-
-When you hover over any code element, Letta provides layered explanations:
+### Commit Flow
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│ 📝 calculateTax(income, deductions)                            │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│ Purpose: Calculates federal tax based on income brackets        │
-│                                                                 │
-│ Inputs:                                                         │
-│   • income: number (annual gross income)                        │
-│   • deductions: number (total deductions)                       │
-│                                                                 │
-│ Returns: number (tax amount owed)                               │
-│                                                                 │
-│ Example:                                                        │
-│   calculateTax(75000, 12000) → 9875.50                         │
-│                                                                 │
-│ Common uses:                                                    │
-│   • Tax form generation                                         │
-│   • Payroll processing                                          │
-│   • Financial planning tools                                    │
-│                                                                 │
-│ ─────────────────────────────────────────────────────────────  │
-│ [Deep Dive] [Context] [Alternatives] [History]                  │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────╮
+│  📝 COMMIT ASSISTANT                                           │
+╰─────────────────────────────────────────────────────────────────╯
+
+  git ● main
+
+  3 uncommitted changes (2 modified, 1 new)
+
+  ~ Button.jsx
+  ~ utils.js
+  + NewComponent.tsx
+
+  ─────────────────────────────────────────────────────────────────
+
+  ❯ Guided commit     — step by step
+    Auto commit       — stage, commit, push
+    Skip              — commit later
+
+  ↑/↓ move  Enter select  Esc cancel
 ```
 
-### Deep Dive View
+### Commit Message Format
 
+Letta generates messages in this format:
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│ 🧠 calculateTax - Deep Dive                                    │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│ Algorithm: Progressive tax bracket calculation                  │
-│                                                                 │
-│ Complexity: O(n) where n = number of tax brackets               │
-│                                                                 │
-│ Edge Cases:                                                     │
-│   • Negative income → Returns 0                                 │
-│   • Deductions > Income → Returns 0                             │
-│   • Very high income → Uses top bracket rate                    │
-│                                                                 │
-│ Implementation Details:                                         │
-│   Uses 2024 federal tax brackets. Iterates through brackets     │
-│   from lowest to highest, accumulating tax at each rate.        │
-│                                                                 │
-│ Performance Characteristics:                                    │
-│   • Time: ~0.001ms average                                      │
-│   • Memory: O(1) - no allocations                               │
-│   • Pure function - no side effects                             │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+DDMMYY - Type: Description
+```
+
+**Examples:**
+- `311225 - Feat: Add arrow key navigation to settings menu`
+- `311225 - Fix: Resolve null pointer in user authentication`
+- `311225 - Refactor: Simplify dashboard header layout`
+- `311225 - Docs: Update README with cognitive engine details`
+
+**Conventional Commit Types:**
+| Type | When to Use |
+|------|-------------|
+| `Feat:` | New features |
+| `Fix:` | Bug fixes |
+| `Refactor:` | Code restructuring |
+| `Style:` | Formatting, CSS |
+| `Docs:` | Documentation |
+| `Test:` | Adding tests |
+| `Chore:` | Maintenance, deps |
+| `Perf:` | Performance |
+
+---
+
+## 🖥️ IDE Integration
+
+Letta automatically detects your IDE and adjusts its behavior.
+
+### Agentic IDE Collaboration
+
+When using AI-powered IDEs (Kiro, Cursor, Windsurf), Letta enables:
+
+- **Reduced verbosity** - Your IDE's AI handles explanations
+- **Complementary analysis** - Focuses on what your IDE might miss
+- **Shared context** - Works alongside your IDE's AI
+- **Non-overlapping suggestions** - Avoids duplicate recommendations
+
+### Detection Indicators
+
+In the watcher header:
+```
+🤖 Kiro  AI  collaboration enabled    # Agentic IDE detected
+⚡ VS Code                             # Modern IDE
+📝 Vim                                 # Traditional editor
+💻 Terminal                            # No IDE detected
+```
+
+### Force IDE Detection
+
+```bash
+# In .env
+LETTA_IDE=kiro
 ```
 
 ---
 
-## 🧱 PILLAR 4: Why-First Debugging Engine
+## 🎨 Themes & Customization
 
-> **"Understand WHY errors happen, not just WHAT went wrong."**
+### Available Themes
 
-### Causal Analysis
+| Theme | Description | Best For |
+|-------|-------------|----------|
+| `ocean` | Cyan accents, calm blues | Default, easy on eyes |
+| `forest` | Green tones, natural | Nature lovers |
+| `sunset` | Warm oranges and reds | Evening coding |
+| `midnight` | Purple accents, dark | Night owls |
+| `mono` | Grayscale, minimal | Distraction-free |
 
-When an error occurs, Letta builds a causal graph to find the TRUE root cause:
+### Setting a Theme
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    CAUSAL GRAPH                                 │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│                    ┌─────────────┐                              │
-│                    │   SYMPTOM   │                              │
-│                    │ TypeError   │                              │
-│                    └──────┬──────┘                              │
-│                           │                                     │
-│              ┌────────────┼────────────┐                        │
-│              │            │            │                        │
-│              ▼            ▼            ▼                        │
-│        ┌──────────┐ ┌──────────┐ ┌──────────┐                  │
-│        │ Null     │ │ Missing  │ │ Wrong    │                  │
-│        │ Response │ │ Await    │ │ Type     │                  │
-│        └────┬─────┘ └────┬─────┘ └──────────┘                  │
-│             │            │                                      │
-│             └─────┬──────┘                                      │
-│                   ▼                                             │
-│            ┌─────────────┐                                      │
-│            │ ROOT CAUSE  │ ← API returns null on 404            │
-│            │ No null     │   but code expects object            │
-│            │ check       │                                      │
-│            └─────────────┘                                      │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+```bash
+# In .env
+LETTA_THEME=midnight
 ```
 
-### Error Explanation Format
+### Theme Preview
 
+```bash
+# Run the theme demo
+npm run demo
+
+# Or specific theme
+npm run demo:forest
+npm run demo:sunset
+npm run demo:midnight
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│ 🔥 ERROR: Cannot read property 'name' of undefined             │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│ ❗ ROOT CAUSE:                                                  │
-│ API returns null when user not found (404), but code assumes    │
-│ response always contains user object.                           │
-│                                                                 │
-│ 📖 EXPLANATION:                                                 │
-│ The fetchUser() function doesn't handle the case where the API  │
-│ returns a 404 status. When this happens, response.data is null, │
-│ and accessing .name on null throws TypeError.                   │
-│                                                                 │
-│ 🔗 CHAIN OF EVENTS:                                             │
-│ 1. User ID 'abc123' doesn't exist in database                   │
-│ 2. API returns 404 with null body                               │
-│ 3. fetchUser() returns null (no error handling)                 │
-│ 4. displayUser() calls user.name on null                        │
-│ 5. TypeError thrown                                             │
-│                                                                 │
-│ 🛠️ HOW TO FIX:                                                  │
-│                                                                 │
-│ Immediate fix (2 min):                                          │
-│ ┌─────────────────────────────────────────────────────────────┐ │
-│ │ const user = await fetchUser(id);                           │ │
-│ │ if (!user) {                                                │ │
-│ │   return showNotFound();                                    │ │
-│ │ }                                                           │ │
-│ │ displayUser(user);                                          │ │
-│ └─────────────────────────────────────────────────────────────┘ │
-│                                                                 │
-│ Robust fix (10 min):                                            │
-│ Add proper error handling in fetchUser() that throws custom     │
-│ UserNotFoundError, then catch and handle appropriately.         │
-│                                                                 │
-│ 🚀 FIX PATH:                                                    │
-│ Step 1: UNDERSTAND - Read the API documentation for error codes │
-│ Step 2: ISOLATE - Add console.log to see actual response        │
-│ Step 3: FIX - Add null check before accessing properties        │
-│ Step 4: VERIFY - Test with non-existent user ID                 │
-│ Step 5: PREVENT - Add TypeScript types or runtime validation    │
-│                                                                 │
-│ ⚠️ WATCH OUT FOR:                                               │
-│ • Other places using fetchUser() without null checks            │
-│ • Similar patterns with other API calls                         │
-│                                                                 │
-│ 🎯 PREVENT FUTURE OCCURRENCES:                                  │
-│ Consider using TypeScript with strict null checks, or add       │
-│ a wrapper function that always returns a Result type.           │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+
+### Theme Colors
+
+```javascript
+// ocean (default)
+accent: cyan, success: green, warning: yellow, error: red
+
+// forest
+accent: green, success: lime, warning: yellow, error: red
+
+// sunset
+accent: coral, success: palegreen, warning: gold, error: crimson
+
+// midnight
+accent: purple, success: springgreen, warning: gold, error: orangered
+
+// mono
+accent: white, success: white, warning: gray, error: white
 ```
 
 ---
 
-## 🧱 PILLAR 5: Self-Improving System
+## ⚙️ Configuration Reference
 
-> **"Letta gets smarter every time you use it."**
+### Environment Variables (.env)
 
-### Local Learning Loop
+```bash
+# ═══════════════════════════════════════════════════════════════
+# API CONFIGURATION
+# ═══════════════════════════════════════════════════════════════
+LETTA_API_KEY=sk-let-your-api-key-here    # Required
+LETTA_PROJECT_ID=                          # Optional
 
-Everything Letta learns stays on YOUR machine:
+# ═══════════════════════════════════════════════════════════════
+# THEME & DISPLAY
+# ═══════════════════════════════════════════════════════════════
+LETTA_THEME=ocean                # ocean|forest|sunset|midnight|mono
+SHOW_TIMESTAMPS=true             # Show time on log lines
+VERBOSE_OUTPUT=false             # Detailed analysis output
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    LEARNING SIGNALS                             │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  What you ACCEPT     → Letta learns your preferences            │
-│  What you REJECT     → Letta avoids similar suggestions         │
-│  What you MODIFY     → Letta refines its approach               │
-│  How long you THINK  → Letta adjusts timing                     │
-│  When you're HAPPY   → Letta reinforces behavior                │
-│  When you're STUCK   → Letta offers more help                   │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    MODEL UPDATES                                │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  PREFERENCE MODEL                                               │
-│  ─────────────────                                              │
-│  • Suggestion style: Concise (learned from 47 interactions)     │
-│  • Verbosity level: Medium (you skip long explanations)         │
-│  • Timing: After 3s pause (you like to think first)             │
-│  • Format: Code examples > text (you're visual)                 │
-│                                                                 │
-│  PATTERN MODEL                                                  │
-│  ─────────────                                                  │
-│  • You often forget await (caught 12 times)                     │
-│  • You prefer arrow functions (98% of the time)                 │
-│  • You test edge cases last (opportunity for improvement)       │
-│                                                                 │
-│  ADAPTIVE MODEL                                                 │
-│  ──────────────                                                 │
-│  • Best time to suggest: After you pause typing                 │
-│  • Best time to be silent: When typing speed > 80 WPM           │
-│  • Best help format: Inline code suggestions                    │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
+# ═══════════════════════════════════════════════════════════════
+# COGNITIVE ENGINE
+# ═══════════════════════════════════════════════════════════════
+COGNITIVE_ENGINE=true            # Master switch
+FLOW_PROTECTION=true             # Protect deep work states
+INTENT_DETECTION=true            # Detect developer intent
+PREDICTIVE_ANALYSIS=true         # Predict problems
 
-### Your Personalized Profile
-
-After using Letta, it builds a profile of your coding style:
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    DEVELOPER PROFILE                            │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  CODING STYLE                                                   │
-│  ─────────────                                                  │
-│  • Prefers functional programming patterns                      │
-│  • Uses descriptive variable names                              │
-│  • Writes tests after implementation                            │
-│  • Commits frequently in small chunks                           │
-│                                                                 │
-│  STRENGTHS                                                      │
-│  ─────────                                                      │
-│  • Algorithm design                                             │
-│  • Code organization                                            │
-│  • Documentation                                                │
-│                                                                 │
-│  GROWTH AREAS                                                   │
-│  ────────────                                                   │
-│  • Error handling (often forgets edge cases)                    │
-│  • Async patterns (occasional race conditions)                  │
-│  • Test coverage (averages 65%, could be higher)                │
-│                                                                 │
-│  PRODUCTIVE TIMES                                               │
-│  ────────────────                                               │
-│  • Peak: 9-11 AM, 2-4 PM                                        │
-│  • Low: After 6 PM (error rate increases 40%)                   │
-│                                                                 │
-│  LEARNING RATE                                                  │
-│  ─────────────                                                  │
-│  • Fast learner for new APIs                                    │
-│  • Benefits from examples over documentation                    │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## 🧱 PILLAR 6: Programmer Flow Optimizer
-
-> **"Letta knows when to help and when to stay completely silent."**
-
-### Flow State Detection
-
-Letta continuously monitors your flow state:
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    FLOW STATE METRICS                           │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  TEMPORAL                    FOCUS                              │
-│  ────────                    ─────                              │
-│  Typing speed: 75 WPM        Attention span: High               │
-│  Pause frequency: Low        Distractions: None                 │
-│  Edit pattern: Consistent    Task switching: Minimal            │
-│                                                                 │
-│  PRODUCTIVITY                INDICATORS                         │
-│  ────────────                ──────────                         │
-│  Output rate: High           Error rate: Low                    │
-│  Progress: On track          Confidence: High                   │
-│                                                                 │
-│  ═══════════════════════════════════════════════════════════   │
-│  FLOW STATE: DEEP_FLOW (92% confidence)                         │
-│                                                                 │
-│  🤫 Letta is SILENT - Protecting your focus                     │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Intervention Matrix
-
-Letta decides when to help based on your state:
-
-| Flow State | Cognitive Load | Letta's Action |
-|------------|----------------|----------------|
-| **DEEP_FLOW** | Low | 🤫 No intervention |
-| **DEEP_FLOW** | Medium | 🤫 No intervention |
-| **DEEP_FLOW** | High | 💭 Gentle reminder |
-| **FLOW** | Low | 💡 Minimal suggestions |
-| **FLOW** | Medium | 📚 Contextual help |
-| **FLOW** | High | ☕ Break suggestion |
-| **ENGAGED** | Low | 🚀 Proactive help |
-| **ENGAGED** | Medium | 🎯 Targeted assistance |
-| **ENGAGED** | High | 📋 Simplify suggestions |
-| **DISTRACTED** | Any | 🧘 Focus assistance |
-| **STRUGGLING** | Low | 📖 Comprehensive help |
-| **STRUGGLING** | High | 🔄 Suggest task switch |
-
-### Flow Protection in Action
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ 🌊 FLOW PROTECTION ACTIVE                                      │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│ You've been in deep flow for 47 minutes.                        │
-│                                                                 │
-│ Letta has:                                                      │
-│ ✓ Silenced all non-critical notifications                       │
-│ ✓ Queued 3 suggestions for later                                │
-│ ✓ Blocked 2 potential interruptions                             │
-│ ✓ Saved your context for seamless resume                        │
-│                                                                 │
-│ When you pause, Letta will gently offer:                        │
-│ • The queued suggestions (if still relevant)                    │
-│ • A summary of what happened while you were focused             │
-│ • A hydration/stretch reminder (you've been at it a while!)     │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## 🧬 The Developer Twin
-
-> **"A digital model of YOU that learns, predicts, and evolves."**
-
-### What is the Developer Twin?
-
-The Developer Twin is Letta's most advanced feature — a personalized AI model that:
-
-- **Learns** your coding patterns, preferences, and habits
-- **Predicts** what you'll do next and what mistakes you might make
-- **Simulates** how you would approach a problem
-- **Evolves** with every interaction, getting smarter over time
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    DEVELOPER TWIN                               │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐             │
-│  │  COGNITIVE  │  │ BEHAVIORAL  │  │  STYLISTIC  │             │
-│  │   MODEL     │  │   MODEL     │  │   MODEL     │             │
-│  │             │  │             │  │             │             │
-│  │ How you     │  │ What you    │  │ How you     │             │
-│  │ think       │  │ do          │  │ write       │             │
-│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘             │
-│         │                │                │                     │
-│         └────────────────┼────────────────┘                     │
-│                          │                                      │
-│                          ▼                                      │
-│                   ┌─────────────┐                               │
-│                   │  KNOWLEDGE  │                               │
-│                   │    GRAPH    │                               │
-│                   │             │                               │
-│                   │ What you    │                               │
-│                   │ know        │                               │
-│                   └─────────────┘                               │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Twin Capabilities
-
-| Capability | Description |
-|------------|-------------|
-| **Predict Actions** | Knows what file you'll edit next |
-| **Predict Errors** | Knows what mistakes you're likely to make |
-| **Simulate Approach** | Models how you'd solve a problem |
-| **Suggest Optimizations** | Recommends personalized improvements |
-| **Generate Learning Path** | Creates a custom growth plan |
-
-### Your Growth Trajectory
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    PERSONALIZED LEARNING PATH                   │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  CURRENT LEVEL: Mid-Level Developer                             │
-│                                                                 │
-│  MILESTONE 1: Mid → Senior (6-12 months)                        │
-│  ─────────────────────────────────────────                      │
-│  Skills to develop:                                             │
-│  • System design patterns                                       │
-│  • Performance optimization                                     │
-│  • Mentoring others                                             │
-│                                                                 │
-│  Recommended resources (based on YOUR learning style):          │
-│  • Interactive tutorials (you learn best by doing)              │
-│  • Code review of senior engineers' PRs                         │
-│  • Architecture decision records                                │
-│                                                                 │
-│  MILESTONE 2: Senior → Expert (12-24 months)                    │
-│  ─────────────────────────────────────────────                  │
-│  Skills to develop:                                             │
-│  • Distributed systems                                          │
-│  • Technical leadership                                         │
-│  • Open source contribution                                     │
-│                                                                 │
-│  Progress: ████████░░░░░░░░░░░░ 40%                            │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## ⚙️ Configuration
-
-### Complete Configuration Reference
-
-Create a `.env` file with these options:
-
-```env
-# ═══════════════════════════════════════════════════════════════════════════
-# LETTA COGNITIVE ENGINE - Configuration
-# ═══════════════════════════════════════════════════════════════════════════
-
-# ─── API Configuration ───────────────────────────────────────────────────────
-# Required: Get your API key from https://app.letta.ai
-LETTA_API_KEY=sk-let-your-api-key-here
-LETTA_PROJECT_ID=
-
-# ─── Theme & Display ─────────────────────────────────────────────────────────
-# Available themes: ocean, forest, sunset, midnight, mono
-LETTA_THEME=ocean
-
-# Show timestamps on log lines
-SHOW_TIMESTAMPS=true
-
-# Show detailed analysis output
-VERBOSE_OUTPUT=false
-
-# ─── Intent Detection ────────────────────────────────────────────────────────
-# Enable intent-aware suggestions
-INTENT_DETECTION=true
-
-# Minimum confidence to act on detected intent (0.0 to 1.0)
-INTENT_CONFIDENCE_THRESHOLD=0.7
-
-# ─── Flow Protection ─────────────────────────────────────────────────────────
-# Enable flow state detection and protection
-FLOW_PROTECTION=true
-
-# Minutes of deep focus before suggesting a break
-FLOW_BREAK_REMINDER=45
-
-# Silence all suggestions during detected flow state
-FLOW_SILENCE_MODE=true
-
-# ─── Predictive Analysis ─────────────────────────────────────────────────────
-# Enable before-the-mistake predictions
-PREDICTIVE_ANALYSIS=true
-
-# Risk threshold to show warnings (0.0 to 1.0)
-RISK_WARNING_THRESHOLD=0.6
-
-# ─── Learning & Adaptation ───────────────────────────────────────────────────
-# Enable local learning from your interactions
-LOCAL_LEARNING=true
-
-# Store developer profile locally
-DEVELOPER_PROFILE=true
-
-# ─── Watcher Settings ────────────────────────────────────────────────────────
-# Delay before analyzing after file change (milliseconds)
-WATCHER_DEBOUNCE=2000
-
-# How many folder levels deep to watch
-WATCHER_DEPTH=20
-
-# File extensions to watch
+# ═══════════════════════════════════════════════════════════════
+# WATCHER SETTINGS
+# ═══════════════════════════════════════════════════════════════
+WATCHER_DEBOUNCE=2000            # ms delay before analysis
+WATCHER_DEPTH=20                 # Folder depth to watch
+WATCH_ALL=false                  # Watch all vs common folders
 WATCH_EXTENSIONS=.js,.jsx,.ts,.tsx,.json,.css,.scss,.md
 
-# ─── Auto-Fix Settings ───────────────────────────────────────────────────────
-# Automatically apply fixes
-AUTO_APPLY=false
+# ═══════════════════════════════════════════════════════════════
+# AUTO-FIX SETTINGS
+# ═══════════════════════════════════════════════════════════════
+AUTO_APPLY=false                 # Auto-apply fixes
+MIN_CONFIDENCE=0.7               # 0.0-1.0, higher = safer
+MAX_FIX_ATTEMPTS=10              # Prevent infinite loops
+BACKUP_BEFORE_FIX=true           # Create backups
+FIX_TYPES=bug,security,performance  # What to auto-fix
 
-# Minimum confidence to apply fix (0.0 to 1.0)
-MIN_CONFIDENCE=0.7
+# ═══════════════════════════════════════════════════════════════
+# IDE DETECTION
+# ═══════════════════════════════════════════════════════════════
+IDE_COLLABORATION=true           # Enable AI IDE collaboration
+# LETTA_IDE=kiro                 # Force specific IDE
 
-# Create backup before modifying
-BACKUP_BEFORE_FIX=true
-
-# ─── IDE Collaboration ───────────────────────────────────────────────────────
-# Enable AI collaboration with agentic IDEs
-IDE_COLLABORATION=true
-
-# ─── Debug ───────────────────────────────────────────────────────────────────
-DEBUG=false
+# ═══════════════════════════════════════════════════════════════
+# DEBUG
+# ═══════════════════════════════════════════════════════════════
+DEBUG=false                      # Enable debug logging
 ```
 
-### Theme Gallery
+### Configuration Tips
 
-| Theme | Colors | Best For |
-|-------|--------|----------|
-| 🌊 **ocean** | Cyan, Blue, Green | Default, professional |
-| 🌲 **forest** | Green, Brown, Gold | Nature lovers |
-| 🌅 **sunset** | Orange, Red, Pink | Warm, energetic |
-| 🌙 **midnight** | Purple, Gold, Blue | Night coding |
-| ⬜ **mono** | White, Gray | Minimal, distraction-free |
-
-Preview themes:
+**For Faster Analysis:**
 ```bash
-npm run demo           # Ocean (default)
-npm run demo:forest    # Forest
-npm run demo:sunset    # Sunset
-npm run demo:midnight  # Midnight
+WATCHER_DEBOUNCE=1000    # Faster response
+VERBOSE_OUTPUT=false     # Less output
+```
+
+**For Thorough Analysis:**
+```bash
+WATCHER_DEBOUNCE=3000    # More time to finish typing
+VERBOSE_OUTPUT=true      # See everything
+MIN_CONFIDENCE=0.9       # Only very safe fixes
+```
+
+**For Flow Protection:**
+```bash
+COGNITIVE_ENGINE=true
+FLOW_PROTECTION=true
+INTENT_DETECTION=true
 ```
 
 ---
 
-## 💻 IDE Integration
+## 💻 CLI Commands
 
-### Supported IDEs
+### Main Commands
 
-Letta automatically detects and integrates with your IDE:
+| Command | Description |
+|---------|-------------|
+| `npm start` | Launch interactive CLI menu |
+| `npm run watch <path>` | Start file watcher |
+| `npm run watch <path> --auto-fix` | Watch with auto-fix |
+| `npm run fix <path>` | Run auto test-fix |
+| `npm run chat` | Chat with AI agent |
+| `npm run setup` | Create/setup agent |
+| `npm run setup:force` | Force recreate agent |
+| `npm run setup:upgrade` | Upgrade agent template |
+| `npm run cleanup` | Remove old agents |
+| `npm run demo` | Run theme demo |
+| `npm test` | Run tests |
 
-#### Agentic IDEs (Full AI Collaboration)
-
-| IDE | Detection | Collaboration |
-|-----|-----------|---------------|
-| 🤖 **Kiro** | `.kiro/` folder | Full sync, shared suggestions |
-| 🤖 **Cursor** | `.cursor/` folder | Shared context |
-| 🤖 **Windsurf** | `.windsurf/` folder | Flow integration |
-| 🤖 **Antigravity** | `.antigravity/` folder | Multi-agent coordination |
-
-#### Traditional IDEs
-
-| IDE | Detection | Features |
-|-----|-----------|----------|
-| 📝 **VS Code** | `.vscode/` folder | Suggestions, diagnostics |
-| 📝 **JetBrains** | `.idea/` folder | Inspections integration |
-| 📝 **Neovim** | `NVIM` env var | LSP-style suggestions |
-| 📝 **Vim** | `VIM` env var | Basic integration |
-| 📝 **Sublime** | `.sublime-project` | Plugin support |
-| ⚡ **Zed** | `.zed/` folder | Native AI features |
-
-### IDE Detection Display
+### CLI Menu Options
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│ 💻 IDE DETECTION                                               │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│ Detected: Kiro                                                  │
-│ Type: 🤖 Agentic AI IDE                                        │
-│ Confidence: 95%                                                 │
-│                                                                 │
-│ Features:                                                       │
-│ • AI-native development                                         │
-│ • Specs and steering files                                      │
-│ • Agent hooks                                                   │
-│ • MCP integration                                               │
-│                                                                 │
-│ Collaboration: ✓ ENABLED                                        │
-│ • Shared suggestions path: .kiro/suggestions                    │
-│ • Protocol: kiro-collab                                         │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+🚀 Quick Setup         - API key + Agent (first time)
+────────────────────────────────────────────
+👁️  Watch & Analyze     - Monitor code changes
+🔧 Auto Test-Fix       - Fix failing tests
+🔍 Analyze Project     - Deep code analysis
+💬 Chat with Agent     - Ask questions
+────────────────────────────────────────────
+📄 Code Tools          - Review, explain, refactor
+🧪 Generate Tests      - Create tests for code
+🐛 Find Bugs           - Scan for potential issues
+📝 Git Tools           - Commit, diff, status
+────────────────────────────────────────────
+📊 Agent Status        - View agent info & memory
+⚙️  Settings            - Configure options
+❓ Help                 - Documentation
+────────────────────────────────────────────
+✖  Exit
 ```
+
+---
+
+## ⌨️ Keyboard Shortcuts
+
+### In File Watcher
+
+| Key | Action |
+|-----|--------|
+| `q` | Quit with full commit assistant |
+| `Ctrl+C` | Quick exit with summary |
+
+### In Menus
+
+| Key | Action |
+|-----|--------|
+| `↑` / `↓` | Navigate options |
+| `W` / `K` | Move up (alternative) |
+| `S` / `J` | Move down (alternative) |
+| `Enter` | Select option |
+| `Esc` | Go back / Cancel |
+| `Ctrl+C` | Exit application |
+
+### In Commit Assistant
+
+| Key | Action |
+|-----|--------|
+| `↑` / `↓` | Navigate options |
+| `Enter` | Select |
+| `Esc` | Cancel |
 
 ---
 
 ## 🏗️ Architecture
 
-### High-Level Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    LETTA COGNITIVE ENGINE                       │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │                    COGNITIVE LAYER                       │   │
-│  │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐       │   │
-│  │  │ Intent  │ │Predictive│ │  Why-   │ │  Flow   │       │   │
-│  │  │ Engine  │ │ Engine  │ │  First  │ │Optimizer│       │   │
-│  │  └─────────┘ └─────────┘ └─────────┘ └─────────┘       │   │
-│  │  ┌─────────┐ ┌─────────┐                               │   │
-│  │  │  Self-  │ │  Self-  │                               │   │
-│  │  │Explaining│ │Improving│                               │   │
-│  │  └─────────┘ └─────────┘                               │   │
-│  └─────────────────────────────────────────────────────────┘   │
-│                              │                                  │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │                   OBSERVATION LAYER                      │   │
-│  │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐       │   │
-│  │  │ Signal  │ │ Context │ │  State  │ │  Event  │       │   │
-│  │  │Collector│ │ Builder │ │ Tracker │ │ Capturer│       │   │
-│  │  └─────────┘ └─────────┘ └─────────┘ └─────────┘       │   │
-│  └─────────────────────────────────────────────────────────┘   │
-│                              │                                  │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │                    DECISION LAYER                        │   │
-│  │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐       │   │
-│  │  │Interven-│ │ Timing  │ │Suggestion│ │  Risk   │       │   │
-│  │  │  tion   │ │Optimizer│ │Generator│ │Assessor │       │   │
-│  │  └─────────┘ └─────────┘ └─────────┘ └─────────┘       │   │
-│  └─────────────────────────────────────────────────────────┘   │
-│                              │                                  │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │                    EXECUTION LAYER                       │   │
-│  │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐       │   │
-│  │  │Suggestion│ │   Fix   │ │   UI    │ │Feedback │       │   │
-│  │  │ Renderer│ │ Applier │ │Coordinat│ │Collector│       │   │
-│  │  └─────────┘ └─────────┘ └─────────┘ └─────────┘       │   │
-│  └─────────────────────────────────────────────────────────┘   │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
 ### Project Structure
 
 ```
-letta-cognitive-engine/
-├── scripts/                    # Main application scripts
-│   ├── cli.js                 # Interactive CLI menu
-│   ├── assistant.js           # Code watcher & cognitive engine
-│   ├── autoTestFix.js         # Auto test-fix engine
-│   ├── analyzer.js            # Code analysis utilities
-│   ├── createAgent.js         # Agent creation
-│   ├── cleanupAgents.js       # Agent cleanup
-│   └── dashboardDemo.js       # Theme demo
-│
+letta/
+├── scripts/
+│   ├── cli.js              # Main CLI interface
+│   ├── assistant.js        # File watcher & commit assistant
+│   ├── analyzer.js         # Project analysis utilities
+│   ├── createAgent.js      # Agent setup
+│   ├── autoTestFix.js      # Auto test fixer
+│   ├── dashboardDemo.js    # Theme demo
+│   └── ...
 ├── src/
-│   └── core/                  # Core cognitive modules
-│       ├── ideDetector.js     # IDE detection & collaboration
-│       ├── ideCoordinator.js  # Multi-IDE coordination
-│       ├── configManager.js   # Configuration management
-│       ├── suggestionManager.js # Suggestion handling
-│       ├── lockManager.js     # Concurrency control
-│       └── types.js           # Type definitions
-│
-├── templates/
-│   ├── agent/
-│   │   └── code_agent.json    # AI agent template
-│   └── *.txt                  # Analysis prompt templates
-│
-├── tests/                     # Test suite
-│   ├── core/                  # Core module tests
-│   └── helpers/               # Test utilities
-│
-├── .env.example               # Configuration template
-├── .env                       # Your configuration (gitignored)
-├── package.json               # Dependencies & scripts
-└── README.md                  # This file
+│   ├── cognitive/
+│   │   ├── index.js            # Module exports
+│   │   ├── cognitiveEngine.js  # Main orchestrator
+│   │   ├── intentEngine.js     # Intent detection (Pillar 1)
+│   │   ├── predictiveEngine.js # Predictive analysis (Pillar 2)
+│   │   └── flowOptimizer.js    # Flow protection (Pillar 6)
+│   └── core/
+│       ├── ideDetector.js      # IDE detection
+│       └── ...
+├── templates/              # Agent templates
+├── tests/                  # Test files
+├── .env                    # Configuration (create from .env.example)
+├── .env.example            # Configuration template
+└── package.json
 ```
 
-### Performance Guarantees
+### Data Flow
 
-| Metric | Target | How |
-|--------|--------|-----|
-| **Latency** | < 100ms | Incremental processing, caching |
-| **Memory** | < 200MB | Efficient data structures |
-| **CPU** | < 5% idle | Event-driven, no polling |
-| **Startup** | < 2s | Lazy loading, parallel init |
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         USER CODE                               │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      FILE WATCHER                               │
+│                    (chokidar-based)                             │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+              ┌───────────────┼───────────────┐
+              ▼               ▼               ▼
+┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
+│ INTENT ENGINE   │ │ FLOW OPTIMIZER  │ │ PREDICTIVE      │
+│ (What are they  │ │ (Should we      │ │ ENGINE          │
+│  trying to do?) │ │  intervene?)    │ │ (What might     │
+└────────┬────────┘ └────────┬────────┘ │  go wrong?)     │
+         │                   │          └────────┬────────┘
+         └───────────────────┼───────────────────┘
+                             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    COGNITIVE ENGINE                             │
+│              (Orchestrates all pillars)                         │
+└─────────────────────────────────────────────────────────────────┘
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      LETTA API                                  │
+│                 (AI-powered analysis)                           │
+└─────────────────────────────────────────────────────────────────┘
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    USER FEEDBACK                                │
+│           (Console output, suggestions, fixes)                  │
+└─────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
@@ -1113,164 +759,148 @@ letta-cognitive-engine/
 
 ### Common Issues
 
-#### "LETTA_API_KEY not configured"
+#### "API Key not configured"
 
 ```bash
-# Solution: Add your API key to .env
-echo "LETTA_API_KEY=sk-let-your-actual-key" >> .env
+# Solution 1: Run quick setup
+npm start
+# Select "🚀 Quick Setup"
 
-# Get your key from https://app.letta.ai
+# Solution 2: Manually add to .env
+echo "LETTA_API_KEY=sk-let-your-key-here" >> .env
 ```
 
-#### "No agent. Run: npm run setup"
+#### "No agent configured"
 
 ```bash
-# Solution: Create an agent
+# Create a new agent
 npm run setup
 
-# Or force recreate if corrupted
+# Or force recreate
 npm run setup:force
-```
-
-#### Arrow keys not working in menus
-
-```bash
-# Alternative navigation:
-# W/K = Up
-# S/J = Down
-# Enter = Select
-# Esc = Back
-
-# Or try a different terminal (Windows Terminal, iTerm2)
 ```
 
 #### Watcher not detecting changes
 
 ```bash
-# Check your .env settings:
-WATCH_EXTENSIONS=.js,.jsx,.ts,.tsx  # Add your file types
-WATCHER_DEBOUNCE=1000               # Lower for faster response
-WATCHER_DEPTH=30                    # Increase for deep projects
+# Check if file extension is watched
+# Default: .js,.jsx,.ts,.tsx,.json,.css,.scss,.md
+
+# Add more extensions in .env
+WATCH_EXTENSIONS=.js,.jsx,.ts,.tsx,.json,.css,.scss,.md,.vue,.py
+
+# Increase debounce if changes are too fast
+WATCHER_DEBOUNCE=3000
+```
+
+#### Arrow keys not working in menus
+
+This can happen on some Windows terminals. Use alternatives:
+- `W` or `K` to move up
+- `S` or `J` to move down
+- `Enter` to select
+- `Esc` to go back
+
+#### "Permission denied" on .env
+
+```bash
+# Fix permissions (Unix/Mac)
+chmod 600 .env
+
+# On Windows, check file isn't read-only
 ```
 
 #### High CPU usage
 
 ```bash
-# Increase debounce to reduce processing:
+# Increase debounce
 WATCHER_DEBOUNCE=3000
 
-# Or exclude large directories in your project
+# Reduce watch depth
+WATCHER_DEPTH=10
+
+# Disable verbose output
+VERBOSE_OUTPUT=false
 ```
 
 ### Debug Mode
 
-Enable detailed logging:
+Enable debug mode for detailed logging:
 
 ```bash
-# Via environment
-DEBUG=true npm run watch /path/to/project
-
-# Or in .env
+# In .env
 DEBUG=true
+
+# Or via command line
+npm run watch /path/to/project --debug
 ```
-
-### Reset Everything
-
-```bash
-# Delete agent and config
-rm .letta_agent_id .letta_agent_config.json
-
-# Reset to defaults
-cp .env.example .env
-
-# Recreate agent
-npm run setup
-```
-
-### Get Help
-
-- 📖 [Documentation](https://docs.letta.ai)
-- 🐛 [Report Bug](https://github.com/your-repo/issues)
-- 💬 [Discord Community](https://discord.gg/letta)
 
 ---
 
-## 🚀 Roadmap
+## ❓ FAQ
 
-### Current Version (3.0)
+### General
 
-- ✅ Real-time code watching
-- ✅ Intent detection (basic)
-- ✅ Predictive analysis
-- ✅ Why-first debugging
-- ✅ Smart commit generation
-- ✅ Auto test-fix
-- ✅ IDE detection & collaboration
-- ✅ 5 color themes
+**Q: Is my code sent to external servers?**
+A: Code is sent to the Letta API for analysis. The API is secure and doesn't store your code permanently. For sensitive projects, review Letta's privacy policy.
 
-### Coming Soon (3.1)
+**Q: Can I use Letta offline?**
+A: No, Letta requires an internet connection to communicate with the Letta API for AI-powered analysis.
 
-- 🔜 Advanced intent classification
-- 🔜 Flow state protection
-- 🔜 Developer Twin (beta)
-- 🔜 Self-explaining code hover
-- 🔜 Risk scoring dashboard
+**Q: Does Letta work with any programming language?**
+A: Letta works best with JavaScript/TypeScript but can analyze any text-based code file. Language-specific features are optimized for JS/TS.
 
-### Future (4.0)
+### Cognitive Engine
 
-- 🔮 Full Developer Twin
-- 🔮 Personalized learning paths
-- 🔮 Multi-agent collaboration
-- 🔮 Voice interaction
-- 🔮 AR/VR integration
+**Q: What is "deep flow" and why does Letta protect it?**
+A: Deep flow is a state of peak productivity where you're fully immersed in coding. Research shows interruptions during deep flow can take 15-25 minutes to recover from. Letta detects this state and queues suggestions for later.
 
----
+**Q: How does intent detection work?**
+A: Letta analyzes multiple signals: typing speed, pause patterns, code semantics, file navigation, git actions, and error rates. These signals are combined to predict what you're trying to accomplish.
 
-## 🤝 Contributing
+**Q: Can I disable the cognitive engine?**
+A: Yes, set `COGNITIVE_ENGINE=false` in your `.env` file. You can also disable individual features like `FLOW_PROTECTION=false`.
 
-We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+### Commits
 
-```bash
-# Development setup
-git clone https://github.com/your-repo/letta-cognitive-engine.git
-cd letta-cognitive-engine
-npm install
+**Q: Why does the commit message start with a date?**
+A: The DDMMYY format helps track when changes were made and makes commit history easier to scan chronologically.
 
-# Run tests
-npm test
+**Q: Can I customize the commit message format?**
+A: Currently, the format is fixed (DDMMYY - Type: Description). Custom formats may be added in future versions.
 
-# Run in development
-npm run watch . --debug
-```
+### Performance
+
+**Q: Letta is slow to analyze files. How can I speed it up?**
+A: 
+1. Reduce `WATCHER_DEBOUNCE` (but not below 1000ms)
+2. Disable `VERBOSE_OUTPUT`
+3. Disable cognitive features you don't need
+4. Ensure stable internet connection
+
+**Q: How much memory does Letta use?**
+A: Typically 50-150MB depending on project size and features enabled.
 
 ---
 
 ## 📄 License
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT License - see LICENSE file for details.
 
 ---
 
 ## 🙏 Acknowledgments
 
-- [Letta AI](https://letta.ai) for the powerful AI platform
-- The cognitive science research that inspired this architecture
-- All contributors and early adopters
+- Built with [Letta AI](https://letta.ai) for intelligent code analysis
+- Uses [Chokidar](https://github.com/paulmillr/chokidar) for file watching
+- Styled with [Chalk](https://github.com/chalk/chalk) for beautiful terminal output
 
 ---
 
 <div align="center">
 
-## 🧠 Think Alongside Your Code
+**Made with ♥ for developers who want to code smarter, not harder.**
 
-**Letta isn't just a tool. It's a cognitive partner that understands you, predicts your needs, protects your flow, and evolves with every line of code you write.**
-
-[Get Started](#-quick-start) · [Report Bug](https://github.com/your-repo/issues) · [Request Feature](https://github.com/your-repo/issues)
-
----
-
-**Made with 🧠 by the Letta Community**
-
-*"The best code is written in flow. Letta protects that flow."*
+[Report Bug](../../issues) • [Request Feature](../../issues) • [Contribute](../../pulls)
 
 </div>
