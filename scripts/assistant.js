@@ -15,6 +15,11 @@ import {
   scanProjectStructure,
   buildAnalysisContext,
 } from "./analyzer.js";
+import {
+  detectIDE,
+  isAgenticIDE,
+  getCollaborationSettings,
+} from "../src/core/ideDetector.js";
 
 dotenv.config();
 
@@ -28,6 +33,9 @@ const AUTO_FIX = process.argv.includes("--auto-fix") || process.env.AUTO_APPLY =
 const DEBUG = process.argv.includes("--debug") || process.env.DEBUG === "true";
 const RETURN_TO_MENU = process.argv.includes("--return-to-menu");
 
+// IDE Detection (done early for display)
+let detectedIDE = null;
+let collaborationSettings = null;
 // Settings from .env
 const THEME_NAME = process.env.LETTA_THEME || "ocean";
 const SHOW_TIMESTAMPS = process.env.SHOW_TIMESTAMPS !== "false";
@@ -325,6 +333,33 @@ function showHeader() {
     }
     console.log("");
   }
+  
+  // ═══════════════════════════════════════════════════════════════════════
+  // IDE DETECTION - Show detected IDE and collaboration status
+  // ═══════════════════════════════════════════════════════════════════════
+  detectedIDE = detectIDE(PROJECT_PATH);
+  collaborationSettings = getCollaborationSettings(PROJECT_PATH);
+  
+  const ide = detectedIDE.primary;
+  const ideIcon = ide.type === "agentic" ? "🤖" : ide.type === "modern" ? "⚡" : ide.type === "terminal" ? "💻" : "📝";
+  const ideTypeBadge = ide.type === "agentic" 
+    ? chalk.bgMagenta.white(" AGENTIC ") 
+    : ide.type === "modern" 
+      ? chalk.bgCyan.black(" MODERN ") 
+      : chalk.bgGray.white(" EDITOR ");
+  
+  console.log(T.dim("  ─── IDE ───────────────────────────────────────────────────────────"));
+  console.log(`  ${ideIcon} ${chalk.bold.white(ide.name)} ${ideTypeBadge}${ide.confidence > 0 ? T.dim(` ${ide.confidence.toFixed(0)}% confidence`) : ""}`);
+  
+  if (ide.type === "agentic") {
+    console.log(T.success(`     ✓ AI Collaboration enabled - will sync with ${ide.name}'s AI`));
+    if (ide.features?.length > 0) {
+      console.log(T.dim(`     Features: ${ide.features.slice(0, 4).join(", ")}`));
+    }
+  } else if (collaborationSettings.canCollaborate) {
+    console.log(T.accent(`     ◆ Collaboration available`));
+  }
+  console.log("");
   
   // ═══════════════════════════════════════════════════════════════════════
   // CURRENT SESSION SETTINGS - Minimal badges

@@ -50,6 +50,13 @@ console.log(`  🔀 ${chalk.magenta("feature/new-dashboard")} ${T.warning("●")
 console.log(T.dim("     3 modified, 1 new"));
 console.log("");
 
+// IDE Detection (simulated for demo)
+console.log(T.dim("  ─── IDE ───────────────────────────────────────────────────────────"));
+console.log(`  🤖 ${chalk.bold.white("Kiro")} ${chalk.bgMagenta.white(" AGENTIC ")} ${T.dim("95% confidence")}`);
+console.log(T.success("     ✓ AI Collaboration enabled - will sync with Kiro's AI"));
+console.log(T.dim("     Features: ai-native, specs, steering, hooks"));
+console.log("");
+
 // Session
 console.log(T.dim("  ─── Session ───────────────────────────────────────────────────────"));
 console.log(`  ${chalk.bgGreen.black(" AUTO-FIX ON ")} ${chalk.bgBlack.white(` ${THEME_NAME.toUpperCase()} `)} ${T.dim("Debounce: 1500ms")}`);

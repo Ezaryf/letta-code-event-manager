@@ -7,11 +7,15 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
+import { detectIDE, isAgenticIDE, getSupportedIDEs } from "../src/core/ideDetector.js";
 
 dotenv.config();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, "..");
+
+// Detect IDE at startup
+let currentIDE = null;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // UTILITIES
@@ -75,6 +79,19 @@ function showBanner(subtitle = null) {
   console.log(chalk.cyan("║") + " ".repeat(66) + chalk.cyan("║"));
   console.log(chalk.cyan("╚" + "═".repeat(66) + "╝"));
   console.log("");
+  
+  // Detect IDE if not already done
+  if (!currentIDE) {
+    currentIDE = detectIDE(process.cwd());
+  }
+  
+  // Show IDE status
+  const ide = currentIDE.primary;
+  const ideIcon = ide.type === "agentic" ? "🤖" : ide.type === "modern" ? "⚡" : ide.type === "terminal" ? "💻" : "📝";
+  const ideStatus = ide.type === "agentic" 
+    ? chalk.magenta(`${ideIcon} ${ide.name}`) + chalk.green(" (AI Collab enabled)")
+    : chalk.gray(`${ideIcon} ${ide.name}`);
+  console.log(`  ${ideStatus}`);
   
   if (hasApiKey()) {
     console.log(chalk.green("  ✓ API Key configured"));
@@ -422,6 +439,7 @@ const SETTINGS_MENU = [
   { label: `⚙️  Watcher Settings    ${chalk.gray("Analysis behavior")}`, value: "watcher" },
   { label: `🔧 Auto-fix Settings   ${chalk.gray("Automatic fixes")}`, value: "autofix" },
   { label: chalk.gray("────────────────────────────────────────────"), value: "separator0" },
+  { label: `💻 IDE Detection       ${chalk.gray("View detected IDE info")}`, value: "ideinfo" },
   { label: `🔑 Configure API Key   ${chalk.gray("Update Letta API key")}`, value: "apikey" },
   { label: `🤖 Setup Agent         ${chalk.gray("Create/recreate agent")}`, value: "setup" },
   { label: `⬆️  Upgrade Agent       ${chalk.gray("Update to latest template")}`, value: "upgrade" },
@@ -1431,6 +1449,9 @@ async function runSettings() {
       case "autofix":
         await runAutoFixSettings();
         break;
+      case "ideinfo":
+        await runIDEInfo();
+        break;
       case "apikey":
         await runConfigureApiKey();
         break;
@@ -1456,6 +1477,106 @@ async function runSettings() {
         return;
     }
   }
+}
+
+async function runIDEInfo() {
+  showBanner("💻 IDE DETECTION");
+  
+  // Re-detect IDE
+  currentIDE = detectIDE(process.cwd());
+  const ide = currentIDE.primary;
+  const supported = getSupportedIDEs();
+  
+  // Current IDE
+  console.log(chalk.bold.white("  Detected IDE:\n"));
+  
+  const ideIcon = ide.type === "agentic" ? "🤖" : ide.type === "modern" ? "⚡" : ide.type === "terminal" ? "💻" : "📝";
+  const typeBadge = ide.type === "agentic" 
+    ? chalk.bgMagenta.white(" AGENTIC AI ") 
+    : ide.type === "modern" 
+      ? chalk.bgCyan.black(" MODERN ") 
+      : ide.type === "terminal"
+        ? chalk.bgGray.white(" TERMINAL ")
+        : chalk.bgGray.white(" TRADITIONAL ");
+  
+  console.log(`  ${ideIcon} ${chalk.bold.white(ide.name)} ${typeBadge}`);
+  
+  if (ide.confidence > 0) {
+    console.log(chalk.gray(`     Detection confidence: ${ide.confidence.toFixed(0)}%`));
+  }
+  
+  if (ide.description) {
+    console.log(chalk.gray(`     ${ide.description}`));
+  }
+  
+  console.log("");
+  
+  // Features
+  if (ide.features?.length > 0) {
+    console.log(chalk.bold.white("  Features:"));
+    console.log(`     ${ide.features.map(f => chalk.cyan(`◆ ${f}`)).join("  ")}`);
+    console.log("");
+  }
+  
+  // Collaboration status
+  console.log(chalk.bold.white("  AI Collaboration:\n"));
+  
+  if (ide.type === "agentic") {
+    console.log(chalk.green("  ✓ Full AI collaboration enabled"));
+    console.log(chalk.gray("     Letta will sync with your IDE's built-in AI assistant"));
+    console.log(chalk.gray("     for enhanced code analysis and suggestions."));
+    
+    if (ide.collaboration?.protocol) {
+      console.log(chalk.gray(`     Protocol: ${ide.collaboration.protocol}`));
+    }
+  } else if (ide.collaboration?.canShare) {
+    console.log(chalk.yellow("  ◆ Partial collaboration available"));
+    console.log(chalk.gray("     Some features can integrate with your editor."));
+  } else {
+    console.log(chalk.gray("  ○ Running in standalone mode"));
+    console.log(chalk.gray("     Letta works independently from your editor."));
+  }
+  
+  console.log("");
+  
+  // Suggestions path
+  if (ide.collaboration?.suggestionsPath) {
+    console.log(chalk.gray(`  Suggestions saved to: ${ide.collaboration.suggestionsPath}`));
+  }
+  
+  console.log("");
+  console.log(chalk.gray("─".repeat(60)));
+  console.log("");
+  
+  // Supported IDEs
+  console.log(chalk.bold.white("  Supported IDEs:\n"));
+  
+  const agenticIDEs = supported.filter(i => i.type === "agentic");
+  const modernIDEs = supported.filter(i => i.type === "modern");
+  const traditionalIDEs = supported.filter(i => i.type === "traditional");
+  
+  console.log(chalk.magenta("  🤖 Agentic AI IDEs (full collaboration):"));
+  for (const i of agenticIDEs) {
+    const isCurrent = i.id === ide.id;
+    console.log(`     ${isCurrent ? chalk.green("●") : chalk.gray("○")} ${i.name}${isCurrent ? chalk.green(" (current)") : ""}`);
+  }
+  console.log("");
+  
+  console.log(chalk.cyan("  ⚡ Modern Editors:"));
+  for (const i of modernIDEs) {
+    const isCurrent = i.id === ide.id;
+    console.log(`     ${isCurrent ? chalk.green("●") : chalk.gray("○")} ${i.name}${isCurrent ? chalk.green(" (current)") : ""}`);
+  }
+  console.log("");
+  
+  console.log(chalk.gray("  📝 Traditional Editors:"));
+  for (const i of traditionalIDEs) {
+    const isCurrent = i.id === ide.id;
+    console.log(`     ${isCurrent ? chalk.green("●") : chalk.gray("○")} ${i.name}${isCurrent ? chalk.green(" (current)") : ""}`);
+  }
+  console.log("");
+  
+  await waitForKey();
 }
 
 async function runConfigureApiKey() {
