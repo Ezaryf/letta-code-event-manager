@@ -722,33 +722,32 @@ async function generateCommitMessage() {
     return null;
   }
   
-  // Build context for AI
-  const fileList = gitStatus.files?.map(f => f.file).slice(0, 15) || [];
+  // Build context for AI - get actual file names for specificity
+  const fileList = gitStatus.files?.map(f => path.basename(f.file)).slice(0, 15) || [];
   const categories = diffSummary?.categories || {};
   
-  // Build a detailed context string
-  let contextParts = [];
-  
+  // Build detailed file context
+  let fileContext = [];
   if (categories.components?.length > 0) {
-    contextParts.push(`Components: ${categories.components.slice(0, 5).join(", ")}`);
+    fileContext.push(`Components modified: ${categories.components.slice(0, 3).join(", ")}`);
   }
   if (categories.utils?.length > 0) {
-    contextParts.push(`Utils: ${categories.utils.slice(0, 5).join(", ")}`);
+    fileContext.push(`Utils modified: ${categories.utils.slice(0, 3).join(", ")}`);
   }
   if (categories.tests?.length > 0) {
-    contextParts.push(`Tests: ${categories.tests.slice(0, 5).join(", ")}`);
+    fileContext.push(`Tests modified: ${categories.tests.slice(0, 3).join(", ")}`);
   }
   if (categories.styles?.length > 0) {
-    contextParts.push(`Styles: ${categories.styles.slice(0, 3).join(", ")}`);
+    fileContext.push(`Styles modified: ${categories.styles.slice(0, 3).join(", ")}`);
   }
   if (categories.configs?.length > 0) {
-    contextParts.push(`Configs: ${categories.configs.slice(0, 3).join(", ")}`);
+    fileContext.push(`Configs modified: ${categories.configs.slice(0, 3).join(", ")}`);
   }
   if (categories.docs?.length > 0) {
-    contextParts.push(`Docs: ${categories.docs.slice(0, 3).join(", ")}`);
+    fileContext.push(`Docs modified: ${categories.docs.slice(0, 3).join(", ")}`);
   }
   if (categories.other?.length > 0) {
-    contextParts.push(`Other: ${categories.other.slice(0, 5).join(", ")}`);
+    fileContext.push(`Other files: ${categories.other.slice(0, 3).join(", ")}`);
   }
   
   // Build change summary
@@ -757,7 +756,7 @@ async function generateCommitMessage() {
   if (gitStatus.added > 0) changeSummary.push(`${gitStatus.added} added`);
   if (gitStatus.deleted > 0) changeSummary.push(`${gitStatus.deleted} deleted`);
   
-  // Also include analysis results if available
+  // Include analysis results for context
   let analysisContext = "";
   if (analysisResults.length > 0) {
     const issueFiles = analysisResults.filter(r => r.hasIssues);
@@ -766,35 +765,45 @@ async function generateCommitMessage() {
     if (issueFiles.length > 0) {
       const issueTypes = new Set();
       issueFiles.forEach(r => r.issues?.forEach(i => issueTypes.add(i.type)));
-      analysisContext = `\nAnalysis found issues in ${issueFiles.length} file(s): ${Array.from(issueTypes).join(", ")} issues.`;
+      analysisContext = `\nCode analysis found: ${Array.from(issueTypes).join(", ")} issues in ${issueFiles.length} file(s).`;
     }
     if (cleanFiles.length > 0) {
-      analysisContext += `\n${cleanFiles.length} file(s) passed analysis with no issues.`;
+      analysisContext += `\n${cleanFiles.length} file(s) passed code review.`;
     }
   }
   
   try {
-    const prompt = `Generate a professional git commit message for these changes:
+    const prompt = `Generate a SPECIFIC git commit message for these code changes.
 
-FILES CHANGED (${gitStatus.total} total - ${changeSummary.join(", ")}):
-${contextParts.length > 0 ? contextParts.join("\n") : fileList.join(", ")}
+CHANGED FILES (${gitStatus.total} files - ${changeSummary.join(", ")}):
+${fileContext.length > 0 ? fileContext.join("\n") : `Files: ${fileList.join(", ")}`}
 ${analysisContext}
 
-REQUIREMENTS:
-1. Start with a type prefix: feat:, fix:, refactor:, style:, docs:, test:, chore:
-2. Be specific about WHAT changed (not just file names)
-3. Keep it under 72 characters
-4. Use present tense ("Add" not "Added")
-5. Be descriptive but concise
+STRICT REQUIREMENTS:
+1. Start with conventional commit type: Feat:, Fix:, Refactor:, Style:, Docs:, Test:, Chore:
+2. First letter after colon MUST be CAPITAL (e.g., "Feat: Add..." not "feat: add...")
+3. Be SPECIFIC about what was changed - mention actual functionality, not just file names
+4. Describe the PURPOSE of the change, not just what files changed
+5. Keep under 60 characters
+6. Use present tense imperative ("Add" not "Added" or "Adding")
 
-Examples of GOOD commit messages:
-- "feat: Add IDE detection for agentic collaboration"
-- "fix: Resolve git status parsing for untracked files"
-- "refactor: Improve commit message generation with AI context"
-- "style: Update dashboard theme colors and layout"
-- "docs: Add configuration options to README"
+GOOD examples (specific and clear):
+- "Feat: Add arrow key navigation to commit menu"
+- "Fix: Resolve Windows path separator in file scanner"
+- "Refactor: Simplify dashboard header layout"
+- "Style: Update theme colors for better contrast"
+- "Docs: Add IDE detection configuration guide"
+- "Test: Add unit tests for git status parser"
+- "Chore: Update dependency versions"
 
-Reply with ONLY the commit message (without the date prefix), nothing else.`;
+BAD examples (too vague):
+- "Update files" (what files? what update?)
+- "Fix bug" (what bug?)
+- "Refactor code" (what code? why?)
+- "Changes to assistant.js" (what changes?)
+
+Based on the files changed, write ONE commit message that clearly explains WHAT was done and WHY.
+Reply with ONLY the commit message, nothing else.`;
 
     const response = await client.agents.messages.create(agentId, { input: prompt });
     
@@ -804,63 +813,80 @@ Reply with ONLY the commit message (without the date prefix), nothing else.`;
     // Clean up the message
     desc = desc.replace(/^(commit:?\s*)/i, "");
     
-    // Ensure it has a type prefix, add one if missing
-    if (!desc.match(/^(feat|fix|refactor|style|docs|test|chore|perf|build|ci):/i)) {
-      // Determine type based on changes
+    // Ensure proper capitalization after type prefix
+    desc = desc.replace(/^(feat|fix|refactor|style|docs|test|chore|perf|build|ci):\s*(.)/i, (match, type, firstChar) => {
+      return `${type.charAt(0).toUpperCase()}${type.slice(1).toLowerCase()}: ${firstChar.toUpperCase()}`;
+    });
+    
+    // If no type prefix, add one based on changes
+    if (!desc.match(/^(Feat|Fix|Refactor|Style|Docs|Test|Chore|Perf|Build|Ci):/)) {
+      let prefix = "Refactor";
       if (categories.tests?.length > 0 && categories.tests.length >= gitStatus.total / 2) {
-        desc = `test: ${desc}`;
+        prefix = "Test";
       } else if (categories.docs?.length > 0 && categories.docs.length >= gitStatus.total / 2) {
-        desc = `docs: ${desc}`;
+        prefix = "Docs";
       } else if (categories.styles?.length > 0 && categories.styles.length >= gitStatus.total / 2) {
-        desc = `style: ${desc}`;
+        prefix = "Style";
       } else if (categories.configs?.length > 0 && categories.configs.length >= gitStatus.total / 2) {
-        desc = `chore: ${desc}`;
+        prefix = "Chore";
       } else if (gitStatus.added > gitStatus.modified) {
-        desc = `feat: ${desc}`;
-      } else {
-        desc = `refactor: ${desc}`;
+        prefix = "Feat";
       }
+      // Capitalize first letter of description
+      desc = `${prefix}: ${desc.charAt(0).toUpperCase()}${desc.slice(1)}`;
     }
     
     // Truncate if too long
-    if (desc.length > 70) {
-      desc = desc.slice(0, 67) + "...";
+    if (desc.length > 65) {
+      desc = desc.slice(0, 62) + "...";
     }
     
-    if (!desc || desc.length < 5) {
-      desc = generateFallbackMessage(gitStatus, categories);
+    if (!desc || desc.length < 10) {
+      desc = generateFallbackMessage(gitStatus, categories, fileList);
     }
     
     return `${dateStr} - ${desc}`;
   } catch (err) {
     if (DEBUG) console.log("Commit message generation error:", err.message);
-    return `${dateStr} - ${generateFallbackMessage(gitStatus, categories)}`;
+    return `${dateStr} - ${generateFallbackMessage(gitStatus, categories, fileList)}`;
   }
 }
 
-function generateFallbackMessage(gitStatus, categories) {
-  // Generate a smart fallback message based on file categories
-  const parts = [];
+function generateFallbackMessage(gitStatus, categories, fileList = []) {
+  // Generate a specific fallback message based on file categories
   
+  // Try to be specific about what changed
   if (categories?.components?.length > 0) {
-    parts.push(`update ${categories.components[0]}`);
-  } else if (categories?.utils?.length > 0) {
-    parts.push(`update ${categories.utils[0]}`);
-  } else if (categories?.tests?.length > 0) {
-    return `test: Update ${categories.tests.length} test file(s)`;
-  } else if (categories?.docs?.length > 0) {
-    return `docs: Update documentation`;
-  } else if (categories?.configs?.length > 0) {
-    return `chore: Update configuration`;
-  } else if (categories?.styles?.length > 0) {
-    return `style: Update styles`;
+    const comp = categories.components[0].replace(/\.(jsx?|tsx?)$/, "");
+    return `Refactor: Update ${comp} component`;
+  }
+  if (categories?.utils?.length > 0) {
+    const util = categories.utils[0].replace(/\.(jsx?|tsx?)$/, "");
+    return `Refactor: Improve ${util} utility`;
+  }
+  if (categories?.tests?.length > 0) {
+    return `Test: Update tests for ${categories.tests[0].replace(/\.(test|spec)\.(jsx?|tsx?)$/, "")}`;
+  }
+  if (categories?.docs?.length > 0) {
+    return `Docs: Update documentation`;
+  }
+  if (categories?.configs?.length > 0) {
+    return `Chore: Update configuration files`;
+  }
+  if (categories?.styles?.length > 0) {
+    return `Style: Update styling`;
   }
   
-  if (parts.length > 0) {
-    return `refactor: ${parts[0]}${gitStatus?.total > 1 ? ` and ${gitStatus.total - 1} more` : ""}`;
+  // Use file list if available
+  if (fileList && fileList.length > 0) {
+    const mainFile = fileList[0].replace(/\.(jsx?|tsx?|json|md)$/, "");
+    if (gitStatus?.total === 1) {
+      return `Refactor: Update ${mainFile}`;
+    }
+    return `Refactor: Update ${mainFile} and ${gitStatus?.total - 1} more files`;
   }
   
-  return `chore: Update ${gitStatus?.total || "multiple"} file(s)`;
+  return `Chore: Update ${gitStatus?.total || "multiple"} files`;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -917,7 +943,7 @@ async function showSessionSummary() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// COMMIT ASSISTANT - Enhanced UX
+// COMMIT ASSISTANT - Enhanced UX with Arrow Key Navigation
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function rlQuestion(prompt) {
@@ -936,6 +962,134 @@ async function rlQuestion(prompt) {
       rl.close();
       resolve(answer.trim());
     });
+  });
+}
+
+// Arrow key menu selection - Windows compatible
+async function selectMenu(options, startIndex = 0) {
+  return new Promise((resolve) => {
+    let selectedIndex = startIndex;
+    let inputBuffer = "";
+    
+    const renderMenu = (initial = false) => {
+      // Move cursor up to redraw menu (not on initial render)
+      if (!initial) {
+        process.stdout.write(`\x1b[${options.length + 2}A`); // +2 for hint lines
+      }
+      
+      for (let i = 0; i < options.length; i++) {
+        const isSelected = i === selectedIndex;
+        const prefix = isSelected ? T.accent("❯") : " ";
+        const label = isSelected ? chalk.bold.white(options[i].label) : T.dim(options[i].label);
+        const hint = options[i].hint ? (isSelected ? T.dim(` — ${options[i].hint}`) : "") : "";
+        
+        process.stdout.write("\x1b[2K"); // Clear line
+        console.log(`  ${prefix} ${label}${hint}`);
+      }
+      
+      // Show hint
+      process.stdout.write("\x1b[2K");
+      console.log("");
+      process.stdout.write("\x1b[2K");
+      console.log(T.dim("  ↑/↓ move  Enter select  Esc cancel"));
+    };
+    
+    // Initial render
+    renderMenu(true);
+    
+    if (process.stdin.isTTY) {
+      process.stdin.setRawMode(true);
+      process.stdin.resume();
+      process.stdin.setEncoding("utf8");
+    }
+    
+    const handleKey = (key) => {
+      // Handle escape sequences (arrow keys)
+      // Windows sends: \x1b[A (up), \x1b[B (down)
+      // But may come as separate chunks, so we buffer
+      inputBuffer += key;
+      
+      // Check for complete escape sequences
+      if (inputBuffer.includes("\x1b[A") || inputBuffer === "\x1bOA") {
+        // Up arrow
+        inputBuffer = "";
+        selectedIndex = (selectedIndex - 1 + options.length) % options.length;
+        renderMenu();
+        return;
+      }
+      if (inputBuffer.includes("\x1b[B") || inputBuffer === "\x1bOB") {
+        // Down arrow
+        inputBuffer = "";
+        selectedIndex = (selectedIndex + 1) % options.length;
+        renderMenu();
+        return;
+      }
+      
+      // If buffer starts with escape but isn't complete, wait for more
+      if (inputBuffer.startsWith("\x1b") && inputBuffer.length < 3) {
+        // Set timeout to clear buffer if no more input
+        setTimeout(() => {
+          if (inputBuffer === "\x1b") {
+            // Just escape key pressed
+            inputBuffer = "";
+            cleanup();
+            resolve(null);
+          }
+        }, 50);
+        return;
+      }
+      
+      // Clear buffer for non-escape sequences
+      const currentKey = inputBuffer;
+      inputBuffer = "";
+      
+      // Enter key
+      if (currentKey === "\r" || currentKey === "\n") {
+        cleanup();
+        resolve(options[selectedIndex].value);
+        return;
+      }
+      
+      // Escape key (standalone)
+      if (currentKey === "\x1b") {
+        cleanup();
+        resolve(null);
+        return;
+      }
+      
+      // Ctrl+C
+      if (currentKey === "\x03") {
+        cleanup();
+        resolve(null);
+        return;
+      }
+      
+      // W/w or K/k for up
+      if (currentKey.toLowerCase() === "w" || currentKey.toLowerCase() === "k") {
+        selectedIndex = (selectedIndex - 1 + options.length) % options.length;
+        renderMenu();
+        return;
+      }
+      
+      // S/s or J/j for down
+      if (currentKey.toLowerCase() === "s" || currentKey.toLowerCase() === "j") {
+        selectedIndex = (selectedIndex + 1) % options.length;
+        renderMenu();
+        return;
+      }
+    };
+    
+    const cleanup = () => {
+      process.stdin.removeListener("data", handleKey);
+      if (process.stdin.isTTY) {
+        try { process.stdin.setRawMode(false); } catch (e) {}
+      }
+      // Clear hint lines
+      process.stdout.write("\x1b[1A\x1b[2K\x1b[1A\x1b[2K");
+      console.log("");
+    };
+    
+    process.stdin.on("data", handleKey);
   });
 }
 
@@ -987,17 +1141,16 @@ async function showCommitAssistant() {
   console.log(T.dim("  ─────────────────────────────────────────────────────────────────"));
   console.log("");
   
-  // Options - cleaner presentation
-  console.log(`  ${T.accent("1")}  Guided commit ${T.dim("— step by step")}`);
-  console.log(`  ${T.accent("2")}  Auto commit ${T.dim("— stage, commit, push")}`);
-  console.log(`  ${T.accent("3")}  Skip ${T.dim("— commit later")}`);
-  console.log("");
+  // Arrow key menu
+  const choice = await selectMenu([
+    { value: "guided", label: "Guided commit", hint: "step by step" },
+    { value: "auto", label: "Auto commit", hint: "stage, commit, push" },
+    { value: "skip", label: "Skip", hint: "commit later" },
+  ]);
   
-  const choice = await rlQuestion(`  ${T.accent("→")} `);
-  
-  if (choice === "1") {
+  if (choice === "guided") {
     return await runGuidedCommit();
-  } else if (choice === "2") {
+  } else if (choice === "auto") {
     return await runAutoCommit();
   } else {
     console.log("");
@@ -1017,23 +1170,22 @@ async function runGuidedCommit() {
   console.log(`  ${T.dim("Message:")} ${chalk.white(aiMessage)}`);
   console.log("");
   
-  // Options
-  console.log(`  ${T.accent("1")}  Use this message`);
-  console.log(`  ${T.accent("2")}  Edit message`);
-  console.log(`  ${T.accent("3")}  Cancel`);
-  console.log("");
-  
-  const msgChoice = await rlQuestion(`  ${T.accent("→")} `);
+  // Message options with arrow menu
+  const msgChoice = await selectMenu([
+    { value: "use", label: "Use this message" },
+    { value: "edit", label: "Edit message" },
+    { value: "cancel", label: "Cancel" },
+  ]);
   
   let finalMessage = aiMessage;
   
-  if (msgChoice === "2") {
+  if (msgChoice === "edit") {
     console.log("");
     const customMsg = await rlQuestion(`  ${T.dim("New message:")} `);
     if (customMsg) {
       finalMessage = customMsg;
     }
-  } else if (msgChoice === "3") {
+  } else if (msgChoice === "cancel" || msgChoice === null) {
     console.log(T.dim("  Cancelled."));
     return "cancel";
   }
@@ -1041,22 +1193,21 @@ async function runGuidedCommit() {
   // Save message
   fs.writeFileSync(path.join(PROJECT_PATH, ".commit_msg"), finalMessage, "utf8");
   
-  // Stage files
+  // Stage files with arrow menu
   console.log("");
-  console.log(`  ${T.accent("1")}  Stage all ${T.dim("(git add -A)")}`);
-  console.log(`  ${T.accent("2")}  Stage tracked only ${T.dim("(git add -u)")}`);
-  console.log(`  ${T.accent("3")}  Cancel`);
-  console.log("");
+  const stageChoice = await selectMenu([
+    { value: "all", label: "Stage all", hint: "git add -A" },
+    { value: "tracked", label: "Stage tracked only", hint: "git add -u" },
+    { value: "cancel", label: "Cancel" },
+  ]);
   
-  const stageChoice = await rlQuestion(`  ${T.accent("→")} `);
-  
-  if (stageChoice === "3") {
+  if (stageChoice === "cancel" || stageChoice === null) {
     console.log(T.dim("  Cancelled."));
     return "cancel";
   }
   
   try {
-    const stageCmd = stageChoice === "2" ? "git add -u" : "git add -A";
+    const stageCmd = stageChoice === "tracked" ? "git add -u" : "git add -A";
     execSync(stageCmd, { cwd: PROJECT_PATH, stdio: "pipe" });
     console.log(`  ${T.success("✓")} Staged`);
     
@@ -1064,15 +1215,14 @@ async function runGuidedCommit() {
     execSync(`git commit -m "${finalMessage.replace(/"/g, '\\"')}"`, { cwd: PROJECT_PATH, stdio: "pipe" });
     console.log(`  ${T.success("✓")} Committed`);
     
-    // Ask about push
+    // Ask about push with arrow menu
     console.log("");
-    console.log(`  ${T.accent("1")}  Push now`);
-    console.log(`  ${T.accent("2")}  Push later`);
-    console.log("");
+    const pushChoice = await selectMenu([
+      { value: "push", label: "Push now" },
+      { value: "later", label: "Push later" },
+    ]);
     
-    const pushChoice = await rlQuestion(`  ${T.accent("→")} `);
-    
-    if (pushChoice === "1") {
+    if (pushChoice === "push") {
       try {
         execSync("git push", { cwd: PROJECT_PATH, stdio: "pipe" });
         console.log(`  ${T.success("✓")} Pushed`);
@@ -1144,13 +1294,13 @@ async function promptNextAction() {
   console.log("");
   console.log(T.dim("  ─────────────────────────────────────────────────────────────────"));
   console.log("");
-  console.log(`  ${T.accent("1")}  Return to menu`);
-  console.log(`  ${T.accent("2")}  Exit`);
-  console.log("");
   
-  const choice = await rlQuestion(`  ${T.accent("→")} `);
+  const choice = await selectMenu([
+    { value: "menu", label: "Return to menu" },
+    { value: "exit", label: "Exit" },
+  ]);
   
-  return choice === "1" ? "menu" : "exit";
+  return choice || "exit";
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1312,7 +1462,8 @@ function syncShutdown() {
     const dateStr = getDateStr();
     const diffSummary = getGitDiffSummary();
     const categories = diffSummary?.categories || {};
-    const commitMsg = `${dateStr} - ${generateFallbackMessage(gitStatus, categories)}`;
+    const fileList = gitStatus.files?.map(f => path.basename(f.file)) || [];
+    const commitMsg = `${dateStr} - ${generateFallbackMessage(gitStatus, categories, fileList)}`;
     
     try {
       fs.writeFileSync(path.join(PROJECT_PATH, ".commit_msg"), commitMsg, "utf8");
