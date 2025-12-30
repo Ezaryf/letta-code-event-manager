@@ -674,8 +674,8 @@ async function runWatch() {
   
   saveToHistory(project);
   
-  console.log(chalk.cyan("\n  🚀 Starting Watch & Analyze..."));
-  console.log(chalk.gray("  Press Ctrl+C to stop and see options\n"));
+  // Clear screen before launching watcher (watcher will show its own header)
+  console.clear();
   
   const args = [project, "--return-to-menu"];
   if (watchMode === "all") args.push("--all");
