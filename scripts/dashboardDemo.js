@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Dashboard Demo - Preview the file watcher output with new modern design
+// Dashboard Demo - Preview the file watcher with new commit assistant
 import chalk from "chalk";
 
 const THEME_NAME = process.argv[2] || "ocean";
@@ -25,7 +25,7 @@ const month = String(now.getMonth() + 1).padStart(2, "0");
 const year = String(now.getFullYear()).slice(-2);
 const dateStr = `${day}${month}${year}`;
 
-// Show new modern header
+// Show header
 console.clear();
 console.log("");
 console.log(T.accent("  ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓"));
@@ -34,33 +34,28 @@ console.log(T.accent("  ┃") + T.dim("     Real-time AI code analysis & smart c
 console.log(T.accent("  ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛"));
 console.log("");
 
-// Project Overview - Simple clean layout without box alignment issues
+// Project Overview
 console.log(T.dim("  ─── Project ───────────────────────────────────────────────────────"));
 console.log(`  📁 ${chalk.bold.white("my-awesome-project")} ${T.dim("v2.1.0")}`);
 console.log(`     ${chalk.bgBlue.white(" React ")} ${chalk.bgBlue.white(" TS ")}`);
 console.log("");
-
-// File stats with visual bar
-const fileBar = `${T.success("■■■■■■■■")}${T.dim("□□")}`;
-console.log(`  ${T.dim("Files")}    ${chalk.white("156")} ${fileBar}`);
+console.log(`  ${T.dim("Files")}     ${chalk.white("156")} ${T.success("■■■■■■■■")}${T.dim("□□")}`);
 console.log(`  ${T.dim("Structure")} ${chalk.magenta("45")} components · ${chalk.blue("32")} utils · ${chalk.cyan("12")} hooks · ${chalk.green("28")} tests`);
-console.log(`  ${T.dim("Tools")}    ${chalk.gray("◆ Jest  ◆ ESLint  ◆ Prettier  ◆ TypeScript")}`);
-console.log(`  ${T.dim("Scripts")}  ${T.accent("dev")} │ ${T.accent("build")} │ ${T.accent("test")} │ ${T.accent("lint")}`);
+console.log(`  ${T.dim("Tools")}     ${chalk.gray("◆ Jest  ◆ ESLint  ◆ Prettier  ◆ TypeScript")}`);
 console.log("");
 
-// Git Status - Compact
+// Git Status
 console.log(T.dim("  ─── Git ───────────────────────────────────────────────────────────"));
 console.log(`  🔀 ${chalk.magenta("feature/new-dashboard")} ${T.warning("●")} ${T.warning("4 changes")}`);
 console.log(T.dim("     3 modified, 1 new"));
-console.log(T.dim(`     Last: ${chalk.gray("a1b2c3d")} Add user authentication (2 hours ago)`));
 console.log("");
 
-// Session Settings - Minimal badges
+// Session
 console.log(T.dim("  ─── Session ───────────────────────────────────────────────────────"));
 console.log(`  ${chalk.bgGreen.black(" AUTO-FIX ON ")} ${chalk.bgBlack.white(` ${THEME_NAME.toUpperCase()} `)} ${T.dim("Debounce: 1500ms")}`);
 console.log("");
 
-// Controls - Single line
+// Controls
 console.log(T.dim("  ─── Controls ──────────────────────────────────────────────────────"));
 console.log(`  ${T.accent("q")} ${T.dim("quit + summary")}    ${T.accent("Ctrl+C")} ${T.dim("quick exit")}    ${T.accent("npm start")} ${T.dim("settings")}`);
 console.log("");
@@ -71,79 +66,105 @@ console.log("");
 const events = [
   { delay: 500, fn: () => log("14:30:01", T.accent("Starting file watcher...")) },
   { delay: 1500, fn: () => log("14:30:02", T.success("✓ Watcher ready! Monitoring 156 files")) },
-  { delay: 2000, fn: () => log("14:30:02", T.dim("Waiting for file changes...")) },
-  { delay: 2200, fn: () => log("14:30:02", T.success("Press 'q' for full summary + commit options (recommended)")) },
+  { delay: 2000, fn: () => log("14:30:02", T.success("Press 'q' for full summary + commit options (recommended)")) },
   { delay: 2500, fn: () => console.log("") },
   
   { delay: 3500, fn: () => log("14:30:05", T.accent("📝 File changed: src/components/Button.tsx")) },
   { delay: 4000, fn: () => log("14:30:06", T.accent("⏳ Analyzing: Button.tsx...")) },
-  { delay: 6000, fn: () => {
+  { delay: 5500, fn: () => {
     log("14:30:08", T.success("✓ Button.tsx - Clean component, no issues found (2.0s)"));
     console.log("");
   }},
   
-  { delay: 7500, fn: () => log("14:30:10", T.accent("📝 File changed: src/utils/api.ts")) },
-  { delay: 8000, fn: () => log("14:30:11", T.accent("⏳ Analyzing: api.ts...")) },
-  { delay: 10500, fn: () => {
+  { delay: 6500, fn: () => log("14:30:10", T.accent("📝 File changed: src/utils/api.ts")) },
+  { delay: 7000, fn: () => log("14:30:11", T.accent("⏳ Analyzing: api.ts...")) },
+  { delay: 9000, fn: () => {
     log("14:30:13", T.warning("⚠ api.ts - Found 2 issue(s) (2.5s)"));
     console.log(`     🔒 ${T.warning("[HIGH]")} API key exposed in source code`);
-    console.log(T.dim("        Line 15"));
-    console.log(`     ⚡ ${chalk.white("[MEDIUM]")} Missing error handling in fetch call`);
-    console.log(T.dim("        Line 28"));
+    console.log(`     ⚡ ${chalk.white("[MEDIUM]")} Missing error handling`);
     console.log("");
   }},
   
-  { delay: 12000, fn: () => log("14:30:15", T.success("➕ File added: src/hooks/useAuth.ts")) },
-  { delay: 12500, fn: () => log("14:30:16", T.accent("⏳ Analyzing: useAuth.ts...")) },
-  { delay: 14500, fn: () => {
-    log("14:30:18", T.success("✓ useAuth.ts - Looks good! (2.0s)"));
-    console.log("");
-  }},
-  
-  { delay: 16000, fn: () => {
+  // User presses 'q' - show shutdown flow
+  { delay: 11000, fn: () => {
     console.log("");
     log("14:30:20", T.dim("Stopping watcher..."));
-    
-    // Session Summary - Clean design
     console.log("");
+    
+    // Session Summary
     console.log(T.accent("  ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓"));
     console.log(T.accent("  ┃") + chalk.bold.white("  📊 SESSION COMPLETE                                          ") + T.accent("┃"));
     console.log(T.accent("  ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛"));
     console.log("");
-    
-    // Stats in a clean row
-    console.log(`  ${chalk.magenta("⏱ 20s")}  ${T.success("3 analyzed")}  ${T.warning("2 issues")}  ${T.accent("0 fixed")}`);
+    console.log(`  ${chalk.magenta("⏱ 20s")}  ${T.success("2 analyzed")}  ${T.warning("2 issues")}  ${T.accent("0 fixed")}`);
     console.log("");
-    
-    // Issue breakdown
-    console.log(T.dim("  Issues: ") + `🔒 ${T.warning("1")} security  ⚡ ${chalk.white("1")} perf`);
+    console.log(T.dim("  Issues: ") + `🔒 ${T.warning("1")}  ⚡ ${chalk.white("1")}`);
     console.log("");
-    
-    // Files
     console.log(T.accent("  Files:"));
     console.log(`     ${T.success("✓")} Button.tsx`);
     console.log(`     ${T.warning("⚠")} api.ts ${T.dim("(2 issues)")}`);
-    console.log(`     ${T.success("✓")} useAuth.ts`);
     console.log("");
   }},
   
+  // Commit Assistant
+  { delay: 12500, fn: () => {
+    console.log(T.dim("  ═══════════════════════════════════════════════════════════════════"));
+    console.log("");
+    console.log(T.accent("  ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓"));
+    console.log(T.accent("  ┃") + chalk.bold.white("  📝 COMMIT ASSISTANT                                          ") + T.accent("┃"));
+    console.log(T.accent("  ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛"));
+    console.log("");
+    console.log(T.dim("  ─── Current Status ────────────────────────────────────────────────"));
+    console.log(`  🔀 Branch: ${chalk.magenta("feature/new-dashboard")}`);
+    console.log(`  📁 Changes: ${chalk.yellow("3")} modified, ${chalk.green("1")} new`);
+    console.log("");
+    console.log(T.accent("  Would you like to commit these changes?"));
+    console.log("");
+    console.log(`  ${T.accent("[1]")} ${chalk.bold("Yes, help me commit")} ${T.dim("(guided process)")}`);
+    console.log(`  ${T.accent("[2]")} ${chalk.bold("Auto commit & push")} ${T.dim("(fully automatic)")}`);
+    console.log(`  ${T.accent("[3]")} ${chalk.bold("Skip")} ${T.dim("(I'll do it later)")}`);
+    console.log("");
+    console.log(T.accent("  Your choice (1-3): ") + chalk.white("2"));
+    console.log("");
+  }},
+  
+  // Auto commit flow
+  { delay: 14000, fn: () => {
+    console.log(T.dim("  ─── Auto Commit & Push ────────────────────────────────────────────"));
+    console.log("");
+    console.log(T.accent("  🤖 Generating commit message..."));
+  }},
+  
+  { delay: 15500, fn: () => {
+    console.log(T.success(`  ✓ Message: "${dateStr} - Fix API security and update Button component"`));
+    console.log("");
+    console.log(T.dim("  Staging all changes..."));
+    console.log(T.success("  ✓ Staged"));
+    console.log(T.dim("  Committing..."));
+    console.log(T.success("  ✓ Committed"));
+    console.log(T.dim("  Pushing to remote..."));
+    console.log(T.success("  ✓ Pushed"));
+    console.log("");
+    console.log(T.success("  ════════════════════════════════════════════════════════════════"));
+    console.log(T.success("  ✓ AUTO COMMIT COMPLETE!"));
+    console.log(T.success("  ════════════════════════════════════════════════════════════════"));
+    console.log("");
+  }},
+  
+  // Final menu
   { delay: 17000, fn: () => {
     console.log(T.dim("  ─────────────────────────────────────────────────────────────────"));
     console.log("");
-    
-    // Commit section
-    console.log(T.accent("  📝 Commit Message:"));
+    console.log(T.accent("  What's next?"));
     console.log("");
-    console.log(chalk.bgBlack.white(`     ${dateStr} - Fix API security and add auth hook     `));
+    console.log(`  ${T.accent("[1]")} Return to main menu`);
+    console.log(`  ${T.accent("[2]")} Exit`);
     console.log("");
-    console.log(T.dim("  Quick command:"));
-    console.log(T.accent(`  git add -A && git commit -m "${dateStr} - Fix API security and add auth hook"`));
+    console.log(T.accent("  Your choice (1-2): ") + chalk.white("2"));
     console.log("");
-    
+    console.log(T.accent("  ♥ Thanks for using Letta! Happy coding!"));
+    console.log("");
     console.log(T.dim("  ─────────────────────────────────────────────────────────────────"));
-    console.log("");
-    console.log(`  ${T.accent("[1]")} Menu  ${T.accent("[2]")} Commit now  ${T.accent("[3]")} Exit`);
-    console.log("");
     console.log(T.accent("  ♥ Demo complete!"));
     console.log(T.dim(`\n  Themes: ocean, forest, sunset, midnight, mono`));
     console.log(T.dim(`  Try: node scripts/dashboardDemo.js sunset\n`));
