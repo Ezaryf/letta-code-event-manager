@@ -1296,6 +1296,7 @@ async function promptNextAction() {
   console.log("");
   
   const choice = await selectMenu([
+    { value: "watch", label: "Continue watching", hint: "restart watcher" },
     { value: "menu", label: "Return to menu" },
     { value: "exit", label: "Exit" },
   ]);
@@ -1380,6 +1381,81 @@ watcher.on("error", (err) => {
 let isShuttingDown = false;
 let shutdownComplete = false;
 
+async function restartWatcher() {
+  // Reset state
+  isShuttingDown = false;
+  shutdownComplete = false;
+  isReady = false; // Important: reset ready state for new watcher
+  stats.analyzed = 0;
+  stats.issues = 0;
+  stats.fixed = 0;
+  stats.skipped = 0;
+  stats.startTime = Date.now();
+  stats.issuesByType = { bugs: 0, security: 0, performance: 0, style: 0 };
+  stats.severityCounts = { critical: 0, high: 0, medium: 0, low: 0 };
+  analysisResults.length = 0;
+  analysisCache.clear();
+  changedFiles.clear();
+  pendingAnalysis.clear();
+  
+  // Show header again
+  showHeader();
+  log(T.dim("Restarting watcher..."));
+  
+  // Create new watcher
+  watcher = chokidar.watch(PROJECT_PATH.replace(/\\/g, "/"), {
+    ignored: IGNORE,
+    ignoreInitial: true,
+    persistent: true,
+    usePolling: process.platform === "win32",
+    interval: 500,
+    awaitWriteFinish: { stabilityThreshold: 500, pollInterval: 100 },
+    depth: WATCHER_DEPTH,
+  });
+  
+  watcher.on("ready", () => {
+    isReady = true;
+    const watchedPaths = watcher.getWatched();
+    const totalWatched = Object.values(watchedPaths).flat().length;
+    log(T.success(`✓ Ready — watching ${totalWatched} files`));
+    console.log("");
+    
+    setTimeout(setupKeyboardListener, 100);
+  });
+  
+  watcher.on("change", (filePath) => {
+    const ext = path.extname(filePath);
+    if (!VALID_EXTENSIONS.includes(ext)) return;
+    
+    const fileName = path.basename(filePath);
+    log(`${T.accent("~")} ${fileName}`);
+    scheduleAnalysis(filePath);
+  });
+  
+  watcher.on("add", (filePath) => {
+    if (!isReady) return;
+    const ext = path.extname(filePath);
+    if (!VALID_EXTENSIONS.includes(ext)) return;
+    
+    const fileName = path.basename(filePath);
+    log(`${T.success("+")} ${fileName}`);
+    scheduleAnalysis(filePath);
+  });
+  
+  watcher.on("unlink", (filePath) => {
+    const ext = path.extname(filePath);
+    if (!VALID_EXTENSIONS.includes(ext)) return;
+    
+    const fileName = path.basename(filePath);
+    log(`${T.error("-")} ${fileName}`);
+    analysisCache.delete(filePath);
+  });
+  
+  watcher.on("error", (err) => {
+    log(`${T.error("✗")} ${err.message}`);
+  });
+}
+
 async function shutdown() {
   if (isShuttingDown) return;
   isShuttingDown = true;
@@ -1412,6 +1488,13 @@ async function shutdown() {
   
   // Ask what to do next
   const action = await promptNextAction();
+  
+  if (action === "watch") {
+    // Restart the watcher
+    console.log("");
+    await restartWatcher();
+    return; // Don't exit, continue watching
+  }
   
   shutdownComplete = true;
   
