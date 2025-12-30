@@ -183,72 +183,166 @@ function getGitStatus() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Show Header ONCE at startup
+// Show Header ONCE at startup - Clean Modern Design
 // ═══════════════════════════════════════════════════════════════════════════
+
+function getLastCommitInfo() {
+  try {
+    const { execSync } = require("child_process");
+    const log = execSync('git log -1 --format="%h|%s|%cr"', { 
+      cwd: PROJECT_PATH, 
+      encoding: "utf8",
+      stdio: ["pipe", "pipe", "pipe"]
+    }).trim();
+    const [hash, message, time] = log.split("|");
+    return { hash, message: message?.slice(0, 40), time };
+  } catch {
+    return null;
+  }
+}
+
+function getPackageVersion() {
+  try {
+    const pkgPath = path.join(PROJECT_PATH, "package.json");
+    if (fs.existsSync(pkgPath)) {
+      const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+      return pkg.version || null;
+    }
+  } catch {}
+  return null;
+}
 
 function showHeader() {
   const projectType = detectProjectType(PROJECT_PATH);
   const projectStructure = scanProjectStructure(PROJECT_PATH);
   
+  const projectName = path.basename(PROJECT_PATH);
+  const version = getPackageVersion();
   const fw = projectType?.framework || projectType?.type || "node";
   const lang = projectType?.language || "javascript";
   const total = projectStructure?.totalFiles || 0;
   const comps = projectStructure?.components?.length || 0;
   const utils = projectStructure?.utils?.length || 0;
+  const hooks = projectStructure?.hooks?.length || 0;
   const tests = projectStructure?.testFiles?.length || 0;
-  const shortPath = PROJECT_PATH.length > 45 ? "..." + PROJECT_PATH.slice(-42) : PROJECT_PATH;
+  const configs = projectStructure?.configFiles?.length || 0;
+  const types = projectStructure?.types?.length || 0;
   
   const gitBranch = getGitBranch();
   const gitStatus = getGitStatus();
+  const lastCommit = getLastCommitInfo();
+  
+  // Detect tools
+  const tools = [];
+  if (projectType?.hasJest) tools.push("Jest");
+  if (projectType?.hasVitest) tools.push("Vitest");
+  if (projectType?.hasMocha) tools.push("Mocha");
+  if (projectType?.hasEslint) tools.push("ESLint");
+  if (projectType?.hasPrettier) tools.push("Prettier");
+  if (lang === "typescript") tools.push("TypeScript");
+  
+  // Available scripts
+  const scripts = projectType?.scripts || {};
+  const availableScripts = ["dev", "start", "build", "test", "lint"].filter(s => scripts[s]);
 
   console.clear();
-  console.log(T.accent(`
-  ╔══════════════════════════════════════════════════════════════╗
-  ║  🤖 LETTA CODING ASSISTANT - File Watcher                    ║
-  ╚══════════════════════════════════════════════════════════════╝
-`));
   
-  // Project Info Section
-  console.log(T.accent("  ┌─ Project Info ─────────────────────────────────────────────┐"));
-  console.log(`  │ ${T.dim("Project:")}   ${chalk.bold(path.basename(PROJECT_PATH)).padEnd(45)}│`);
-  console.log(`  │ ${T.dim("Path:")}      ${shortPath.padEnd(45)}│`);
-  console.log(`  │ ${T.dim("Framework:")} ${chalk.yellow(fw)} / ${chalk.blue(lang)}${" ".repeat(Math.max(0, 38 - fw.length - lang.length))}│`);
-  console.log(`  │ ${T.dim("Files:")}     ${T.success(total)} total (${comps} components, ${utils} utils, ${tests} tests)${" ".repeat(Math.max(0, 10))}│`);
-  console.log(T.accent("  └──────────────────────────────────────────────────────────────┘"));
+  // ═══════════════════════════════════════════════════════════════════════
+  // HEADER BANNER
+  // ═══════════════════════════════════════════════════════════════════════
+  console.log("");
+  console.log(T.accent("  ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓"));
+  console.log(T.accent("  ┃") + chalk.bold.white("  🤖 LETTA CODE WATCHER                                        ") + T.accent("┃"));
+  console.log(T.accent("  ┃") + T.dim("     Real-time AI code analysis & smart commits                ") + T.accent("┃"));
+  console.log(T.accent("  ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛"));
   console.log("");
   
-  // Git Info Section (if available)
+  // ═══════════════════════════════════════════════════════════════════════
+  // PROJECT OVERVIEW - Simple clean layout
+  // ═══════════════════════════════════════════════════════════════════════
+  const versionStr = version ? T.dim(` v${version}`) : "";
+  const frameworkBadge = fw !== "node" ? chalk.bgBlue.white(` ${fw} `) : chalk.bgGray.white(" Node.js ");
+  const langBadge = lang === "typescript" ? chalk.bgBlue.white(" TS ") : chalk.bgYellow.black(" JS ");
+  
+  console.log(T.dim("  ─── Project ───────────────────────────────────────────────────────"));
+  console.log(`  📁 ${chalk.bold.white(projectName)}${versionStr}`);
+  console.log(`     ${frameworkBadge} ${langBadge}`);
+  console.log("");
+  
+  // File stats with visual bar
+  const barLength = Math.min(10, Math.ceil(total / 20));
+  const fileBar = `${T.success("■".repeat(barLength))}${T.dim("□".repeat(10 - barLength))}`;
+  console.log(`  ${T.dim("Files")}     ${chalk.white(total)} ${fileBar}`);
+  
+  // Structure breakdown
+  const structParts = [];
+  if (comps > 0) structParts.push(`${chalk.magenta(comps)} components`);
+  if (utils > 0) structParts.push(`${chalk.blue(utils)} utils`);
+  if (hooks > 0) structParts.push(`${chalk.cyan(hooks)} hooks`);
+  if (tests > 0) structParts.push(`${chalk.green(tests)} tests`);
+  if (types > 0) structParts.push(`${chalk.yellow(types)} types`);
+  if (configs > 0) structParts.push(`${chalk.gray(configs)} configs`);
+  
+  if (structParts.length > 0) {
+    console.log(`  ${T.dim("Structure")} ${structParts.slice(0, 5).join(" · ")}`);
+  }
+  
+  // Tools detected
+  if (tools.length > 0) {
+    console.log(`  ${T.dim("Tools")}     ${tools.map(t => chalk.gray(`◆ ${t}`)).join("  ")}`);
+  }
+  
+  // Scripts available
+  if (availableScripts.length > 0) {
+    console.log(`  ${T.dim("Scripts")}   ${availableScripts.map(s => T.accent(s)).join(" │ ")}`);
+  }
+  console.log("");
+  
+  // ═══════════════════════════════════════════════════════════════════════
+  // GIT STATUS - Compact and informative
+  // ═══════════════════════════════════════════════════════════════════════
   if (gitBranch) {
-    console.log(T.accent("  ┌─ Git Status ───────────────────────────────────────────────┐"));
-    console.log(`  │ ${T.dim("Branch:")}    ${chalk.magenta(gitBranch).padEnd(45)}│`);
-    if (gitStatus) {
-      const statusText = gitStatus.total > 0 
-        ? `${gitStatus.modified} modified, ${gitStatus.added} new, ${gitStatus.deleted} deleted`
-        : "Clean - no uncommitted changes";
-      console.log(`  │ ${T.dim("Changes:")}   ${gitStatus.total > 0 ? T.warning(statusText) : T.success(statusText)}${" ".repeat(Math.max(0, 20))}│`);
+    const branchIcon = gitBranch === "main" || gitBranch === "master" ? "🌿" : "🔀";
+    const statusIcon = gitStatus?.total > 0 ? T.warning("●") : T.success("●");
+    const statusText = gitStatus?.total > 0 
+      ? T.warning(`${gitStatus.total} changes`)
+      : T.success("clean");
+    
+    console.log(T.dim("  ─── Git ───────────────────────────────────────────────────────────"));
+    console.log(`  ${branchIcon} ${chalk.magenta(gitBranch)} ${statusIcon} ${statusText}`);
+    
+    if (gitStatus?.total > 0) {
+      const changes = [];
+      if (gitStatus.modified > 0) changes.push(`${gitStatus.modified} modified`);
+      if (gitStatus.added > 0) changes.push(`${gitStatus.added} new`);
+      if (gitStatus.deleted > 0) changes.push(`${gitStatus.deleted} deleted`);
+      console.log(T.dim(`     ${changes.join(", ")}`));
     }
-    console.log(T.accent("  └──────────────────────────────────────────────────────────────┘"));
+    
+    if (lastCommit) {
+      const msgDisplay = lastCommit.message?.length >= 40 ? lastCommit.message + "..." : lastCommit.message;
+      console.log(T.dim(`     Last: ${chalk.gray(lastCommit.hash)} ${msgDisplay} (${lastCommit.time})`));
+    }
     console.log("");
   }
   
-  // Settings Section
-  console.log(T.accent("  ┌─ Current Settings ─────────────────────────────────────────┐"));
-  console.log(`  │ ${T.dim("Auto-fix:")}  ${AUTO_FIX ? T.success("ON - will auto-apply fixes") : T.error("OFF")}${" ".repeat(AUTO_FIX ? 18 : 38)}│`);
-  console.log(`  │ ${T.dim("Theme:")}     ${T.accent(THEME_NAME)}${" ".repeat(Math.max(0, 45 - THEME_NAME.length))}│`);
-  console.log(`  │ ${T.dim("Debounce:")}  ${WATCHER_DEBOUNCE}ms${" ".repeat(Math.max(0, 42 - String(WATCHER_DEBOUNCE).length))}│`);
-  console.log(`  │ ${T.dim("Confidence:")} ${(MIN_CONFIDENCE * 100).toFixed(0)}% minimum for auto-fix${" ".repeat(25)}│`);
-  console.log(T.accent("  └──────────────────────────────────────────────────────────────┘"));
+  // ═══════════════════════════════════════════════════════════════════════
+  // CURRENT SESSION SETTINGS - Minimal badges
+  // ═══════════════════════════════════════════════════════════════════════
+  const autoFixBadge = AUTO_FIX ? chalk.bgGreen.black(" AUTO-FIX ON ") : chalk.bgRed.white(" MANUAL ");
+  const themeBadge = chalk.bgBlack.white(` ${THEME_NAME.toUpperCase()} `);
+  
+  console.log(T.dim("  ─── Session ───────────────────────────────────────────────────────"));
+  console.log(`  ${autoFixBadge} ${themeBadge} ${T.dim(`Debounce: ${WATCHER_DEBOUNCE}ms`)}`);
   console.log("");
   
-  // Instructions
-  console.log(T.dim("  ─────────────────────────────────────────────────────────────────"));
-  console.log(T.dim("  📝 Edit any file to trigger analysis"));
-  console.log(T.warning("  🛑 Press 'q' to stop → full summary → commit options"));
-  if (process.platform === "win32") {
-    console.log(T.dim("     (Ctrl+C shows quick summary only on Windows)"));
-  }
-  console.log(T.dim("  ⚙️  Change settings: npm start → Settings"));
-  console.log(T.dim("  ─────────────────────────────────────────────────────────────────"));
+  // ═══════════════════════════════════════════════════════════════════════
+  // QUICK HELP - Clean and minimal
+  // ═══════════════════════════════════════════════════════════════════════
+  console.log(T.dim("  ─── Controls ──────────────────────────────────────────────────────"));
+  console.log(`  ${T.accent("q")} ${T.dim("quit + summary")}    ${T.accent("Ctrl+C")} ${T.dim("quick exit")}    ${T.accent("npm start")} ${T.dim("settings")}`);
+  console.log("");
+  console.log(T.dim("  ═══════════════════════════════════════════════════════════════════"));
   console.log("");
 }
 
