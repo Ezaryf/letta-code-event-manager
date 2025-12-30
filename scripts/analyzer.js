@@ -42,10 +42,24 @@ export function scanProjectStructure(projectPath, maxDepth = 4) {
     utils: [],
     hooks: [],
     types: [],
+    scripts: [],       // Files in scripts/ folder
+    core: [],          // Files in src/core/ or core/
+    api: [],           // API routes, controllers
+    models: [],        // Models, schemas
+    services: [],      // Services, providers
+    templates: [],     // Templates, views
+    styles: [],        // CSS, SCSS files
+    docs: [],          // Documentation files
     totalFiles: 0,
+    totalDirs: 0,
+    totalSize: 0,
+    largestFile: null,
+    recentlyModified: [],
   };
   
-  const IGNORE = ["node_modules", ".git", ".next", "dist", "build", "coverage", ".letta-backups"];
+  const IGNORE = ["node_modules", ".git", ".next", "dist", "build", "coverage", ".letta-backups", ".kiro"];
+  const now = Date.now();
+  const ONE_DAY = 24 * 60 * 60 * 1000;
   
   const walk = (dir, depth = 0) => {
     if (depth > maxDepth) return;
@@ -64,28 +78,89 @@ export function scanProjectStructure(projectPath, maxDepth = 4) {
           const stat = fs.statSync(fullPath);
           
           if (stat.isDirectory()) {
+            structure.totalDirs++;
             walk(fullPath, depth + 1);
           } else if (stat.isFile()) {
             structure.totalFiles++;
+            structure.totalSize += stat.size;
             
             const ext = path.extname(item);
-            if (![".js", ".jsx", ".ts", ".tsx", ".json", ".css", ".scss"].includes(ext)) continue;
+            const info = { path: relativePath, name: item, ext, size: stat.size, mtime: stat.mtime };
             
-            const info = { path: relativePath, name: item, ext, size: stat.size };
+            // Track largest file
+            if (!structure.largestFile || stat.size > structure.largestFile.size) {
+              structure.largestFile = info;
+            }
             
-            if (item.match(/\.(test|spec)\.(js|ts|jsx|tsx)$/)) {
+            // Track recently modified (within 24 hours)
+            if (now - stat.mtime.getTime() < ONE_DAY) {
+              structure.recentlyModified.push(info);
+            }
+            
+            // Skip non-code files for categorization
+            if (![".js", ".jsx", ".ts", ".tsx", ".json", ".css", ".scss", ".md", ".txt", ".html", ".ejs", ".hbs"].includes(ext)) continue;
+            
+            // Normalize path separators for cross-platform matching
+            const normalizedPath = relativePath.replace(/\\/g, "/").toLowerCase();
+            
+            // Test files
+            if (item.match(/\.(test|spec)\.(js|ts|jsx|tsx)$/) || normalizedPath.includes("__tests__") || normalizedPath.startsWith("tests/") || normalizedPath.startsWith("test/")) {
               structure.testFiles.push(info);
-            } else if (item.match(/\.config\.(js|ts|json)$/) || item === "package.json") {
+            }
+            // Config files
+            else if (item.match(/\.config\.(js|ts|json|mjs|cjs)$/) || item === "package.json" || item === "tsconfig.json" || item.startsWith(".") && ext === ".json") {
               structure.configFiles.push(info);
-            } else if (relativePath.includes("component") || item.match(/^[A-Z].*\.(jsx|tsx)$/)) {
+            }
+            // Scripts folder
+            else if (normalizedPath.startsWith("scripts/") || normalizedPath.startsWith("bin/")) {
+              structure.scripts.push(info);
+            }
+            // Core modules
+            else if (normalizedPath.includes("/core/") || normalizedPath.startsWith("core/") || normalizedPath.includes("src/core/")) {
+              structure.core.push(info);
+            }
+            // API / Routes / Controllers
+            else if (normalizedPath.includes("/api/") || normalizedPath.includes("/routes/") || normalizedPath.includes("/controllers/") || normalizedPath.includes("/endpoints/")) {
+              structure.api.push(info);
+            }
+            // Models / Schemas
+            else if (normalizedPath.includes("/models/") || normalizedPath.includes("/schemas/") || normalizedPath.includes("/entities/")) {
+              structure.models.push(info);
+            }
+            // Services / Providers
+            else if (normalizedPath.includes("/services/") || normalizedPath.includes("/providers/") || normalizedPath.includes("/middleware/")) {
+              structure.services.push(info);
+            }
+            // Templates / Views
+            else if (normalizedPath.includes("/templates/") || normalizedPath.startsWith("templates/") || normalizedPath.includes("/views/") || normalizedPath.includes("/pages/") || [".html", ".ejs", ".hbs"].includes(ext)) {
+              structure.templates.push(info);
+            }
+            // Styles
+            else if ([".css", ".scss", ".sass", ".less"].includes(ext) || normalizedPath.includes("/styles/")) {
+              structure.styles.push(info);
+            }
+            // Documentation
+            else if ([".md", ".txt", ".rst"].includes(ext) || normalizedPath.includes("/docs/")) {
+              structure.docs.push(info);
+            }
+            // Components (React/Vue)
+            else if (normalizedPath.includes("component") || item.match(/^[A-Z].*\.(jsx|tsx)$/)) {
               structure.components.push(info);
-            } else if (relativePath.includes("hook") || item.startsWith("use")) {
+            }
+            // Hooks (React)
+            else if (normalizedPath.includes("hook") || item.startsWith("use")) {
               structure.hooks.push(info);
-            } else if (relativePath.includes("util") || relativePath.includes("lib") || relativePath.includes("helper")) {
+            }
+            // Utils / Helpers / Lib
+            else if (normalizedPath.includes("util") || normalizedPath.includes("lib") || normalizedPath.includes("helper")) {
               structure.utils.push(info);
-            } else if (relativePath.includes("type") || item.endsWith(".d.ts")) {
+            }
+            // Types
+            else if (normalizedPath.includes("type") || item.endsWith(".d.ts")) {
               structure.types.push(info);
-            } else {
+            }
+            // Everything else
+            else {
               structure.files.push(info);
             }
           }
@@ -95,6 +170,11 @@ export function scanProjectStructure(projectPath, maxDepth = 4) {
   };
   
   walk(projectPath);
+  
+  // Sort recently modified by date (newest first)
+  structure.recentlyModified.sort((a, b) => b.mtime - a.mtime);
+  structure.recentlyModified = structure.recentlyModified.slice(0, 5);
+  
   return structure;
 }
 

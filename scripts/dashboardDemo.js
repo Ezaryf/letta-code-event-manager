@@ -1,5 +1,17 @@
 #!/usr/bin/env node
-// Dashboard Demo - Preview the file watcher with new commit assistant
+/**
+ * Dashboard Demo - Preview the file watcher UI with simulated events
+ * 
+ * @letta-ignore - This is a demo/preview script, not production code
+ * 
+ * This file simulates the watcher output for theme preview purposes.
+ * The "API key" and "security" messages shown are SIMULATED OUTPUT TEXT,
+ * not actual security issues. The setTimeout usage is intentional for
+ * creating a timed demo sequence.
+ * 
+ * Usage: node scripts/dashboardDemo.js [theme]
+ * Themes: ocean, forest, sunset, midnight, mono
+ */
 import chalk from "chalk";
 
 const THEME_NAME = process.argv[2] || "ocean";

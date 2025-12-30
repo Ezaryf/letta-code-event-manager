@@ -10,6 +10,7 @@ import dayjs from "dayjs";
 import { fileURLToPath } from "url";
 import chalk from "chalk";
 import readline from "readline";
+import { execSync } from "child_process";
 import {
   detectProjectType,
   scanProjectStructure,
@@ -158,7 +159,6 @@ function getUptime() {
 
 function getGitBranch() {
   try {
-    const { execSync } = require("child_process");
     const branch = execSync("git rev-parse --abbrev-ref HEAD", { 
       cwd: PROJECT_PATH, 
       encoding: "utf8",
@@ -172,18 +172,147 @@ function getGitBranch() {
 
 function getGitStatus() {
   try {
-    const { execSync } = require("child_process");
     const status = execSync("git status --porcelain", { 
       cwd: PROJECT_PATH, 
       encoding: "utf8",
       stdio: ["pipe", "pipe", "pipe"]
     });
-    const lines = status.trim().split("\n").filter(l => l);
+    
+    // Don't trim individual lines - the leading space is significant!
+    const lines = status.split("\n").filter(l => l.length >= 3);
+    
+    // Parse git status codes more comprehensively
+    // Format: XY filename (where X=staged status, Y=unstaged status)
+    // M = modified, A = added, D = deleted, R = renamed, C = copied, U = unmerged, ? = untracked
+    let modified = 0;
+    let added = 0;
+    let deleted = 0;
+    const changedFilesList = [];
+    
+    for (const line of lines) {
+      const staged = line[0];    // First char: staged status
+      const unstaged = line[1];  // Second char: unstaged status
+      const fileName = line.slice(3); // Rest is filename (after "XY ")
+      
+      if (DEBUG) {
+        console.log(`Git status line: "${line}" -> staged="${staged}" unstaged="${unstaged}" file="${fileName}"`);
+      }
+      
+      // Count modifications (either staged or unstaged)
+      if (staged === "M" || unstaged === "M") {
+        modified++;
+        changedFilesList.push({ status: "M", file: fileName });
+      }
+      // Count additions (new files, either staged or untracked)
+      else if (staged === "A" || staged === "?" || unstaged === "A") {
+        added++;
+        changedFilesList.push({ status: "A", file: fileName });
+      }
+      // Count deletions
+      else if (staged === "D" || unstaged === "D") {
+        deleted++;
+        changedFilesList.push({ status: "D", file: fileName });
+      }
+      // Renamed files count as modified
+      else if (staged === "R") {
+        modified++;
+        changedFilesList.push({ status: "R", file: fileName });
+      }
+      // Untracked files (both columns are ?)
+      else if (staged === "?" && unstaged === "?") {
+        added++;
+        changedFilesList.push({ status: "?", file: fileName });
+      }
+      // Any other change
+      else if (staged !== " " || unstaged !== " ") {
+        modified++;
+        changedFilesList.push({ status: staged !== " " ? staged : unstaged, file: fileName });
+      }
+    }
+    
+    if (DEBUG) {
+      console.log(`Git status result: ${modified} modified, ${added} added, ${deleted} deleted, ${lines.length} total`);
+    }
+    
     return {
-      modified: lines.filter(l => l.startsWith(" M") || l.startsWith("M ")).length,
-      added: lines.filter(l => l.startsWith("A ") || l.startsWith("??")).length,
-      deleted: lines.filter(l => l.startsWith(" D") || l.startsWith("D ")).length,
-      total: lines.length
+      modified,
+      added,
+      deleted,
+      total: lines.length,
+      files: changedFilesList,
+    };
+  } catch (err) {
+    if (DEBUG) console.log("Git status error:", err.message);
+    return null;
+  }
+}
+
+// Get detailed git diff for better commit messages
+function getGitDiffSummary() {
+  try {
+    // Get diff stat for staged and unstaged changes
+    let diffStat = "";
+    try {
+      // Staged changes
+      diffStat += execSync("git diff --cached --stat", { 
+        cwd: PROJECT_PATH, 
+        encoding: "utf8",
+        stdio: ["pipe", "pipe", "pipe"]
+      });
+    } catch {}
+    
+    try {
+      // Unstaged changes
+      diffStat += execSync("git diff --stat", { 
+        cwd: PROJECT_PATH, 
+        encoding: "utf8",
+        stdio: ["pipe", "pipe", "pipe"]
+      });
+    } catch {}
+    
+    // Get list of changed files with their types
+    const status = getGitStatus();
+    if (!status) return null;
+    
+    // Categorize files
+    const categories = {
+      components: [],
+      utils: [],
+      tests: [],
+      styles: [],
+      configs: [],
+      docs: [],
+      other: [],
+    };
+    
+    for (const { file, status: fileStatus } of status.files || []) {
+      const fileName = path.basename(file);
+      const ext = path.extname(file);
+      
+      if (file.includes("test") || file.includes("spec")) {
+        categories.tests.push(fileName);
+      } else if (file.includes("component") || fileName.match(/^[A-Z].*\.(jsx|tsx)$/)) {
+        categories.components.push(fileName);
+      } else if (file.includes("util") || file.includes("helper") || file.includes("lib")) {
+        categories.utils.push(fileName);
+      } else if ([".css", ".scss", ".less", ".sass"].includes(ext)) {
+        categories.styles.push(fileName);
+      } else if (fileName.includes("config") || fileName.endsWith(".json") || fileName.startsWith(".")) {
+        categories.configs.push(fileName);
+      } else if ([".md", ".txt", ".rst"].includes(ext)) {
+        categories.docs.push(fileName);
+      } else {
+        categories.other.push(fileName);
+      }
+    }
+    
+    return {
+      diffStat,
+      categories,
+      totalFiles: status.total,
+      modified: status.modified,
+      added: status.added,
+      deleted: status.deleted,
     };
   } catch {
     return null;
@@ -196,7 +325,6 @@ function getGitStatus() {
 
 function getLastCommitInfo() {
   try {
-    const { execSync } = require("child_process");
     const log = execSync('git log -1 --format="%h|%s|%cr"', { 
       cwd: PROJECT_PATH, 
       encoding: "utf8",
@@ -229,16 +357,35 @@ function showHeader() {
   const fw = projectType?.framework || projectType?.type || "node";
   const lang = projectType?.language || "javascript";
   const total = projectStructure?.totalFiles || 0;
+  const totalDirs = projectStructure?.totalDirs || 0;
+  const totalSize = projectStructure?.totalSize || 0;
   const comps = projectStructure?.components?.length || 0;
   const utils = projectStructure?.utils?.length || 0;
   const hooks = projectStructure?.hooks?.length || 0;
   const tests = projectStructure?.testFiles?.length || 0;
   const configs = projectStructure?.configFiles?.length || 0;
   const types = projectStructure?.types?.length || 0;
+  const scripts = projectStructure?.scripts?.length || 0;
+  const core = projectStructure?.core?.length || 0;
+  const api = projectStructure?.api?.length || 0;
+  const models = projectStructure?.models?.length || 0;
+  const services = projectStructure?.services?.length || 0;
+  const templates = projectStructure?.templates?.length || 0;
+  const styles = projectStructure?.styles?.length || 0;
+  const docs = projectStructure?.docs?.length || 0;
+  const recentlyModified = projectStructure?.recentlyModified || [];
   
   const gitBranch = getGitBranch();
   const gitStatus = getGitStatus();
   const lastCommit = getLastCommitInfo();
+  
+  // Get package.json info
+  const pkg = projectType?.packageJson || {};
+  const description = pkg.description || null;
+  const author = pkg.author ? (typeof pkg.author === "string" ? pkg.author : pkg.author.name) : null;
+  const license = pkg.license || null;
+  const deps = Object.keys(pkg.dependencies || {}).length;
+  const devDeps = Object.keys(pkg.devDependencies || {}).length;
   
   // Detect tools
   const tools = [];
@@ -249,9 +396,22 @@ function showHeader() {
   if (projectType?.hasPrettier) tools.push("Prettier");
   if (lang === "typescript") tools.push("TypeScript");
   
+  // Check for more tools
+  const allDeps = { ...pkg.dependencies, ...pkg.devDependencies };
+  if (allDeps.webpack) tools.push("Webpack");
+  if (allDeps.vite) tools.push("Vite");
+  if (allDeps.rollup) tools.push("Rollup");
+  if (allDeps.esbuild) tools.push("esbuild");
+  if (allDeps.babel || allDeps["@babel/core"]) tools.push("Babel");
+  if (allDeps.husky) tools.push("Husky");
+  if (allDeps["lint-staged"]) tools.push("lint-staged");
+  if (allDeps.nodemon) tools.push("Nodemon");
+  if (allDeps.pm2) tools.push("PM2");
+  if (allDeps.docker || fs.existsSync(path.join(PROJECT_PATH, "Dockerfile"))) tools.push("Docker");
+  
   // Available scripts
-  const scripts = projectType?.scripts || {};
-  const availableScripts = ["dev", "start", "build", "test", "lint"].filter(s => scripts[s]);
+  const npmScripts = projectType?.scripts || {};
+  const availableScripts = ["dev", "start", "build", "test", "lint", "format", "watch", "serve", "deploy"].filter(s => npmScripts[s]);
 
   console.clear();
   
@@ -266,7 +426,7 @@ function showHeader() {
   console.log("");
   
   // ═══════════════════════════════════════════════════════════════════════
-  // PROJECT OVERVIEW - Simple clean layout
+  // PROJECT OVERVIEW - Enhanced with more info
   // ═══════════════════════════════════════════════════════════════════════
   const versionStr = version ? T.dim(` v${version}`) : "";
   const frameworkBadge = fw !== "node" ? chalk.bgBlue.white(` ${fw} `) : chalk.bgGray.white(" Node.js ");
@@ -274,35 +434,78 @@ function showHeader() {
   
   console.log(T.dim("  ─── Project ───────────────────────────────────────────────────────"));
   console.log(`  📁 ${chalk.bold.white(projectName)}${versionStr}`);
-  console.log(`     ${frameworkBadge} ${langBadge}`);
+  if (description) {
+    console.log(T.dim(`     ${description.slice(0, 55)}${description.length > 55 ? "..." : ""}`));
+  }
+  console.log(`     ${frameworkBadge} ${langBadge}${author ? T.dim(` by ${author}`) : ""}${license ? T.dim(` · ${license}`) : ""}`);
   console.log("");
   
-  // File stats with visual bar
+  // File stats with visual bar and size
   const barLength = Math.min(10, Math.ceil(total / 20));
   const fileBar = `${T.success("■".repeat(barLength))}${T.dim("□".repeat(10 - barLength))}`;
-  console.log(`  ${T.dim("Files")}     ${chalk.white(total)} ${fileBar}`);
+  const sizeStr = totalSize > 1024 * 1024 
+    ? `${(totalSize / (1024 * 1024)).toFixed(1)}MB` 
+    : totalSize > 1024 
+      ? `${(totalSize / 1024).toFixed(0)}KB` 
+      : `${totalSize}B`;
+  console.log(`  ${T.dim("Files")}     ${chalk.white(total)} ${fileBar} ${T.dim(`${totalDirs} dirs · ${sizeStr}`)}`);
   
-  // Structure breakdown
-  const structParts = [];
-  if (comps > 0) structParts.push(`${chalk.magenta(comps)} components`);
-  if (utils > 0) structParts.push(`${chalk.blue(utils)} utils`);
-  if (hooks > 0) structParts.push(`${chalk.cyan(hooks)} hooks`);
-  if (tests > 0) structParts.push(`${chalk.green(tests)} tests`);
-  if (types > 0) structParts.push(`${chalk.yellow(types)} types`);
-  if (configs > 0) structParts.push(`${chalk.gray(configs)} configs`);
-  
-  if (structParts.length > 0) {
-    console.log(`  ${T.dim("Structure")} ${structParts.slice(0, 5).join(" · ")}`);
+  // Dependencies count
+  if (deps > 0 || devDeps > 0) {
+    console.log(`  ${T.dim("Deps")}      ${chalk.cyan(deps)} prod ${T.dim("·")} ${chalk.yellow(devDeps)} dev`);
   }
   
-  // Tools detected
+  // Structure breakdown - Row 1: Main categories
+  const structRow1 = [];
+  if (core > 0) structRow1.push(`${chalk.magenta(core)} core`);
+  if (scripts > 0) structRow1.push(`${chalk.blue(scripts)} scripts`);
+  if (api > 0) structRow1.push(`${chalk.cyan(api)} api`);
+  if (services > 0) structRow1.push(`${chalk.green(services)} services`);
+  if (models > 0) structRow1.push(`${chalk.yellow(models)} models`);
+  
+  // Structure breakdown - Row 2: Secondary categories
+  const structRow2 = [];
+  if (comps > 0) structRow2.push(`${chalk.magenta(comps)} components`);
+  if (utils > 0) structRow2.push(`${chalk.blue(utils)} utils`);
+  if (hooks > 0) structRow2.push(`${chalk.cyan(hooks)} hooks`);
+  if (templates > 0) structRow2.push(`${chalk.green(templates)} templates`);
+  if (styles > 0) structRow2.push(`${chalk.yellow(styles)} styles`);
+  
+  // Structure breakdown - Row 3: Support files
+  const structRow3 = [];
+  if (tests > 0) structRow3.push(`${chalk.green(tests)} tests`);
+  if (types > 0) structRow3.push(`${chalk.yellow(types)} types`);
+  if (configs > 0) structRow3.push(`${chalk.gray(configs)} configs`);
+  if (docs > 0) structRow3.push(`${chalk.cyan(docs)} docs`);
+  
+  if (structRow1.length > 0) {
+    console.log(`  ${T.dim("Source")}    ${structRow1.slice(0, 5).join(" · ")}`);
+  }
+  if (structRow2.length > 0) {
+    console.log(`  ${T.dim("UI/Lib")}    ${structRow2.slice(0, 5).join(" · ")}`);
+  }
+  if (structRow3.length > 0) {
+    console.log(`  ${T.dim("Support")}   ${structRow3.slice(0, 5).join(" · ")}`);
+  }
+  
+  // Tools detected (show more)
   if (tools.length > 0) {
-    console.log(`  ${T.dim("Tools")}     ${tools.map(t => chalk.gray(`◆ ${t}`)).join("  ")}`);
+    const toolsRow1 = tools.slice(0, 5).map(t => chalk.gray(`◆ ${t}`)).join("  ");
+    const toolsRow2 = tools.slice(5, 10).map(t => chalk.gray(`◆ ${t}`)).join("  ");
+    console.log(`  ${T.dim("Tools")}     ${toolsRow1}`);
+    if (toolsRow2) {
+      console.log(`            ${toolsRow2}`);
+    }
   }
   
-  // Scripts available
+  // Scripts available (show more)
   if (availableScripts.length > 0) {
     console.log(`  ${T.dim("Scripts")}   ${availableScripts.map(s => T.accent(s)).join(" │ ")}`);
+  }
+  
+  // Recently modified files
+  if (recentlyModified.length > 0) {
+    console.log(`  ${T.dim("Recent")}    ${recentlyModified.slice(0, 3).map(f => chalk.white(f.name)).join(", ")}${recentlyModified.length > 3 ? T.dim(` +${recentlyModified.length - 3}`) : ""}`);
   }
   console.log("");
   
@@ -462,6 +665,13 @@ async function processFile(filePath) {
     return;
   }
   
+  // Check for @letta-ignore comment - skip analysis for demo/test files
+  if (content.includes("@letta-ignore")) {
+    stats.skipped++;
+    logVerbose(`⊘ Skipped (@letta-ignore): ${fileName}`);
+    return;
+  }
+  
   // Skip if unchanged
   const contentHash = simpleHash(content);
   if (analysisCache.get(filePath) === contentHash) {
@@ -552,7 +762,7 @@ function scheduleAnalysis(filePath) {
 
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Commit Message - CORRECT DATE FORMAT
+// Commit Message - Intelligent Generation
 // ═══════════════════════════════════════════════════════════════════════════
 
 function getDateStr() {
@@ -564,28 +774,154 @@ function getDateStr() {
 }
 
 async function generateCommitMessage() {
-  if (changedFiles.size === 0) return null;
-  
-  const fileList = Array.from(changedFiles).slice(0, 10).join(", ");
   const dateStr = getDateStr();
+  const gitStatus = getGitStatus();
+  const diffSummary = getGitDiffSummary();
+  
+  // If no changes detected, return null
+  if (!gitStatus || gitStatus.total === 0) {
+    return null;
+  }
+  
+  // Build context for AI
+  const fileList = gitStatus.files?.map(f => f.file).slice(0, 15) || [];
+  const categories = diffSummary?.categories || {};
+  
+  // Build a detailed context string
+  let contextParts = [];
+  
+  if (categories.components?.length > 0) {
+    contextParts.push(`Components: ${categories.components.slice(0, 5).join(", ")}`);
+  }
+  if (categories.utils?.length > 0) {
+    contextParts.push(`Utils: ${categories.utils.slice(0, 5).join(", ")}`);
+  }
+  if (categories.tests?.length > 0) {
+    contextParts.push(`Tests: ${categories.tests.slice(0, 5).join(", ")}`);
+  }
+  if (categories.styles?.length > 0) {
+    contextParts.push(`Styles: ${categories.styles.slice(0, 3).join(", ")}`);
+  }
+  if (categories.configs?.length > 0) {
+    contextParts.push(`Configs: ${categories.configs.slice(0, 3).join(", ")}`);
+  }
+  if (categories.docs?.length > 0) {
+    contextParts.push(`Docs: ${categories.docs.slice(0, 3).join(", ")}`);
+  }
+  if (categories.other?.length > 0) {
+    contextParts.push(`Other: ${categories.other.slice(0, 5).join(", ")}`);
+  }
+  
+  // Build change summary
+  const changeSummary = [];
+  if (gitStatus.modified > 0) changeSummary.push(`${gitStatus.modified} modified`);
+  if (gitStatus.added > 0) changeSummary.push(`${gitStatus.added} added`);
+  if (gitStatus.deleted > 0) changeSummary.push(`${gitStatus.deleted} deleted`);
+  
+  // Also include analysis results if available
+  let analysisContext = "";
+  if (analysisResults.length > 0) {
+    const issueFiles = analysisResults.filter(r => r.hasIssues);
+    const cleanFiles = analysisResults.filter(r => !r.hasIssues);
+    
+    if (issueFiles.length > 0) {
+      const issueTypes = new Set();
+      issueFiles.forEach(r => r.issues?.forEach(i => issueTypes.add(i.type)));
+      analysisContext = `\nAnalysis found issues in ${issueFiles.length} file(s): ${Array.from(issueTypes).join(", ")} issues.`;
+    }
+    if (cleanFiles.length > 0) {
+      analysisContext += `\n${cleanFiles.length} file(s) passed analysis with no issues.`;
+    }
+  }
   
   try {
-    const response = await client.agents.messages.create(agentId, {
-      input: `Generate a SHORT git commit message for these files: ${fileList}. 
-Just describe what changed in 5-10 words. Reply with ONLY the description, nothing else.`
-    });
+    const prompt = `Generate a professional git commit message for these changes:
+
+FILES CHANGED (${gitStatus.total} total - ${changeSummary.join(", ")}):
+${contextParts.length > 0 ? contextParts.join("\n") : fileList.join(", ")}
+${analysisContext}
+
+REQUIREMENTS:
+1. Start with a type prefix: feat:, fix:, refactor:, style:, docs:, test:, chore:
+2. Be specific about WHAT changed (not just file names)
+3. Keep it under 72 characters
+4. Use present tense ("Add" not "Added")
+5. Be descriptive but concise
+
+Examples of GOOD commit messages:
+- "feat: Add IDE detection for agentic collaboration"
+- "fix: Resolve git status parsing for untracked files"
+- "refactor: Improve commit message generation with AI context"
+- "style: Update dashboard theme colors and layout"
+- "docs: Add configuration options to README"
+
+Reply with ONLY the commit message (without the date prefix), nothing else.`;
+
+    const response = await client.agents.messages.create(agentId, { input: prompt });
     
     let desc = response?.messages?.map((m) => m.text || m.content).join("").trim().split("\n")[0] || "";
     desc = desc.replace(/^["']|["']$/g, "").trim();
     
-    if (!desc || desc.length < 3) {
-      desc = `Update ${changedFiles.size} file(s)`;
+    // Clean up the message
+    desc = desc.replace(/^(commit:?\s*)/i, "");
+    
+    // Ensure it has a type prefix, add one if missing
+    if (!desc.match(/^(feat|fix|refactor|style|docs|test|chore|perf|build|ci):/i)) {
+      // Determine type based on changes
+      if (categories.tests?.length > 0 && categories.tests.length >= gitStatus.total / 2) {
+        desc = `test: ${desc}`;
+      } else if (categories.docs?.length > 0 && categories.docs.length >= gitStatus.total / 2) {
+        desc = `docs: ${desc}`;
+      } else if (categories.styles?.length > 0 && categories.styles.length >= gitStatus.total / 2) {
+        desc = `style: ${desc}`;
+      } else if (categories.configs?.length > 0 && categories.configs.length >= gitStatus.total / 2) {
+        desc = `chore: ${desc}`;
+      } else if (gitStatus.added > gitStatus.modified) {
+        desc = `feat: ${desc}`;
+      } else {
+        desc = `refactor: ${desc}`;
+      }
+    }
+    
+    // Truncate if too long
+    if (desc.length > 70) {
+      desc = desc.slice(0, 67) + "...";
+    }
+    
+    if (!desc || desc.length < 5) {
+      desc = generateFallbackMessage(gitStatus, categories);
     }
     
     return `${dateStr} - ${desc}`;
   } catch (err) {
-    return `${dateStr} - Update ${changedFiles.size} file(s)`;
+    if (DEBUG) console.log("Commit message generation error:", err.message);
+    return `${dateStr} - ${generateFallbackMessage(gitStatus, categories)}`;
   }
+}
+
+function generateFallbackMessage(gitStatus, categories) {
+  // Generate a smart fallback message based on file categories
+  const parts = [];
+  
+  if (categories?.components?.length > 0) {
+    parts.push(`update ${categories.components[0]}`);
+  } else if (categories?.utils?.length > 0) {
+    parts.push(`update ${categories.utils[0]}`);
+  } else if (categories?.tests?.length > 0) {
+    return `test: Update ${categories.tests.length} test file(s)`;
+  } else if (categories?.docs?.length > 0) {
+    return `docs: Update documentation`;
+  } else if (categories?.configs?.length > 0) {
+    return `chore: Update configuration`;
+  } else if (categories?.styles?.length > 0) {
+    return `style: Update styles`;
+  }
+  
+  if (parts.length > 0) {
+    return `refactor: ${parts[0]}${gitStatus?.total > 1 ? ` and ${gitStatus.total - 1} more` : ""}`;
+  }
+  
+  return `chore: Update ${gitStatus?.total || "multiple"} file(s)`;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -678,7 +1014,22 @@ async function showCommitAssistant() {
   if (gitStatus.modified > 0) changes.push(`${chalk.yellow(gitStatus.modified)} modified`);
   if (gitStatus.added > 0) changes.push(`${chalk.green(gitStatus.added)} new`);
   if (gitStatus.deleted > 0) changes.push(`${chalk.red(gitStatus.deleted)} deleted`);
-  console.log(`  📁 Changes: ${changes.join(", ")}`);
+  console.log(`  📁 Changes: ${changes.join(", ")} (${gitStatus.total} total)`);
+  
+  // Show changed files
+  if (gitStatus.files && gitStatus.files.length > 0) {
+    console.log("");
+    console.log(T.dim("  Changed files:"));
+    const filesToShow = gitStatus.files.slice(0, 8);
+    for (const { status, file } of filesToShow) {
+      const icon = status === "M" ? chalk.yellow("M") : status === "A" || status === "?" ? chalk.green("A") : status === "D" ? chalk.red("D") : chalk.gray(status);
+      const fileName = file.length > 50 ? "..." + file.slice(-47) : file;
+      console.log(`     ${icon} ${fileName}`);
+    }
+    if (gitStatus.files.length > 8) {
+      console.log(T.dim(`     ... and ${gitStatus.files.length - 8} more files`));
+    }
+  }
   console.log("");
   
   // Ask if user wants to commit
@@ -1039,10 +1390,15 @@ function syncShutdown() {
   console.log(`  ${chalk.magenta("⏱ " + getUptime())}  ${T.success(stats.analyzed + " analyzed")}  ${stats.issues > 0 ? T.warning(stats.issues + " issues") : T.success("0 issues")}`);
   console.log("");
   
-  if (changedFiles.size > 0) {
+  // Check actual git status for uncommitted changes
+  const gitStatus = getGitStatus();
+  
+  if (gitStatus && gitStatus.total > 0) {
     // Generate commit message synchronously
     const dateStr = getDateStr();
-    const commitMsg = `${dateStr} - Update ${changedFiles.size} file(s)`;
+    const diffSummary = getGitDiffSummary();
+    const categories = diffSummary?.categories || {};
+    const commitMsg = `${dateStr} - ${generateFallbackMessage(gitStatus, categories)}`;
     
     // Save for later use
     try {
@@ -1050,6 +1406,8 @@ function syncShutdown() {
     } catch (e) {}
     
     console.log(T.dim("  ─────────────────────────────────────────────────────────────────"));
+    console.log("");
+    console.log(T.warning(`  📁 ${gitStatus.total} uncommitted changes detected`));
     console.log("");
     console.log(T.accent("  📝 Commit command (saved to .commit_msg):"));
     console.log("");
@@ -1060,6 +1418,9 @@ function syncShutdown() {
     console.log("");
     console.log(T.dim("  Or commit and push:"));
     console.log(T.accent(`     git add -A && git commit -m "${commitMsg}" && git push`));
+    console.log("");
+  } else {
+    console.log(T.success("  ✓ No uncommitted changes"));
     console.log("");
   }
   
