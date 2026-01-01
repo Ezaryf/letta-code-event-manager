@@ -930,11 +930,12 @@ async function runCommit() {
     return;
   }
   
-  const spinner = ora("  Generating commit message...").start();
+  const spinner = ora("  Analyzing changes and generating commit message...").start();
   
   try {
     const { Letta } = await import("@letta-ai/letta-client");
     const dayjs = (await import("dayjs")).default;
+    const { execSync } = await import("child_process");
     
     const client = new Letta({
       apiKey: process.env.LETTA_API_KEY,
@@ -942,14 +943,112 @@ async function runCommit() {
     });
     
     const today = dayjs().format("DDMMYY");
-    const prompt = `Generate a git commit message. Format: ${today} - <description>. Keep under 50 chars total. Capitalize first letter after dash.\n\nChanges:\n\`\`\`diff\n${diff.slice(0, 2000)}\n\`\`\`\n\nRespond with ONLY the commit message, nothing else.`;
+    
+    // Analyze the changes to understand what was done
+    let gitStatus = "";
+    let fileList = [];
+    try {
+      gitStatus = execSync("git status --porcelain", { cwd: project, encoding: "utf8" });
+      fileList = gitStatus.split('\n')
+        .filter(line => line.trim())
+        .map(line => {
+          const status = line.substring(0, 2);
+          const file = line.substring(3);
+          return { status: status.trim(), file };
+        });
+    } catch (e) {
+      // Fallback to diff analysis
+    }
+    
+    // Categorize changes
+    const categories = {
+      added: fileList.filter(f => f.status.includes('A')).length,
+      modified: fileList.filter(f => f.status.includes('M')).length,
+      deleted: fileList.filter(f => f.status.includes('D')).length,
+      tests: fileList.filter(f => f.file.includes('test') || f.file.includes('spec')).length,
+      docs: fileList.filter(f => f.file.includes('.md') || f.file.includes('README')).length,
+      configs: fileList.filter(f => f.file.includes('config') || f.file.includes('.json') || f.file.includes('.yml')).length,
+      components: fileList.filter(f => f.file.includes('component') || f.file.includes('src/')).length
+    };
+    
+    const prompt = `Analyze these git changes and generate a professional commit message.
+
+CHANGES ANALYSIS:
+- Files changed: ${fileList.length}
+- Added: ${categories.added}, Modified: ${categories.modified}, Deleted: ${categories.deleted}
+- Tests: ${categories.tests}, Docs: ${categories.docs}, Configs: ${categories.configs}
+- Components/Source: ${categories.components}
+
+FILES CHANGED:
+${fileList.slice(0, 10).map(f => `${f.status} ${f.file}`).join('\n')}
+
+DIFF PREVIEW:
+\`\`\`diff
+${diff.slice(0, 1500)}
+\`\`\`
+
+REQUIREMENTS:
+1. Use conventional commit format: Type: Description
+2. Types: Feat (new feature), Fix (bug fix), Refactor (code restructure), Style (formatting), Docs (documentation), Test (tests), Chore (maintenance)
+3. Be SPECIFIC about what functionality was added/changed, not just file names
+4. Focus on the MAIN PURPOSE of the changes
+5. Use present tense imperative ("Add" not "Added")
+6. Keep description under 50 characters
+7. Capitalize first letter after colon
+
+EXAMPLES:
+- "Feat: Add developer insights dashboard with analytics"
+- "Fix: Resolve memory leak in file watcher"
+- "Refactor: Simplify commit message generation logic"
+- "Test: Add unit tests for insight engine"
+- "Docs: Update README with new features"
+
+Generate ONE professional commit message that clearly describes the main purpose of these changes.
+Format: ${today} - [Type]: [Specific description]
+
+Respond with ONLY the commit message, nothing else.`;
     
     const response = await client.agents.messages.create(getAgentId(), { input: prompt });
     let message = response?.messages?.map((m) => m.text || m.content).join("").trim().split("\n")[0] || "";
     
-    if (!message.startsWith(today)) message = `${today} - ${message}`;
+    // Clean up the message
+    message = message.replace(/^["']|["']$/g, "").trim();
+    message = message.replace(/^(commit:?\s*)/i, "");
     
-    spinner.succeed("  Generated!");
+    // Ensure proper format
+    if (!message.startsWith(today)) {
+      // Extract the type and description
+      const match = message.match(/^(Feat|Fix|Refactor|Style|Docs|Test|Chore|Perf|Build|Ci):\s*(.+)/i);
+      if (match) {
+        const type = match[1].charAt(0).toUpperCase() + match[1].slice(1).toLowerCase();
+        const desc = match[2].charAt(0).toUpperCase() + match[2].slice(1);
+        message = `${today} - ${type}: ${desc}`;
+      } else {
+        // Fallback: try to determine type from changes
+        let type = "Refactor";
+        if (categories.added > categories.modified) type = "Feat";
+        else if (categories.tests > 0 && categories.tests >= fileList.length / 2) type = "Test";
+        else if (categories.docs > 0 && categories.docs >= fileList.length / 2) type = "Docs";
+        else if (categories.configs > 0) type = "Chore";
+        
+        message = `${today} - ${type}: ${message.charAt(0).toUpperCase()}${message.slice(1)}`;
+      }
+    }
+    
+    // Truncate if too long (keep date + type, truncate description)
+    if (message.length > 72) {
+      const parts = message.split(' - ');
+      if (parts.length === 2) {
+        const datePrefix = parts[0] + ' - ';
+        const desc = parts[1];
+        const maxDescLength = 72 - datePrefix.length - 3; // -3 for "..."
+        if (desc.length > maxDescLength) {
+          message = datePrefix + desc.slice(0, maxDescLength) + "...";
+        }
+      }
+    }
+    
+    spinner.succeed("  Professional commit message generated!");
     
     console.log(chalk.green("\n  📝 Suggested commit message:"));
     console.log(chalk.white.bold(`     ${message}\n`));

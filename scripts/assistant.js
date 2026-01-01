@@ -822,28 +822,36 @@ async function generateCommitMessage() {
   const fileList = gitStatus.files?.map(f => path.basename(f.file)).slice(0, 15) || [];
   const categories = diffSummary?.categories || {};
   
+  // Analyze change patterns to determine commit type
+  const changeAnalysis = {
+    isNewFeature: gitStatus.added > gitStatus.modified,
+    isTestFocused: categories.tests?.length > 0 && categories.tests.length >= gitStatus.total / 2,
+    isDocsFocused: categories.docs?.length > 0 && categories.docs.length >= gitStatus.total / 2,
+    isStyleFocused: categories.styles?.length > 0 && categories.styles.length >= gitStatus.total / 2,
+    isConfigFocused: categories.configs?.length > 0 && categories.configs.length >= gitStatus.total / 2,
+    isBugFix: analysisResults.some(r => r.hasIssues && r.issues?.some(i => i.type.includes('error') || i.type.includes('bug'))),
+    isRefactor: gitStatus.modified > gitStatus.added && !changeAnalysis?.isBugFix
+  };
+  
   // Build detailed file context
   let fileContext = [];
   if (categories.components?.length > 0) {
-    fileContext.push(`Components modified: ${categories.components.slice(0, 3).join(", ")}`);
+    fileContext.push(`Components: ${categories.components.slice(0, 3).join(", ")}`);
   }
   if (categories.utils?.length > 0) {
-    fileContext.push(`Utils modified: ${categories.utils.slice(0, 3).join(", ")}`);
+    fileContext.push(`Utils: ${categories.utils.slice(0, 3).join(", ")}`);
   }
   if (categories.tests?.length > 0) {
-    fileContext.push(`Tests modified: ${categories.tests.slice(0, 3).join(", ")}`);
+    fileContext.push(`Tests: ${categories.tests.slice(0, 3).join(", ")}`);
   }
   if (categories.styles?.length > 0) {
-    fileContext.push(`Styles modified: ${categories.styles.slice(0, 3).join(", ")}`);
+    fileContext.push(`Styles: ${categories.styles.slice(0, 3).join(", ")}`);
   }
   if (categories.configs?.length > 0) {
-    fileContext.push(`Configs modified: ${categories.configs.slice(0, 3).join(", ")}`);
+    fileContext.push(`Configs: ${categories.configs.slice(0, 3).join(", ")}`);
   }
   if (categories.docs?.length > 0) {
-    fileContext.push(`Docs modified: ${categories.docs.slice(0, 3).join(", ")}`);
-  }
-  if (categories.other?.length > 0) {
-    fileContext.push(`Other files: ${categories.other.slice(0, 3).join(", ")}`);
+    fileContext.push(`Docs: ${categories.docs.slice(0, 3).join(", ")}`);
   }
   
   // Build change summary
@@ -861,45 +869,53 @@ async function generateCommitMessage() {
     if (issueFiles.length > 0) {
       const issueTypes = new Set();
       issueFiles.forEach(r => r.issues?.forEach(i => issueTypes.add(i.type)));
-      analysisContext = `\nCode analysis found: ${Array.from(issueTypes).join(", ")} issues in ${issueFiles.length} file(s).`;
+      analysisContext = `\nCode analysis: ${Array.from(issueTypes).join(", ")} issues found and addressed.`;
     }
     if (cleanFiles.length > 0) {
-      analysisContext += `\n${cleanFiles.length} file(s) passed code review.`;
+      analysisContext += `\n${cleanFiles.length} file(s) passed quality checks.`;
     }
   }
   
   try {
-    const prompt = `Generate a SPECIFIC git commit message for these code changes.
+    const prompt = `Generate a professional git commit message for these code changes.
 
-CHANGED FILES (${gitStatus.total} files - ${changeSummary.join(", ")}):
+CHANGE ANALYSIS:
+- Total files: ${gitStatus.total} (${changeSummary.join(", ")})
+- Change pattern: ${changeAnalysis.isNewFeature ? 'New feature' : changeAnalysis.isBugFix ? 'Bug fix' : changeAnalysis.isRefactor ? 'Refactoring' : 'Modification'}
+- Primary focus: ${changeAnalysis.isTestFocused ? 'Testing' : changeAnalysis.isDocsFocused ? 'Documentation' : changeAnalysis.isStyleFocused ? 'Styling' : changeAnalysis.isConfigFocused ? 'Configuration' : 'Core functionality'}
+
+MODIFIED AREAS:
 ${fileContext.length > 0 ? fileContext.join("\n") : `Files: ${fileList.join(", ")}`}
 ${analysisContext}
 
-STRICT REQUIREMENTS:
-1. Start with conventional commit type: Feat:, Fix:, Refactor:, Style:, Docs:, Test:, Chore:
-2. First letter after colon MUST be CAPITAL (e.g., "Feat: Add..." not "feat: add...")
-3. Be SPECIFIC about what was changed - mention actual functionality, not just file names
-4. Describe the PURPOSE of the change, not just what files changed
-5. Keep under 60 characters
-6. Use present tense imperative ("Add" not "Added" or "Adding")
+COMMIT MESSAGE REQUIREMENTS:
+1. Use conventional commit format: [Type]: [Specific description]
+2. Types based on analysis:
+   - Feat: New features, capabilities, or major additions
+   - Fix: Bug fixes, error corrections, issue resolutions
+   - Refactor: Code restructuring without changing functionality
+   - Style: Formatting, whitespace, code style improvements
+   - Docs: Documentation updates, README changes
+   - Test: Adding or updating tests
+   - Chore: Maintenance, dependency updates, build changes
+3. Be SPECIFIC about the functionality/capability added or changed
+4. Focus on WHAT was accomplished, not just which files changed
+5. Use present tense imperative ("Add", "Fix", "Update")
+6. Keep description under 55 characters
+7. Capitalize first letter after colon
 
-GOOD examples (specific and clear):
-- "Feat: Add arrow key navigation to commit menu"
-- "Fix: Resolve Windows path separator in file scanner"
-- "Refactor: Simplify dashboard header layout"
-- "Style: Update theme colors for better contrast"
-- "Docs: Add IDE detection configuration guide"
-- "Test: Add unit tests for git status parser"
-- "Chore: Update dependency versions"
+PROFESSIONAL EXAMPLES:
+- "Feat: Add developer insights dashboard with analytics"
+- "Fix: Resolve memory leak in file watcher process"
+- "Refactor: Simplify commit message generation logic"
+- "Test: Add comprehensive unit tests for insight engine"
+- "Docs: Update README with installation instructions"
+- "Style: Apply consistent formatting to dashboard components"
+- "Chore: Update dependencies to latest stable versions"
 
-BAD examples (too vague):
-- "Update files" (what files? what update?)
-- "Fix bug" (what bug?)
-- "Refactor code" (what code? why?)
-- "Changes to assistant.js" (what changes?)
+Based on the change analysis above, generate ONE professional commit message that clearly describes the main accomplishment.
 
-Based on the files changed, write ONE commit message that clearly explains WHAT was done and WHY.
-Reply with ONLY the commit message, nothing else.`;
+Respond with ONLY the commit message in format: [Type]: [Description]`;
 
     const response = await client.agents.messages.create(agentId, { input: prompt });
     
@@ -909,32 +925,37 @@ Reply with ONLY the commit message, nothing else.`;
     // Clean up the message
     desc = desc.replace(/^(commit:?\s*)/i, "");
     
-    // Ensure proper capitalization after type prefix
-    desc = desc.replace(/^(feat|fix|refactor|style|docs|test|chore|perf|build|ci):\s*(.)/i, (match, type, firstChar) => {
-      return `${type.charAt(0).toUpperCase()}${type.slice(1).toLowerCase()}: ${firstChar.toUpperCase()}`;
-    });
-    
-    // If no type prefix, add one based on changes
-    if (!desc.match(/^(Feat|Fix|Refactor|Style|Docs|Test|Chore|Perf|Build|Ci):/)) {
+    // Ensure proper conventional commit format
+    const conventionalMatch = desc.match(/^(feat|fix|refactor|style|docs|test|chore|perf|build|ci):\s*(.+)/i);
+    if (conventionalMatch) {
+      const type = conventionalMatch[1].charAt(0).toUpperCase() + conventionalMatch[1].slice(1).toLowerCase();
+      const description = conventionalMatch[2].charAt(0).toUpperCase() + conventionalMatch[2].slice(1);
+      desc = `${type}: ${description}`;
+    } else {
+      // If no type prefix, intelligently add one based on analysis
       let prefix = "Refactor";
-      if (categories.tests?.length > 0 && categories.tests.length >= gitStatus.total / 2) {
-        prefix = "Test";
-      } else if (categories.docs?.length > 0 && categories.docs.length >= gitStatus.total / 2) {
-        prefix = "Docs";
-      } else if (categories.styles?.length > 0 && categories.styles.length >= gitStatus.total / 2) {
-        prefix = "Style";
-      } else if (categories.configs?.length > 0 && categories.configs.length >= gitStatus.total / 2) {
-        prefix = "Chore";
-      } else if (gitStatus.added > gitStatus.modified) {
-        prefix = "Feat";
-      }
+      if (changeAnalysis.isNewFeature) prefix = "Feat";
+      else if (changeAnalysis.isBugFix) prefix = "Fix";
+      else if (changeAnalysis.isTestFocused) prefix = "Test";
+      else if (changeAnalysis.isDocsFocused) prefix = "Docs";
+      else if (changeAnalysis.isStyleFocused) prefix = "Style";
+      else if (changeAnalysis.isConfigFocused) prefix = "Chore";
+      
       // Capitalize first letter of description
       desc = `${prefix}: ${desc.charAt(0).toUpperCase()}${desc.slice(1)}`;
     }
     
-    // Truncate if too long
-    if (desc.length > 65) {
-      desc = desc.slice(0, 62) + "...";
+    // Truncate if too long while preserving meaning
+    if (desc.length > 60) {
+      const colonIndex = desc.indexOf(': ');
+      if (colonIndex > 0) {
+        const type = desc.substring(0, colonIndex + 2);
+        const description = desc.substring(colonIndex + 2);
+        const maxDescLength = 60 - type.length - 3; // -3 for "..."
+        desc = type + description.slice(0, maxDescLength) + "...";
+      } else {
+        desc = desc.slice(0, 57) + "...";
+      }
     }
     
     if (!desc || desc.length < 10) {
@@ -949,40 +970,81 @@ Reply with ONLY the commit message, nothing else.`;
 }
 
 function generateFallbackMessage(gitStatus, categories, fileList = []) {
-  // Generate a specific fallback message based on file categories
+  // Generate a professional fallback message based on intelligent analysis
   
-  // Try to be specific about what changed
-  if (categories?.components?.length > 0) {
-    const comp = categories.components[0].replace(/\.(jsx?|tsx?)$/, "");
-    return `Refactor: Update ${comp} component`;
-  }
-  if (categories?.utils?.length > 0) {
-    const util = categories.utils[0].replace(/\.(jsx?|tsx?)$/, "");
-    return `Refactor: Improve ${util} utility`;
-  }
-  if (categories?.tests?.length > 0) {
-    return `Test: Update tests for ${categories.tests[0].replace(/\.(test|spec)\.(jsx?|tsx?)$/, "")}`;
-  }
-  if (categories?.docs?.length > 0) {
-    return `Docs: Update documentation`;
-  }
-  if (categories?.configs?.length > 0) {
-    return `Chore: Update configuration files`;
-  }
-  if (categories?.styles?.length > 0) {
-    return `Style: Update styling`;
-  }
+  const totalFiles = gitStatus?.total || fileList.length;
+  const added = gitStatus?.added || 0;
+  const modified = gitStatus?.modified || 0;
+  const deleted = gitStatus?.deleted || 0;
   
-  // Use file list if available
-  if (fileList && fileList.length > 0) {
-    const mainFile = fileList[0].replace(/\.(jsx?|tsx?|json|md)$/, "");
-    if (gitStatus?.total === 1) {
-      return `Refactor: Update ${mainFile}`;
+  // Determine primary change type
+  let commitType = "Refactor";
+  let description = "";
+  
+  // Analyze by file categories first
+  if (categories?.tests?.length > 0 && categories.tests.length >= totalFiles / 2) {
+    commitType = "Test";
+    if (categories.tests.length === 1) {
+      const testFile = categories.tests[0].replace(/\.(test|spec)\.(jsx?|tsx?)$/, "");
+      description = `Add tests for ${testFile}`;
+    } else {
+      description = `Add comprehensive test coverage`;
     }
-    return `Refactor: Update ${mainFile} and ${gitStatus?.total - 1} more files`;
+  } else if (categories?.docs?.length > 0 && categories.docs.length >= totalFiles / 2) {
+    commitType = "Docs";
+    description = categories.docs.some(f => f.includes('README')) 
+      ? "Update README and documentation" 
+      : "Update project documentation";
+  } else if (categories?.configs?.length > 0 && categories.configs.length >= totalFiles / 2) {
+    commitType = "Chore";
+    description = "Update configuration and build files";
+  } else if (categories?.styles?.length > 0 && categories.styles.length >= totalFiles / 2) {
+    commitType = "Style";
+    description = "Update styling and visual components";
+  } else if (added > modified && added > 0) {
+    commitType = "Feat";
+    if (categories?.components?.length > 0) {
+      const comp = categories.components[0].replace(/\.(jsx?|tsx?)$/, "");
+      description = `Add ${comp} component functionality`;
+    } else if (fileList.length > 0) {
+      const mainFile = fileList[0].replace(/\.(jsx?|tsx?|json|md)$/, "");
+      description = `Add ${mainFile} module`;
+    } else {
+      description = `Add new functionality (${added} files)`;
+    }
+  } else if (modified > 0) {
+    commitType = "Refactor";
+    if (categories?.components?.length > 0) {
+      const comp = categories.components[0].replace(/\.(jsx?|tsx?)$/, "");
+      description = totalFiles === 1 
+        ? `Improve ${comp} component logic`
+        : `Improve ${comp} and related components`;
+    } else if (categories?.utils?.length > 0) {
+      const util = categories.utils[0].replace(/\.(jsx?|tsx?)$/, "");
+      description = `Enhance ${util} utility functions`;
+    } else if (fileList.length > 0) {
+      const mainFile = fileList[0].replace(/\.(jsx?|tsx?|json|md)$/, "");
+      description = totalFiles === 1 
+        ? `Improve ${mainFile} implementation`
+        : `Improve ${mainFile} and ${totalFiles - 1} related files`;
+    } else {
+      description = `Improve code structure (${modified} files)`;
+    }
+  } else if (deleted > 0) {
+    commitType = "Refactor";
+    description = `Remove unused code (${deleted} files)`;
+  } else {
+    // Generic fallback
+    commitType = "Chore";
+    description = `Update project files (${totalFiles} files)`;
   }
   
-  return `Chore: Update ${gitStatus?.total || "multiple"} files`;
+  // Ensure description is not too long
+  if (description.length > 50) {
+    description = description.slice(0, 47) + "...";
+  }
+  
+  return `${commitType}: ${description}`;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
