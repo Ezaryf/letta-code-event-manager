@@ -25,6 +25,7 @@ import { SecureCredentialManager } from '../security/credentialManager.js';
 import { ChangeSafetyProtocol, AUTONOMY_LEVELS, RISK_LEVELS as SAFETY_RISK_LEVELS } from '../security/changeSafetyProtocol.js';
 import { AdaptiveInterface, DISPLAY_MODES, NOTIFICATION_PRIORITIES } from '../ui/adaptiveInterface.js';
 import { HybridAnalysisEngine, ANALYSIS_TYPES } from '../analysis/hybridAnalysisEngine.js';
+import { InsightEngine, EVENT_TYPES } from '../insights/insightEngine.js';
 
 /**
  * Developer Profile - Learns and stores developer preferences
@@ -173,6 +174,13 @@ export class CognitiveEngine {
       offlineMode: options.offlineMode || false
     });
 
+    // Initialize insight engine for comprehensive analytics
+    this.insightEngine = new InsightEngine({
+      enableGenius: options.enableInsights !== false,
+      enablePrediction: options.enablePrediction !== false,
+      retentionDays: options.insightRetentionDays || 30
+    });
+
     // Configuration
     this.config = {
       enableIntentDetection: options.enableIntentDetection ?? true,
@@ -185,6 +193,7 @@ export class CognitiveEngine {
       enableSecurity: options.enableSecurity ?? true,
       enableAdaptiveUI: options.enableAdaptiveUI ?? true,
       enableHybridAnalysis: options.enableHybridAnalysis ?? true,
+      enableInsights: options.enableInsights ?? true,
       silentMode: options.silentMode ?? false,
       ...options,
     };
@@ -214,6 +223,14 @@ export class CognitiveEngine {
       this.adaptiveInterface.start();
     }
 
+    // Start insight engine session
+    if (this.config.enableInsights) {
+      this.insightEngine.startSession({
+        projectPath: this.safetyProtocol.projectPath,
+        cognitiveEngineVersion: '3.1.0'
+      });
+    }
+
     return { started: true, timestamp: Date.now() };
   }
 
@@ -226,6 +243,13 @@ export class CognitiveEngine {
     // Stop adaptive interface
     if (this.config.enableAdaptiveUI) {
       this.adaptiveInterface.stop();
+    }
+
+    // End insight engine session
+    if (this.config.enableInsights) {
+      this.insightEngine.endSession({
+        sessionDuration: Date.now() - this.sessionStart
+      });
     }
 
     return {
@@ -253,9 +277,27 @@ export class CognitiveEngine {
       suggestions: [],
     };
 
+    // Record analysis start event for insights
+    if (this.config.enableInsights) {
+      this.insightEngine.recordEvent(EVENT_TYPES.CODE_COMPLETION, {
+        language: context.language,
+        framework: context.framework,
+        complexity: this.estimateCodeComplexity(context.activeFileContent),
+        filePath: context.filePath
+      });
+    }
+
     // 1. Detect intent (Pillar 1)
     if (this.config.enableIntentDetection) {
       results.intent = await this.intentEngine.detectIntent(context);
+      
+      // Record intent for insights
+      if (this.config.enableInsights && results.intent) {
+        this.insightEngine.recordEvent(EVENT_TYPES.DECISION_POINT, {
+          intent: results.intent.intent,
+          confidence: results.intent.confidence
+        });
+      }
     }
 
     // 2. Check flow state (Pillar 6) - Do this early to decide if we should intervene
@@ -264,6 +306,25 @@ export class CognitiveEngine {
         ...context,
         sessionDuration: Date.now() - this.sessionStart,
       });
+
+      // Record flow state changes for insights
+      if (this.config.enableInsights && results.flow) {
+        const currentFlowState = results.flow.flowState?.state;
+        if (currentFlowState !== this.lastFlowState) {
+          if (currentFlowState === FLOW_STATES.DEEP_FLOW) {
+            this.insightEngine.recordEvent(EVENT_TYPES.FLOW_STATE_ENTER, {
+              flowType: 'deep',
+              cognitiveLoad: results.flow.cognitiveLoad?.level
+            });
+          } else if (this.lastFlowState === FLOW_STATES.DEEP_FLOW) {
+            this.insightEngine.recordEvent(EVENT_TYPES.FLOW_STATE_EXIT, {
+              duration: Date.now() - this.lastFlowStateChange
+            });
+          }
+          this.lastFlowState = currentFlowState;
+          this.lastFlowStateChange = Date.now();
+        }
+      }
 
       // If in deep flow, minimize interventions
       if (results.flow.flowState.state === FLOW_STATES.DEEP_FLOW) {
@@ -289,6 +350,19 @@ export class CognitiveEngine {
         context.code || context.activeFileContent,
         context
       );
+
+      // Record problem solving events for insights
+      if (this.config.enableInsights && results.predictions?.predictions?.length > 0) {
+        results.predictions.predictions.forEach(prediction => {
+          if (prediction.severity === 'high' || prediction.severity === 'critical') {
+            this.insightEngine.recordEvent(EVENT_TYPES.ERROR_PATTERN, {
+              errorType: prediction.type,
+              severity: prediction.severity,
+              complexity: prediction.complexity || 5
+            });
+          }
+        });
+      }
     }
 
     // 4. Decide on intervention based on all signals
@@ -836,6 +910,125 @@ export class CognitiveEngine {
   }
 
   /**
+   * Get comprehensive developer insights
+   */
+  getInsights(timeframe = '7d') {
+    if (!this.config.enableInsights) {
+      return { error: 'Insights disabled' };
+    }
+    return this.insightEngine.generateInsights(timeframe);
+  }
+
+  /**
+   * Record a learning event
+   */
+  recordLearning(concept, metadata = {}) {
+    if (!this.config.enableInsights) {
+      return { error: 'Insights disabled' };
+    }
+    
+    return this.insightEngine.recordEvent(EVENT_TYPES.NEW_CONCEPT_LEARNED, {
+      concept,
+      trigger: metadata.trigger || 'manual',
+      complexity: metadata.complexity || 5,
+      ...metadata
+    });
+  }
+
+  /**
+   * Record a breakthrough moment
+   */
+  recordBreakthrough(problem, solution, metadata = {}) {
+    if (!this.config.enableInsights) {
+      return { error: 'Insights disabled' };
+    }
+    
+    return this.insightEngine.recordEvent(EVENT_TYPES.BREAKTHROUGH_MOMENT, {
+      problem,
+      solution,
+      impact: metadata.impact || 7,
+      complexity: metadata.complexity || 5,
+      solutionType: metadata.solutionType || 'standard',
+      ...metadata
+    });
+  }
+
+  /**
+   * Get current developer evolution stage
+   */
+  getEvolutionStage() {
+    if (!this.config.enableInsights) {
+      return { error: 'Insights disabled' };
+    }
+    return this.insightEngine.getCurrentEvolutionStage();
+  }
+
+  /**
+   * Get skill tree progression
+   */
+  getSkillTree() {
+    if (!this.config.enableInsights) {
+      return { error: 'Insights disabled' };
+    }
+    const insights = this.insightEngine.generateInsights('30d');
+    return insights.skillTree;
+  }
+
+  /**
+   * Get genius moments archive
+   */
+  getGeniusMoments(limit = 10) {
+    if (!this.config.enableInsights) {
+      return { error: 'Insights disabled' };
+    }
+    const insights = this.insightEngine.generateInsights('30d');
+    return insights.geniusMoments.slice(0, limit);
+  }
+
+  /**
+   * Get code weather forecast
+   */
+  getCodeWeatherForecast() {
+    if (!this.config.enableInsights) {
+      return { error: 'Insights disabled' };
+    }
+    const insights = this.insightEngine.generateInsights('7d');
+    return insights.codeWeatherForecast;
+  }
+
+  /**
+   * Export all insights data
+   */
+  exportInsights() {
+    if (!this.config.enableInsights) {
+      return { error: 'Insights disabled' };
+    }
+    return this.insightEngine.exportInsights();
+  }
+
+  /**
+   * Helper method to estimate code complexity
+   */
+  estimateCodeComplexity(code) {
+    if (!code) return 1;
+    
+    const lines = code.split('\n').length;
+    const conditions = (code.match(/\b(if|else|switch|case|\?|&&|\|\|)\b/g) || []).length;
+    const loops = (code.match(/\b(for|while|do)\b/g) || []).length;
+    const functions = (code.match(/function|=>/g) || []).length;
+    
+    // Simple complexity calculation
+    const complexity = Math.min(10, Math.max(1, 
+      (lines / 20) + 
+      (conditions / 3) + 
+      (loops / 2) + 
+      (functions / 5)
+    ));
+    
+    return Math.round(complexity);
+  }
+
+  /**
    * Format analysis results for display
    */
   formatAnalysis(results) {
@@ -916,10 +1109,12 @@ export {
   ChangeSafetyProtocol,
   AdaptiveInterface,
   HybridAnalysisEngine,
+  InsightEngine,
   AUTONOMY_LEVELS,
   DISPLAY_MODES,
   NOTIFICATION_PRIORITIES,
-  ANALYSIS_TYPES
+  ANALYSIS_TYPES,
+  EVENT_TYPES
 };
 
 export default CognitiveEngine;

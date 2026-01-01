@@ -406,6 +406,7 @@ const MAIN_MENU = [
   { label: `🔍 Analyze Project     ${chalk.gray("Deep code analysis")}`, value: "analyze" },
   { label: `💬 Chat with Agent     ${chalk.gray("Ask questions")}`, value: "chat" },
   { label: chalk.gray("────────────────────────────────────────────"), value: "separator1" },
+  { label: `🧬 Developer Insights  ${chalk.gray("Personal analytics dashboard")}`, value: "insights" },
   { label: `📄 Code Tools          ${chalk.gray("Review, explain, refactor")}`, value: "codetools" },
   { label: `🧪 Generate Tests      ${chalk.gray("Create tests for code")}`, value: "gentests" },
   { label: `🐛 Find Bugs           ${chalk.gray("Scan for potential issues")}`, value: "findbugs" },
@@ -871,6 +872,32 @@ async function runChat() {
       console.log("");
     }
   }
+}
+
+async function runInsights() {
+  showBanner("🧬 DEVELOPER INSIGHTS");
+  
+  console.log(chalk.gray("  Opening your personal analytics dashboard..."));
+  console.log(chalk.gray("  This will launch the interactive insights interface.\n"));
+  
+  const confirm = await confirmPrompt("Launch Developer Insights Dashboard?", { defaultYes: true });
+  if (confirm === "back" || confirm === false) return;
+  
+  // Clear screen before launching dashboard
+  console.clear();
+  
+  const { spawn } = await import("child_process");
+  const child = spawn("node", [path.join(ROOT, "scripts/insightsDashboard.js"), "--demo"], {
+    stdio: "inherit",
+    cwd: ROOT,
+    env: { ...process.env },
+  });
+  
+  // Wait for child to exit
+  await new Promise((resolve) => child.on("close", resolve));
+  
+  // Return to main menu
+  console.log(chalk.gray("\n  Returning to main menu...\n"));
 }
 
 async function runCommit() {
@@ -2585,6 +2612,9 @@ Navigation:
         break;
       case "chat":
         await runChat();
+        break;
+      case "insights":
+        await runInsights();
         break;
       case "codetools":
         await runCodeTools();

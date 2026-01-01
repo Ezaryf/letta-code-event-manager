@@ -24,16 +24,17 @@
 3. [Features](#-features)
 4. [The Cognitive Engine](#-cognitive-engine)
 5. [Security & Architecture](#-security--architecture-features)
-6. [File Watcher](#-file-watcher)
-7. [Commit Assistant](#-commit-assistant)
-8. [IDE Integration](#-ide-integration)
-9. [Themes & Customization](#-themes--customization)
-10. [Configuration Reference](#-configuration-reference)
-11. [CLI Commands](#-cli-commands)
-12. [Keyboard Shortcuts](#-keyboard-shortcuts)
-13. [Architecture](#-architecture)
-14. [Troubleshooting](#-troubleshooting)
-15. [FAQ](#-faq)
+6. [Developer Insights](#-developer-insight-engine)
+7. [File Watcher](#-file-watcher)
+8. [Commit Assistant](#-commit-assistant)
+9. [IDE Integration](#-ide-integration)
+10. [Themes & Customization](#-themes--customization)
+11. [Configuration Reference](#-configuration-reference)
+12. [CLI Commands](#-cli-commands)
+13. [Keyboard Shortcuts](#-keyboard-shortcuts)
+14. [Architecture](#-architecture)
+15. [Troubleshooting](#-troubleshooting)
+16. [FAQ](#-faq)
 
 ---
 
@@ -143,11 +144,36 @@ Never write a commit message again:
   - **Auto** - Stage → Commit → Push automatically
   - **Skip** - Commit later manually
 
+### 🧬 Developer Insight Engine
+
+**Revolutionary personal analytics - "Fitbit for your developer mind"**
+
+Transform raw development activity into deep self-awareness and growth insights:
+
+- **Developer DNA Dashboard** - Your unique cognitive signature and 30-day evolution
+- **RPG-Style Skill Tree** - Visual progression through programming mastery levels
+- **Code Weather Forecast** - Predict your optimal coding hours and energy patterns
+- **Moments of Genius Archive** - Automatically capture and celebrate breakthrough solutions
+- **Evolution Timeline** - Track your journey from Learner → Practitioner → Architect → Innovator
+
+**The 5 Insight Categories:**
+- 🌱 **Growth Metrics** - Skill progression, complexity mastery, learning velocity
+- ⚡ **Performance Metrics** - Flow state analytics, productivity rhythm, cognitive load
+- 🎨 **Creativity Metrics** - Creative output, refactoring ratio, elegance score
+- 🛠️ **Tool Mastery** - Feature adoption, efficiency gains, workflow integration
+- 🧠 **Cognitive Signatures** - Problem-solving style, decision velocity, error patterns
+
+```bash
+# Launch the insights dashboard
+npm run insights
+
+# Or access from main menu
+npm start → Developer Insights
+```
+
 ### 🧠 Cognitive Engine
 
 The brain of Letta - a six-pillar system that thinks alongside you:
-
-1. **Intent Awareness** - Knows what you're trying to do
 2. **Predictive Analysis** - Catches bugs before you write them
 3. **Self-Explaining Code** - Living documentation that explains code in real-time
 4. **Why-First Debugging** - Root cause analysis with fix paths

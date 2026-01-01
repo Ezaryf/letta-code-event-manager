@@ -46,3 +46,7 @@ export { SecureCredentialManager } from '../security/credentialManager.js';
 export { ChangeSafetyProtocol, AUTONOMY_LEVELS, RISK_LEVELS as SAFETY_RISK_LEVELS, CHANGE_TYPES } from '../security/changeSafetyProtocol.js';
 export { AdaptiveInterface, DISPLAY_MODES, NOTIFICATION_PRIORITIES, UI_POSITIONS } from '../ui/adaptiveInterface.js';
 export { HybridAnalysisEngine, ANALYSIS_TYPES, LOCAL_CAPABILITIES, CLOUD_CAPABILITIES } from '../analysis/hybridAnalysisEngine.js';
+
+// Developer Insight Engine - Revolutionary Personal Analytics
+export { InsightEngine, EVENT_TYPES, INSIGHT_CATEGORIES } from '../insights/insightEngine.js';
+export { DashboardRenderer, CompactDashboard } from '../insights/dashboardRenderer.js';

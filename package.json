@@ -14,6 +14,8 @@
     "demo:forest": "node scripts/dashboardDemo.js forest",
     "demo:sunset": "node scripts/dashboardDemo.js sunset",
     "demo:midnight": "node scripts/dashboardDemo.js midnight",
+    "insights": "node scripts/insightsDashboard.js",
+    "insights:demo": "node scripts/insightsDashboard.js --demo",
     "fix": "node scripts/autoTestFix.js",
     "chat": "node scripts/cli.js chat",
     "setup": "node scripts/createAgent.js",
