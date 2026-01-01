@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-3.0.0-blue.svg)
+![Version](https://img.shields.io/badge/version-3.1.0-blue.svg)
 ![Node](https://img.shields.io/badge/node-%3E%3D18.0.0-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-purple.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
@@ -148,10 +148,12 @@ The brain of Letta - a six-pillar system that thinks alongside you:
 
 1. **Intent Awareness** - Knows what you're trying to do
 2. **Predictive Analysis** - Catches bugs before you write them
-3. **Flow Optimizer** - Protects your deep work
-4. **Self-Learning** - Adapts to your patterns
-5. **Self-Explaining Code** - Living documentation (coming soon)
-6. **Why-First Debugging** - Root cause analysis (coming soon)
+3. **Self-Explaining Code** - Living documentation that explains code in real-time
+4. **Why-First Debugging** - Root cause analysis with fix paths
+5. **Self-Learning** - Adapts to your patterns
+6. **Flow Optimizer** - Protects your deep work
+
+**Plus: Developer Digital Twin** - A model that learns and predicts your behavior
 
 ### 🖥️ IDE Detection
 
@@ -279,6 +281,138 @@ Cognitive Load = f(
   pending_tasks,
   time_working
 )
+```
+
+### Pillar 3: Self-Explaining Code System
+
+**What it does:** Creates living documentation that explains code in real-time at multiple depth levels.
+
+**Explanation Depths:**
+| Depth | Description | Use Case |
+|-------|-------------|----------|
+| `SURFACE` | What it does | Quick understanding |
+| `DEEP` | How it works | Technical deep-dive |
+| `CONTEXT` | Why it exists | Understanding purpose |
+| `ALTERNATIVES` | What could be different | Code review |
+
+**Features:**
+- Automatic purpose inference from code patterns
+- Complexity assessment with recommendations
+- Side effect detection
+- Inline explanations for IDE hover
+
+**Example Output:**
+```
+📖 CODE EXPLANATION
+══════════════════════════════════════════════════
+
+📋 Overview: Defines 2 class(es): UserService, AuthManager.
+   Contains 8 function(s). Main purposes: fetching, validation.
+   Lines: 245 | Functions: 8 | Classes: 2
+   Complexity: medium - Complexity is manageable
+
+📝 Details:
+   FUNCTION: validateUser (lines 12-28)
+   This function "validateUser" validates data or checks conditions.
+   It takes 2 parameter(s): email, password. It returns a boolean value.
+```
+
+### Pillar 4: Why-First Debugging Engine
+
+**What it does:** Explains root causes, not just symptoms. Builds causal graphs to trace errors back to their source.
+
+**Error Categories:**
+- `SYNTAX` - Parsing errors
+- `RUNTIME` - Execution errors
+- `TYPE` - Type mismatches
+- `ASYNC` - Promise/async issues
+- `NETWORK` - API/fetch errors
+- `STATE` - State management issues
+
+**Fix Difficulty Levels:**
+| Level | Time Estimate | Example |
+|-------|---------------|---------|
+| `TRIVIAL` | < 1 minute | Missing import |
+| `EASY` | 1-5 minutes | Null check |
+| `MODERATE` | 5-15 minutes | Async timing |
+| `HARD` | 15-60 minutes | Race condition |
+| `COMPLEX` | > 1 hour | Architecture issue |
+
+**Example Output:**
+```
+🔥 ERROR ANALYSIS
+════════════════════════════════════════════════════════════
+
+🔍 NULL REFERENCE: Accessing property of null/undefined
+────────────────────────────────────────────────────────────
+
+❗ ROOT CAUSE:
+   A variable or property is null when it should have a value
+   Confidence: 85%
+
+🔗 CHAIN OF EVENTS:
+   1. Error occurred: Cannot read property 'name' of undefined
+   2. At getUser in user.js:10
+   3. Likely cause: null reference
+
+🛠️ HOW TO FIX:
+   Immediate fix (1-5 minutes):
+   Add null check before accessing property
+   
+   if (obj != null) { /* access property */ }
+
+🚀 FIX PATH:
+   Step 1: UNDERSTAND - Understand the error
+   Step 2: LOCATE - Find the exact location
+   Step 3: FIX - Apply the fix
+   Step 4: VERIFY - Test the fix
+   Step 5: PREVENT - Add safeguards
+```
+
+### Developer Digital Twin
+
+**What it does:** A digital model that learns and predicts your behavior, providing personalized assistance.
+
+**Learning Domains:**
+- **Cognitive** - How you think and solve problems
+- **Behavioral** - What actions you take
+- **Stylistic** - How you write code
+- **Knowledge** - What you know and are learning
+
+**Features:**
+- Problem-solving style detection (analytical, intuitive, systematic)
+- Productive hours identification
+- Common mistake tracking
+- Personalized learning path generation
+- Skill level assessment
+
+**Example Twin Summary:**
+```
+🧬 DEVELOPER DIGITAL TWIN
+══════════════════════════════════════════════════
+
+📊 Overview:
+   Version: 5 | Observations: 342
+   Overall Level: INTERMEDIATE
+
+🧠 Cognitive Profile:
+   Problem Solving: systematic
+   Attention Span: medium
+   Decision Speed: fast
+
+⚡ Behavioral Patterns:
+   Commit Frequency: frequent
+   Productive Hours: 9, 10, 14
+
+✨ Code Style:
+   Indentation: 2-spaces
+   Quotes: single
+   Naming: camelCase
+
+📚 Knowledge:
+   Skills: 12
+   Strengths: async-programming, testing, react
+   Growth Areas: typescript, performance
 ```
 
 ### Enabling/Disabling Cognitive Features

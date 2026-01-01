@@ -1,8 +1,8 @@
 {
   "name": "letta",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "type": "module",
-  "description": "AI-Powered Coding Assistant - Real-time code analysis, auto-fixes, and intelligent commit generation",
+  "description": "AI-Powered Developer Cognitive Engine - Real-time code analysis, auto-fixes, intelligent debugging, and flow protection",
   "main": "scripts/cli.js",
   "bin": {
     "letta": "./scripts/cli.js"

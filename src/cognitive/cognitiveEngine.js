@@ -7,15 +7,20 @@
  * Pillars:
  * 1. Intent Awareness Engine - Knows what you're trying to do
  * 2. Predictive Assistance Engine - Catches bugs before you write them
- * 3. Self-Explaining Code System - Living documentation (TODO)
- * 4. Why-First Debugging Engine - Explains root causes (TODO)
+ * 3. Self-Explaining Code System - Living documentation
+ * 4. Why-First Debugging Engine - Explains root causes
  * 5. Self-Improving System - Learns your patterns
  * 6. Flow Optimizer - Protects your deep work
+ * 
+ * Plus: Developer Digital Twin - A model that learns and predicts your behavior
  */
 
 import { IntentAwarenessEngine, INTENTS, INTENT_UI_CONFIG } from './intentEngine.js';
 import { PredictiveAssistanceEngine, RISK_LEVELS, PREDICTION_TYPES } from './predictiveEngine.js';
 import { FlowOptimizer, FLOW_STATES, COGNITIVE_LOAD, INTERVENTIONS } from './flowOptimizer.js';
+import { ExplanationEngine, EXPLANATION_DEPTH } from './explanationEngine.js';
+import { DebuggingEngine, ERROR_CATEGORIES, FIX_DIFFICULTY } from './debuggingEngine.js';
+import { DeveloperTwin, SKILL_LEVELS } from './developerTwin.js';
 
 /**
  * Developer Profile - Learns and stores developer preferences
@@ -144,6 +149,9 @@ export class CognitiveEngine {
     this.intentEngine = new IntentAwarenessEngine();
     this.predictiveEngine = new PredictiveAssistanceEngine();
     this.flowOptimizer = new FlowOptimizer();
+    this.explanationEngine = new ExplanationEngine();
+    this.debuggingEngine = new DebuggingEngine();
+    this.developerTwin = new DeveloperTwin(options.developerId);
     this.developerProfile = new DeveloperProfile();
 
     // Configuration
@@ -152,6 +160,9 @@ export class CognitiveEngine {
       enablePrediction: options.enablePrediction ?? true,
       enableFlowProtection: options.enableFlowProtection ?? true,
       enableLearning: options.enableLearning ?? true,
+      enableExplanations: options.enableExplanations ?? true,
+      enableDebugging: options.enableDebugging ?? true,
+      enableTwin: options.enableTwin ?? true,
       silentMode: options.silentMode ?? false,
       ...options,
     };
@@ -383,6 +394,62 @@ export class CognitiveEngine {
 
     // Update profile stats
     this.developerProfile.stats.totalAnalyses++;
+
+    // Update developer twin
+    if (this.config.enableTwin) {
+      this.developerTwin.observe({
+        cognitive: {
+          type: 'analysis',
+          intent: results.intent?.intent,
+          flowState: results.flow?.flowState?.state,
+        },
+        action: {
+          type: 'file_edit',
+          file: context.activeFile,
+        },
+        code: context.activeFileContent ? {
+          code: context.activeFileContent,
+          file: context.activeFile,
+        } : undefined,
+        knowledge: {
+          skills: this.extractSkillsFromCode(context.activeFileContent),
+          technologies: this.extractTechnologies(context.activeFileContent),
+        },
+      });
+    }
+  }
+
+  /**
+   * Extract skills from code for twin learning
+   */
+  extractSkillsFromCode(code) {
+    if (!code) return [];
+    const skills = [];
+    
+    if (/async|await|Promise/.test(code)) skills.push('async-programming');
+    if (/class\s+\w+/.test(code)) skills.push('oop');
+    if (/\.(map|filter|reduce)\(/.test(code)) skills.push('functional-programming');
+    if (/try\s*\{/.test(code)) skills.push('error-handling');
+    if (/\b(describe|it|test|expect)\b/.test(code)) skills.push('testing');
+    if (/import|require/.test(code)) skills.push('modules');
+    
+    return skills;
+  }
+
+  /**
+   * Extract technologies from code
+   */
+  extractTechnologies(code) {
+    if (!code) return [];
+    const techs = [];
+    
+    if (/react|useState|useEffect/.test(code)) techs.push('react');
+    if (/express|app\.(get|post|put)/.test(code)) techs.push('express');
+    if (/mongoose|mongodb/.test(code)) techs.push('mongodb');
+    if (/jest|describe|it\(/.test(code)) techs.push('jest');
+    if (/typescript|:\s*(string|number|boolean)/.test(code)) techs.push('typescript');
+    
+    return techs;
   }
 
   /**
@@ -466,6 +533,94 @@ export class CognitiveEngine {
   }
 
   /**
+   * Explain code (Pillar 3)
+   */
+  async explainCode(code, options = {}) {
+    if (!this.config.enableExplanations) {
+      return { error: 'Explanations disabled' };
+    }
+    return this.explanationEngine.explainCode(code, options);
+  }
+
+  /**
+   * Get inline explanation for hover
+   */
+  async getInlineExplanation(code, position) {
+    if (!this.config.enableExplanations) {
+      return { error: 'Explanations disabled' };
+    }
+    return this.explanationEngine.generateInlineExplanation(code, position);
+  }
+
+  /**
+   * Explain an error (Pillar 4)
+   */
+  async explainError(error, context = {}) {
+    if (!this.config.enableDebugging) {
+      return { error: 'Debugging disabled' };
+    }
+    
+    const result = await this.debuggingEngine.explainError(error, context);
+    
+    // Learn from the error
+    if (this.config.enableTwin) {
+      await this.developerTwin.observe({
+        action: { type: 'error', errorType: result.rootCause.cause },
+        knowledge: { skills: [result.rootCause.cause] },
+      });
+    }
+    
+    return result;
+  }
+
+  /**
+   * Get quick error explanation
+   */
+  quickExplainError(error) {
+    return this.debuggingEngine.quickExplain(error);
+  }
+
+  /**
+   * Get developer twin state
+   */
+  getTwinState() {
+    if (!this.config.enableTwin) {
+      return { error: 'Twin disabled' };
+    }
+    return this.developerTwin.getState();
+  }
+
+  /**
+   * Get twin predictions
+   */
+  async getTwinPredictions(context = {}) {
+    if (!this.config.enableTwin) {
+      return { error: 'Twin disabled' };
+    }
+    return this.developerTwin.predict(context);
+  }
+
+  /**
+   * Get personalized optimizations
+   */
+  getOptimizations() {
+    if (!this.config.enableTwin) {
+      return { error: 'Twin disabled' };
+    }
+    return this.developerTwin.getOptimizations();
+  }
+
+  /**
+   * Get learning path
+   */
+  getLearningPath() {
+    if (!this.config.enableTwin) {
+      return { error: 'Twin disabled' };
+    }
+    return this.developerTwin.generateLearningPath();
+  }
+
+  /**
    * Format analysis results for display
    */
   formatAnalysis(results) {
@@ -534,18 +689,14 @@ export class CognitiveEngine {
   }
 }
 
-// Export all components
+// Export main classes (constants are exported from their source modules via index.js)
 export {
   IntentAwarenessEngine,
   PredictiveAssistanceEngine,
   FlowOptimizer,
-  INTENTS,
-  INTENT_UI_CONFIG,
-  RISK_LEVELS,
-  PREDICTION_TYPES,
-  FLOW_STATES,
-  COGNITIVE_LOAD,
-  INTERVENTIONS,
+  ExplanationEngine,
+  DebuggingEngine,
+  DeveloperTwin,
 };
 
 export default CognitiveEngine;
