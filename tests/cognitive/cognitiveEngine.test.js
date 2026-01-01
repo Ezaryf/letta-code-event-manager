@@ -30,8 +30,8 @@ describe('CognitiveEngine', () => {
     expect(engine.developerTwin).toBeDefined();
   });
 
-  test('should start and stop correctly', () => {
-    const startResult = engine.start();
+  test('should start and stop correctly', async () => {
+    const startResult = await engine.start();
     expect(startResult.started).toBe(true);
     expect(engine.isActive).toBe(true);
 
@@ -41,7 +41,7 @@ describe('CognitiveEngine', () => {
   });
 
   test('should analyze code context', async () => {
-    engine.start();
+    await engine.start();
     
     const result = await engine.analyze({
       activeFileContent: `
@@ -296,7 +296,7 @@ describe('DeveloperTwin', () => {
 describe('Integration', () => {
   test('should work together as cognitive partner', async () => {
     const engine = new CognitiveEngine();
-    engine.start();
+    await engine.start();
 
     // Simulate a coding session
     const code = `

@@ -9,7 +9,7 @@
 
 **Transform your coding workflow with an AI assistant that thinks alongside you.**
 
-*Real-time code analysis • Intelligent auto-fixes • Smart commit generation • Flow protection*
+*Real-time code analysis • Intelligent auto-fixes • Smart commit generation • Flow protection • Security-first architecture*
 
 [Quick Start](#-quick-start) • [Features](#-features) • [Cognitive Engine](#-cognitive-engine) • [Configuration](#-configuration) • [IDE Integration](#-ide-integration)
 
@@ -23,16 +23,17 @@
 2. [Quick Start](#-quick-start)
 3. [Features](#-features)
 4. [The Cognitive Engine](#-cognitive-engine)
-5. [File Watcher](#-file-watcher)
-6. [Commit Assistant](#-commit-assistant)
-7. [IDE Integration](#-ide-integration)
-8. [Themes & Customization](#-themes--customization)
-9. [Configuration Reference](#-configuration-reference)
-10. [CLI Commands](#-cli-commands)
-11. [Keyboard Shortcuts](#-keyboard-shortcuts)
-12. [Architecture](#-architecture)
-13. [Troubleshooting](#-troubleshooting)
-14. [FAQ](#-faq)
+5. [Security & Architecture](#-security--architecture-features)
+6. [File Watcher](#-file-watcher)
+7. [Commit Assistant](#-commit-assistant)
+8. [IDE Integration](#-ide-integration)
+9. [Themes & Customization](#-themes--customization)
+10. [Configuration Reference](#-configuration-reference)
+11. [CLI Commands](#-cli-commands)
+12. [Keyboard Shortcuts](#-keyboard-shortcuts)
+13. [Architecture](#-architecture)
+14. [Troubleshooting](#-troubleshooting)
+15. [FAQ](#-faq)
 
 ---
 
@@ -427,6 +428,154 @@ COGNITIVE_ENGINE=true
 FLOW_PROTECTION=true      # Protect deep work
 INTENT_DETECTION=true     # Detect developer intent
 PREDICTIVE_ANALYSIS=true  # Predict problems
+```
+
+---
+
+## 🛡️ Security & Architecture Features
+
+Letta v3.1.0 introduces a comprehensive security-first architecture redesign with four new components that prioritize privacy, safety, and ambient assistance.
+
+### 🔐 Secure Credential Manager
+
+**Hardware-bound encryption for API keys with automatic rotation.**
+
+**Features:**
+- **Cross-platform keychain integration** - macOS Keychain, Windows Credential Manager, Linux libsecret
+- **Hardware-bound encryption** - Keys tied to your specific device
+- **Automatic rotation scheduling** - Configurable rotation intervals (default: 30 days)
+- **Biometric protection** - System-level authentication when available
+- **Secure fallback** - Encrypted file storage when keychain unavailable
+
+**Usage:**
+```bash
+# Configure API key with secure storage
+npm start → Settings → Configure API Key
+
+# View stored credentials
+npm start → Settings → Security Settings → Credential Manager
+```
+
+### 🛡️ Change Safety Protocol
+
+**Four-layer autonomy model with comprehensive safety scoring.**
+
+**Autonomy Levels:**
+| Level | Name | Behavior | Safety |
+|-------|------|----------|--------|
+| 0 | **Observer** | Only reports issues | Highest |
+| 1 | **Assistant** | Suggests fixes, requires approval | High |
+| 2 | **Partner** | Auto-fixes trivial issues | Medium |
+| 3 | **Autonomous** | Full auto-fix capability | Use with caution |
+
+**Safety Scoring Factors:**
+- **Code Complexity** (25%) - Nesting, conditions, functions
+- **Test Coverage** (20%) - Existing test protection
+- **Dependencies** (15%) - Files that depend on changes
+- **Change Size** (15%) - Lines added/removed
+- **File Criticality** (10%) - Importance of affected files
+- **Recent Changes** (10%) - Modification frequency
+- **Developer Confidence** (5%) - Historical success rate
+
+**Configuration:**
+```bash
+# Set autonomy level
+npm start → Settings → Security Settings → Autonomy Level
+
+# View safety statistics
+npm start → Settings → Security Settings → Security Status
+```
+
+### 🎨 Adaptive Interface System
+
+**Context-aware UI that adapts to your flow state and cognitive load.**
+
+**Display Modes:**
+- **MINIMAL** - Status dot only (deep flow protection)
+- **COMPACT** - Brief status line
+- **CONTEXTUAL** - Relevant information (default)
+- **COMPREHENSIVE** - Full details (debugging/review)
+- **SILENT** - No display
+
+**Smart Notifications:**
+| Priority | Behavior | Example |
+|----------|----------|---------|
+| **URGENT** | Interrupt immediately | Critical security issue |
+| **IMPORTANT** | Queue for next break | High-confidence bug |
+| **INFORMATIONAL** | Silent log only | Code style suggestion |
+| **AUTOMATED** | Brief toast | Auto-fix applied |
+
+**Flow State Detection:**
+- Typing patterns and velocity
+- Error frequency
+- Time in current file
+- Context switching behavior
+
+### 🔬 Hybrid Analysis Engine
+
+**Local-first analysis with selective cloud enhancement. 80% local, 20% cloud.**
+
+**Local Capabilities:**
+- Syntax validation
+- Basic linting
+- Style checking
+- Simple pattern detection
+- AST analysis
+- Dependency analysis
+
+**Cloud-Enhanced Capabilities:**
+- Complex pattern recognition
+- Cross-project learning
+- Advanced security analysis
+- Architectural insights
+- Digital twin modeling
+- Collaborative insights
+
+**Privacy Features:**
+- **Code anonymization** - Secrets, paths, and sensitive data removed
+- **Selective transmission** - Only complex patterns use cloud
+- **User consent required** - Explicit opt-in for cloud analysis
+- **Offline mode available** - Full functionality without internet
+
+**Configuration:**
+```bash
+# Enable cloud analysis (with consent)
+npm start → Settings → Security Settings → Cloud Analysis
+
+# Enable offline mode
+npm start → Settings → Security Settings → Offline Mode
+
+# View analysis statistics
+npm start → Settings → Security Settings → Security Status
+```
+
+### 🔒 Privacy & Security Best Practices
+
+**Built-in privacy protection:**
+
+1. **Local-First Architecture** - Core functionality works offline
+2. **Hardware-Bound Encryption** - Credentials tied to your device
+3. **Code Anonymization** - Sensitive data removed before cloud transmission
+4. **Explicit Consent** - Cloud features require opt-in
+5. **Automatic Backups** - Changes backed up before modification
+6. **Rate Limiting** - Prevents runaway automation
+7. **Safety Scoring** - Risk assessment for all changes
+
+**Recommended Settings:**
+```bash
+# Conservative (recommended for production)
+AUTONOMY_LEVEL=1                    # Assistant level
+CLOUD_ANALYSIS_CONSENT=false       # Local-only analysis
+OFFLINE_MODE=false                  # Allow cloud when needed
+MAX_CHANGES_PER_HOUR=3             # Conservative rate limit
+ENABLE_SECURITY=true               # All safety features
+
+# Balanced (recommended for development)
+AUTONOMY_LEVEL=2                    # Partner level
+CLOUD_ANALYSIS_CONSENT=true        # Enhanced analysis
+OFFLINE_MODE=false                  # Full capabilities
+MAX_CHANGES_PER_HOUR=5             # Moderate rate limit
+ENABLE_SECURITY=true               # All safety features
 ```
 
 ---

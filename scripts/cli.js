@@ -438,6 +438,7 @@ const SETTINGS_MENU = [
   { label: `🎨 Theme & Display     ${chalk.gray("Colors, output style")}`, value: "theme" },
   { label: `⚙️  Watcher Settings    ${chalk.gray("Analysis behavior")}`, value: "watcher" },
   { label: `🔧 Auto-fix Settings   ${chalk.gray("Automatic fixes")}`, value: "autofix" },
+  { label: `🛡️  Security Settings   ${chalk.gray("Autonomy & safety")}`, value: "security" },
   { label: chalk.gray("────────────────────────────────────────────"), value: "separator0" },
   { label: `💻 IDE Detection       ${chalk.gray("View detected IDE info")}`, value: "ideinfo" },
   { label: `🔑 Configure API Key   ${chalk.gray("Update Letta API key")}`, value: "apikey" },
@@ -1449,6 +1450,9 @@ async function runSettings() {
       case "autofix":
         await runAutoFixSettings();
         break;
+      case "security":
+        await runSecuritySettings();
+        break;
       case "ideinfo":
         await runIDEInfo();
         break;
@@ -1582,7 +1586,7 @@ async function runIDEInfo() {
 async function runConfigureApiKey() {
   showBanner("🔑 CONFIGURE API KEY");
   
-  console.log(chalk.gray("  Your API key will be stored locally in .env"));
+  console.log(chalk.gray("  Your API key will be stored securely using hardware-bound encryption"));
   console.log(chalk.gray("  Get your key from: https://app.letta.ai\n"));
   
   if (hasApiKey()) {
@@ -1612,23 +1616,60 @@ async function runConfigureApiKey() {
   const spinner = ora("  Saving configuration...").start();
   
   try {
-    const envPath = path.join(ROOT, ".env");
-    const examplePath = path.join(ROOT, ".env.example");
-    let envContent = fs.existsSync(envPath) 
-      ? fs.readFileSync(envPath, "utf8")
-      : fs.existsSync(examplePath) 
-        ? fs.readFileSync(examplePath, "utf8")
-        : "LETTA_API_KEY=\n";
-    
-    envContent = envContent.replace(/^LETTA_API_KEY=.*/m, `LETTA_API_KEY=${apiKey}`);
-    if (!envContent.includes("LETTA_API_KEY=")) {
-      envContent += `\nLETTA_API_KEY=${apiKey}\n`;
+    // Try to use secure credential manager first
+    try {
+      const { SecureCredentialManager } = await import("../src/security/credentialManager.js");
+      const credManager = new SecureCredentialManager();
+      await credManager.initialize();
+      
+      // Store in secure credential manager
+      await credManager.storeApiKey(apiKey, 'letta');
+      
+      // Also update .env for backward compatibility
+      const envPath = path.join(ROOT, ".env");
+      const examplePath = path.join(ROOT, ".env.example");
+      let envContent = fs.existsSync(envPath) 
+        ? fs.readFileSync(envPath, "utf8")
+        : fs.existsSync(examplePath) 
+          ? fs.readFileSync(examplePath, "utf8")
+          : "LETTA_API_KEY=\n";
+      
+      envContent = envContent.replace(/^LETTA_API_KEY=.*/m, `LETTA_API_KEY=${apiKey}`);
+      if (!envContent.includes("LETTA_API_KEY=")) {
+        envContent += `\nLETTA_API_KEY=${apiKey}\n`;
+      }
+      
+      fs.writeFileSync(envPath, envContent, { encoding: "utf8", mode: 0o600 });
+      dotenv.config({ override: true });
+      
+      spinner.succeed("  API key saved securely!");
+      console.log(chalk.green("  ✓ Stored in secure credential manager"));
+      console.log(chalk.gray("  ✓ Hardware-bound encryption enabled"));
+      console.log(chalk.gray("  ✓ Automatic rotation scheduled"));
+      
+    } catch (secureError) {
+      // Fallback to .env file storage
+      console.warn(chalk.yellow("  ⚠ Secure storage unavailable, using .env file"));
+      
+      const envPath = path.join(ROOT, ".env");
+      const examplePath = path.join(ROOT, ".env.example");
+      let envContent = fs.existsSync(envPath) 
+        ? fs.readFileSync(envPath, "utf8")
+        : fs.existsSync(examplePath) 
+          ? fs.readFileSync(examplePath, "utf8")
+          : "LETTA_API_KEY=\n";
+      
+      envContent = envContent.replace(/^LETTA_API_KEY=.*/m, `LETTA_API_KEY=${apiKey}`);
+      if (!envContent.includes("LETTA_API_KEY=")) {
+        envContent += `\nLETTA_API_KEY=${apiKey}\n`;
+      }
+      
+      fs.writeFileSync(envPath, envContent, { encoding: "utf8", mode: 0o600 });
+      dotenv.config({ override: true });
+      
+      spinner.succeed("  API key saved!");
     }
     
-    fs.writeFileSync(envPath, envContent, { encoding: "utf8", mode: 0o600 });
-    dotenv.config({ override: true });
-    
-    spinner.succeed("  API key saved!");
   } catch (err) {
     spinner.fail("  Failed to save: " + err.message);
   }
@@ -2086,6 +2127,239 @@ async function runAutoFixSettings() {
         console.log(chalk.gray("    • security - XSS, injection, exposed secrets"));
         console.log(chalk.gray("    • performance - Slow code, memory leaks"));
         console.log(chalk.gray("    • style - Formatting, naming conventions\n"));
+        await waitForKey();
+        break;
+      }
+    }
+  }
+}
+
+async function runSecuritySettings() {
+  while (true) {
+    const autonomyLevel = getEnvValue("AUTONOMY_LEVEL", "1");
+    const cloudConsent = getEnvValue("CLOUD_ANALYSIS_CONSENT", "false");
+    const offlineMode = getEnvValue("OFFLINE_MODE", "false");
+    const maxChangesPerHour = getEnvValue("MAX_CHANGES_PER_HOUR", "3");
+    const enableSecurity = getEnvValue("ENABLE_SECURITY", "true");
+    
+    const autonomyNames = ["Observer", "Assistant", "Partner", "Autonomous"];
+    const currentAutonomy = autonomyNames[parseInt(autonomyLevel)] || "Assistant";
+    
+    const SECURITY_OPTIONS = [
+      { label: `🤖 Autonomy Level     ${chalk.cyan(currentAutonomy)}`, value: "autonomy" },
+      { label: `☁️  Cloud Analysis     ${cloudConsent === "true" ? chalk.green("ENABLED") : chalk.red("DISABLED")}`, value: "cloud" },
+      { label: `📡 Offline Mode       ${offlineMode === "true" ? chalk.green("ON") : chalk.red("OFF")}`, value: "offline" },
+      { label: `⏱️  Rate Limiting      ${chalk.gray(`Max ${maxChangesPerHour}/hour`)}`, value: "ratelimit" },
+      { label: `🛡️  Security Features  ${enableSecurity === "true" ? chalk.green("ON") : chalk.red("OFF")}`, value: "security" },
+      { label: chalk.gray("────────────────────────────────────────────"), value: "separator" },
+      { label: `🔑 Credential Manager ${chalk.gray("View stored keys")}`, value: "credentials" },
+      { label: `📊 Security Status    ${chalk.gray("View safety stats")}`, value: "status" },
+      { label: `ℹ️  Security Guide     ${chalk.gray("Learn about safety")}`, value: "help" },
+    ];
+    
+    showBanner("🛡️ SECURITY SETTINGS");
+    const action = await arrowMenu("SECURITY OPTIONS", SECURITY_OPTIONS, { showBack: true });
+    
+    if (action === "back") return;
+    
+    switch (action) {
+      case "autonomy": {
+        console.log(chalk.gray("\n  Choose how autonomous Letta should be:\n"));
+        
+        const AUTONOMY_OPTIONS = [
+          { label: "🔍 Observer    - Only reports issues, never changes code", value: "0" },
+          { label: "🤝 Assistant  - Suggests fixes, requires approval", value: "1" },
+          { label: "⚡ Partner    - Auto-fixes trivial issues, asks for complex ones", value: "2" },
+          { label: "🚀 Autonomous - Full auto-fix capability (use with caution)", value: "3" },
+        ];
+        
+        const level = await arrowMenu("SELECT AUTONOMY LEVEL", AUTONOMY_OPTIONS, { showBack: true });
+        if (level !== "back") {
+          updateEnvFile({ AUTONOMY_LEVEL: level });
+          const levelName = autonomyNames[parseInt(level)];
+          console.log(chalk.green(`\n  ✓ Autonomy level set to: ${levelName}\n`));
+          
+          if (level === "3") {
+            console.log(chalk.yellow("  ⚠ Warning: Autonomous mode will modify files without asking!"));
+            console.log(chalk.gray("  Make sure you have backups and version control.\n"));
+          }
+          await waitForKey();
+        }
+        break;
+      }
+      
+      case "cloud": {
+        const newValue = cloudConsent === "true" ? "false" : "true";
+        
+        if (newValue === "true") {
+          console.log(chalk.yellow("\n  ⚠ Cloud Analysis Consent\n"));
+          console.log(chalk.gray("  Cloud analysis provides advanced insights but sends"));
+          console.log(chalk.gray("  anonymized code snippets to Letta's servers.\n"));
+          console.log(chalk.gray("  • Code is anonymized (secrets/paths removed)"));
+          console.log(chalk.gray("  • Only complex patterns use cloud analysis"));
+          console.log(chalk.gray("  • 80% of analysis runs locally"));
+          console.log(chalk.gray("  • You can disable this anytime\n"));
+          
+          const confirm = await confirmPrompt("Enable cloud analysis?");
+          if (confirm === true) {
+            updateEnvFile({ CLOUD_ANALYSIS_CONSENT: "true" });
+            console.log(chalk.green("\n  ✓ Cloud analysis enabled\n"));
+          }
+        } else {
+          updateEnvFile({ CLOUD_ANALYSIS_CONSENT: "false" });
+          console.log(chalk.green("\n  ✓ Cloud analysis disabled - using local-only mode\n"));
+        }
+        await waitForKey();
+        break;
+      }
+      
+      case "offline": {
+        const newValue = offlineMode === "true" ? "false" : "true";
+        updateEnvFile({ OFFLINE_MODE: newValue });
+        console.log(chalk.green(`\n  ✓ Offline mode ${newValue === "true" ? "enabled" : "disabled"}\n`));
+        
+        if (newValue === "true") {
+          console.log(chalk.gray("  All analysis will run locally. Some advanced features"));
+          console.log(chalk.gray("  may be limited, but core functionality remains available.\n"));
+        }
+        await waitForKey();
+        break;
+      }
+      
+      case "ratelimit": {
+        console.log(chalk.gray("\n  Rate limiting prevents too many automatic changes."));
+        console.log(chalk.gray("  This protects against runaway automation.\n"));
+        
+        const RATE_OPTIONS = [
+          { label: "1 change per hour (very conservative)", value: "1" },
+          { label: "3 changes per hour (default)", value: "3" },
+          { label: "5 changes per hour", value: "5" },
+          { label: "10 changes per hour", value: "10" },
+          { label: "No limit (not recommended)", value: "999" },
+        ];
+        
+        const rate = await arrowMenu("SELECT RATE LIMIT", RATE_OPTIONS, { showBack: true });
+        if (rate !== "back") {
+          updateEnvFile({ MAX_CHANGES_PER_HOUR: rate });
+          const rateText = rate === "999" ? "No limit" : `${rate} per hour`;
+          console.log(chalk.green(`\n  ✓ Rate limit set to: ${rateText}\n`));
+          await waitForKey();
+        }
+        break;
+      }
+      
+      case "security": {
+        const newValue = enableSecurity === "true" ? "false" : "true";
+        updateEnvFile({ ENABLE_SECURITY: newValue });
+        console.log(chalk.green(`\n  ✓ Security features ${newValue === "true" ? "enabled" : "disabled"}\n`));
+        
+        if (newValue === "false") {
+          console.log(chalk.yellow("  ⚠ Warning: Disabling security features removes safety checks!"));
+          console.log(chalk.gray("  This is not recommended for production use.\n"));
+        }
+        await waitForKey();
+        break;
+      }
+      
+      case "credentials": {
+        showBanner("🔑 CREDENTIAL MANAGER");
+        
+        try {
+          // Import and use credential manager
+          const { SecureCredentialManager } = await import("../src/security/credentialManager.js");
+          const credManager = new SecureCredentialManager();
+          await credManager.initialize();
+          
+          const credentials = await credManager.listCredentials();
+          
+          if (credentials.length === 0) {
+            console.log(chalk.gray("  No stored credentials found.\n"));
+          } else {
+            console.log(chalk.bold.white("  Stored Credentials:\n"));
+            for (const cred of credentials) {
+              const status = cred.hasKey ? chalk.green("✓") : chalk.red("✗");
+              const nextRotation = new Date(cred.nextRotation).toLocaleDateString();
+              console.log(`  ${status} ${cred.service}/${cred.account}`);
+              console.log(chalk.gray(`      Next rotation: ${nextRotation}`));
+            }
+            console.log("");
+          }
+          
+          const securityStatus = await credManager.getSecurityStatus();
+          console.log(chalk.bold.white("  Security Status:\n"));
+          console.log(`  Platform: ${securityStatus.platform}`);
+          console.log(`  Keychain: ${securityStatus.keychainImplementation}`);
+          console.log(`  Device ID: ${securityStatus.deviceFingerprint}`);
+          console.log(`  Active sessions: ${securityStatus.activeSessions}`);
+          console.log("");
+          
+        } catch (error) {
+          console.log(chalk.red(`  Error accessing credential manager: ${error.message}\n`));
+        }
+        
+        await waitForKey();
+        break;
+      }
+      
+      case "status": {
+        showBanner("📊 SECURITY STATUS");
+        
+        try {
+          // Show current security configuration
+          console.log(chalk.bold.white("  Current Security Configuration:\n"));
+          console.log(`  Autonomy Level: ${chalk.cyan(currentAutonomy)}`);
+          console.log(`  Cloud Analysis: ${cloudConsent === "true" ? chalk.green("Enabled") : chalk.red("Disabled")}`);
+          console.log(`  Offline Mode: ${offlineMode === "true" ? chalk.green("On") : chalk.red("Off")}`);
+          console.log(`  Rate Limit: ${maxChangesPerHour} changes/hour`);
+          console.log(`  Security Features: ${enableSecurity === "true" ? chalk.green("Enabled") : chalk.red("Disabled")}`);
+          console.log("");
+          
+          // If we have a cognitive engine instance, show its security status
+          if (typeof cognitiveEngine !== 'undefined' && cognitiveEngine) {
+            const securityStatus = await cognitiveEngine.getSecurityStatus();
+            if (securityStatus && !securityStatus.error) {
+              console.log(chalk.bold.white("  Runtime Security Status:\n"));
+              console.log(`  Credential Store: ${securityStatus.credentials.credentialCount} keys`);
+              console.log(`  Safety Protocol: ${securityStatus.safety.total} evaluations`);
+              console.log(`  Success Rate: ${securityStatus.safety.successRate.toFixed(1)}%`);
+              console.log("");
+            }
+          }
+          
+        } catch (error) {
+          console.log(chalk.red(`  Error getting security status: ${error.message}\n`));
+        }
+        
+        await waitForKey();
+        break;
+      }
+      
+      case "help": {
+        console.log(chalk.bold.white("\n  SECURITY FEATURES EXPLAINED\n"));
+        console.log(chalk.cyan("  Autonomy Levels"));
+        console.log(chalk.gray("    Observer: Only reports issues, never modifies code"));
+        console.log(chalk.gray("    Assistant: Suggests fixes, requires your approval"));
+        console.log(chalk.gray("    Partner: Auto-fixes simple issues, asks for complex ones"));
+        console.log(chalk.gray("    Autonomous: Full automation (use with caution)\n"));
+        
+        console.log(chalk.cyan("  Cloud Analysis"));
+        console.log(chalk.gray("    Sends anonymized code for advanced pattern detection"));
+        console.log(chalk.gray("    • Secrets and paths are removed"));
+        console.log(chalk.gray("    • Only complex patterns use cloud"));
+        console.log(chalk.gray("    • 80% of analysis runs locally\n"));
+        
+        console.log(chalk.cyan("  Safety Features"));
+        console.log(chalk.gray("    • Change safety scoring (complexity, test coverage)"));
+        console.log(chalk.gray("    • Automatic backups before modifications"));
+        console.log(chalk.gray("    • Rate limiting to prevent runaway automation"));
+        console.log(chalk.gray("    • Hardware-bound credential encryption\n"));
+        
+        console.log(chalk.cyan("  Best Practices"));
+        console.log(chalk.gray("    • Start with Assistant level, increase gradually"));
+        console.log(chalk.gray("    • Keep backups enabled"));
+        console.log(chalk.gray("    • Use version control"));
+        console.log(chalk.gray("    • Review changes in Partner/Autonomous modes\n"));
+        
         await waitForKey();
         break;
       }

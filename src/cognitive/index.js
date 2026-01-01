@@ -14,6 +14,10 @@
  * 
  * Plus:
  * - Developer Digital Twin - A model that learns and predicts your behavior
+ * - Secure Credential Manager - Hardware-bound encryption for API keys
+ * - Change Safety Protocol - Four-layer autonomy with comprehensive safety
+ * - Adaptive Interface - Context-aware UI with progressive disclosure
+ * - Hybrid Analysis Engine - Local-first with selective cloud enhancement
  */
 
 // Main engine
@@ -36,3 +40,9 @@ export { FlowOptimizer, FLOW_STATES, COGNITIVE_LOAD, INTERVENTIONS } from './flo
 
 // Developer Digital Twin
 export { DeveloperTwin, LEARNING_DOMAINS, SKILL_LEVELS } from './developerTwin.js';
+
+// Security & Architecture Components
+export { SecureCredentialManager } from '../security/credentialManager.js';
+export { ChangeSafetyProtocol, AUTONOMY_LEVELS, RISK_LEVELS as SAFETY_RISK_LEVELS, CHANGE_TYPES } from '../security/changeSafetyProtocol.js';
+export { AdaptiveInterface, DISPLAY_MODES, NOTIFICATION_PRIORITIES, UI_POSITIONS } from '../ui/adaptiveInterface.js';
+export { HybridAnalysisEngine, ANALYSIS_TYPES, LOCAL_CAPABILITIES, CLOUD_CAPABILITIES } from '../analysis/hybridAnalysisEngine.js';

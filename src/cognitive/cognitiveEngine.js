@@ -21,6 +21,10 @@ import { FlowOptimizer, FLOW_STATES, COGNITIVE_LOAD, INTERVENTIONS } from './flo
 import { ExplanationEngine, EXPLANATION_DEPTH } from './explanationEngine.js';
 import { DebuggingEngine, ERROR_CATEGORIES, FIX_DIFFICULTY } from './debuggingEngine.js';
 import { DeveloperTwin, SKILL_LEVELS } from './developerTwin.js';
+import { SecureCredentialManager } from '../security/credentialManager.js';
+import { ChangeSafetyProtocol, AUTONOMY_LEVELS, RISK_LEVELS as SAFETY_RISK_LEVELS } from '../security/changeSafetyProtocol.js';
+import { AdaptiveInterface, DISPLAY_MODES, NOTIFICATION_PRIORITIES } from '../ui/adaptiveInterface.js';
+import { HybridAnalysisEngine, ANALYSIS_TYPES } from '../analysis/hybridAnalysisEngine.js';
 
 /**
  * Developer Profile - Learns and stores developer preferences
@@ -154,6 +158,21 @@ export class CognitiveEngine {
     this.developerTwin = new DeveloperTwin(options.developerId);
     this.developerProfile = new DeveloperProfile();
 
+    // Initialize new security and architecture components
+    this.credentialManager = new SecureCredentialManager();
+    this.safetyProtocol = new ChangeSafetyProtocol(options.projectPath || process.cwd(), {
+      autonomyLevel: options.autonomyLevel || AUTONOMY_LEVELS.ASSISTANT,
+      maxChangesPerHour: options.maxChangesPerHour || 3
+    });
+    this.adaptiveInterface = new AdaptiveInterface({
+      refreshInterval: options.refreshInterval || 5000
+    });
+    this.hybridAnalyzer = new HybridAnalysisEngine({
+      analysisType: options.analysisType || ANALYSIS_TYPES.HYBRID,
+      cloudConsent: options.cloudConsent || false,
+      offlineMode: options.offlineMode || false
+    });
+
     // Configuration
     this.config = {
       enableIntentDetection: options.enableIntentDetection ?? true,
@@ -163,6 +182,9 @@ export class CognitiveEngine {
       enableExplanations: options.enableExplanations ?? true,
       enableDebugging: options.enableDebugging ?? true,
       enableTwin: options.enableTwin ?? true,
+      enableSecurity: options.enableSecurity ?? true,
+      enableAdaptiveUI: options.enableAdaptiveUI ?? true,
+      enableHybridAnalysis: options.enableHybridAnalysis ?? true,
       silentMode: options.silentMode ?? false,
       ...options,
     };
@@ -177,10 +199,21 @@ export class CognitiveEngine {
   /**
    * Start the cognitive engine
    */
-  start() {
+  async start() {
     this.isActive = true;
     this.sessionStart = Date.now();
     this.developerProfile.stats.totalSessions++;
+
+    // Initialize security components
+    if (this.config.enableSecurity) {
+      await this.credentialManager.initialize();
+    }
+
+    // Start adaptive interface
+    if (this.config.enableAdaptiveUI) {
+      this.adaptiveInterface.start();
+    }
+
     return { started: true, timestamp: Date.now() };
   }
 
@@ -189,6 +222,12 @@ export class CognitiveEngine {
    */
   stop() {
     this.isActive = false;
+
+    // Stop adaptive interface
+    if (this.config.enableAdaptiveUI) {
+      this.adaptiveInterface.stop();
+    }
+
     return {
       stopped: true,
       sessionDuration: Date.now() - this.sessionStart,
@@ -621,6 +660,182 @@ export class CognitiveEngine {
   }
 
   /**
+   * Secure code analysis with hybrid approach
+   */
+  async analyzeCodeSecurely(code, filePath, options = {}) {
+    if (!this.config.enableHybridAnalysis) {
+      return { error: 'Hybrid analysis disabled' };
+    }
+
+    // Use hybrid analyzer for secure, local-first analysis
+    const analysisResult = await this.hybridAnalyzer.analyze(code, filePath, {
+      ...options,
+      cloudConsent: this.config.cloudConsent
+    });
+
+    // Integrate with cognitive analysis
+    const cognitiveContext = {
+      code,
+      activeFileContent: code,
+      filePath,
+      analysisResult
+    };
+
+    const cognitiveAnalysis = await this.analyze(cognitiveContext);
+
+    return {
+      ...analysisResult,
+      cognitive: cognitiveAnalysis,
+      timestamp: Date.now()
+    };
+  }
+
+  /**
+   * Evaluate and potentially apply a code change with safety protocol
+   */
+  async evaluateChange(change, context = {}) {
+    if (!this.config.enableSecurity) {
+      return { error: 'Security features disabled' };
+    }
+
+    // Add cognitive context to safety evaluation
+    const enhancedContext = {
+      ...context,
+      developerSuccessRate: this.developerProfile.getAcceptanceRate(),
+      flowState: this.flowOptimizer.lastFlowState?.state,
+      cognitiveLoad: this.flowOptimizer.lastFlowState?.cognitiveLoad?.level
+    };
+
+    const evaluation = await this.safetyProtocol.evaluateChange(change, enhancedContext);
+
+    // Learn from the evaluation
+    if (this.config.enableLearning && evaluation.executed) {
+      this.developerProfile.updateFromInteraction({
+        accepted: evaluation.executed.success,
+        rejected: !evaluation.executed.success,
+        suggestionStyle: 'auto-fix'
+      });
+    }
+
+    return evaluation;
+  }
+
+  /**
+   * Update adaptive interface with current state
+   */
+  updateInterface(data = {}) {
+    if (!this.config.enableAdaptiveUI) {
+      return { error: 'Adaptive UI disabled' };
+    }
+
+    // Gather current cognitive state
+    const cognitiveData = {
+      ...data,
+      flowState: this.flowOptimizer.lastFlowState?.state,
+      cognitiveLoad: this.flowOptimizer.lastFlowState?.cognitiveLoad?.level,
+      intent: this.intentEngine.lastIntent,
+      issues: this.lastAnalysis?.predictions?.summary?.total || 0,
+      fixed: this.developerProfile.stats.suggestionsAccepted,
+      project: {
+        name: data.projectName || 'Project',
+        version: data.projectVersion || '1.0.0'
+      }
+    };
+
+    // Detect flow signals for adaptive behavior
+    const signals = {
+      flowState: cognitiveData.flowState,
+      cognitiveLoad: cognitiveData.cognitiveLoad,
+      errorFrequency: this.getRecentErrorFrequency(),
+      timeInCurrentFile: Date.now() - this.sessionStart
+    };
+
+    return this.adaptiveInterface.update(cognitiveData, signals);
+  }
+
+  /**
+   * Get recent error frequency for adaptive UI
+   */
+  getRecentErrorFrequency() {
+    const recentAnalyses = this.analysisHistory.slice(-10);
+    const errorsInRecent = recentAnalyses.reduce((count, analysis) => {
+      return count + (analysis.predictions?.summary?.critical || 0);
+    }, 0);
+    return errorsInRecent;
+  }
+
+  /**
+   * Set autonomy level for safety protocol
+   */
+  setAutonomyLevel(level) {
+    if (!this.config.enableSecurity) {
+      return { error: 'Security features disabled' };
+    }
+    this.safetyProtocol.setAutonomyLevel(level);
+    return { autonomyLevel: level };
+  }
+
+  /**
+   * Get security status
+   */
+  async getSecurityStatus() {
+    if (!this.config.enableSecurity) {
+      return { error: 'Security features disabled' };
+    }
+
+    const [credentialStatus, safetyStats] = await Promise.all([
+      this.credentialManager.getSecurityStatus(),
+      this.safetyProtocol.getSafetyStatistics()
+    ]);
+
+    return {
+      credentials: credentialStatus,
+      safety: safetyStats,
+      hybridAnalysis: this.hybridAnalyzer.getStatistics()
+    };
+  }
+
+  /**
+   * Store API key securely
+   */
+  async storeApiKey(apiKey, service = 'letta', options = {}) {
+    if (!this.config.enableSecurity) {
+      return { error: 'Security features disabled' };
+    }
+    return this.credentialManager.storeApiKey(apiKey, service, options);
+  }
+
+  /**
+   * Retrieve API key securely
+   */
+  async retrieveApiKey(service = 'letta', options = {}) {
+    if (!this.config.enableSecurity) {
+      return { error: 'Security features disabled' };
+    }
+    return this.credentialManager.retrieveApiKey(service, options);
+  }
+
+  /**
+   * Create smart notification
+   */
+  notify(title, message, options = {}) {
+    if (!this.config.enableAdaptiveUI) {
+      return { error: 'Adaptive UI disabled' };
+    }
+    return this.adaptiveInterface.createSmartNotification(title, message, options);
+  }
+
+  /**
+   * Silence notifications temporarily
+   */
+  silenceNotifications(durationMs) {
+    if (!this.config.enableAdaptiveUI) {
+      return { error: 'Adaptive UI disabled' };
+    }
+    return this.adaptiveInterface.silence(durationMs);
+  }
+
+  /**
    * Format analysis results for display
    */
   formatAnalysis(results) {
@@ -697,6 +912,14 @@ export {
   ExplanationEngine,
   DebuggingEngine,
   DeveloperTwin,
+  SecureCredentialManager,
+  ChangeSafetyProtocol,
+  AdaptiveInterface,
+  HybridAnalysisEngine,
+  AUTONOMY_LEVELS,
+  DISPLAY_MODES,
+  NOTIFICATION_PRIORITIES,
+  ANALYSIS_TYPES
 };
 
 export default CognitiveEngine;

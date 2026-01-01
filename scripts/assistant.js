@@ -59,7 +59,7 @@ const ENABLE_FLOW_PROTECTION = process.env.FLOW_PROTECTION !== "false";
 const ENABLE_INTENT_DETECTION = process.env.INTENT_DETECTION !== "false";
 const ENABLE_PREDICTION = process.env.PREDICTIVE_ANALYSIS !== "false";
 
-// Initialize Cognitive Engine
+// Initialize Cognitive Engine with security features
 let cognitiveEngine = null;
 if (ENABLE_COGNITIVE) {
   cognitiveEngine = new CognitiveEngine({
@@ -67,6 +67,13 @@ if (ENABLE_COGNITIVE) {
     enablePrediction: ENABLE_PREDICTION,
     enableFlowProtection: ENABLE_FLOW_PROTECTION,
     enableLearning: true,
+    enableSecurity: true,
+    enableAdaptiveUI: true,
+    enableHybridAnalysis: true,
+    projectPath: PROJECT_PATH,
+    autonomyLevel: AUTO_FIX ? 2 : 1, // PARTNER level if auto-fix, ASSISTANT otherwise
+    cloudConsent: process.env.CLOUD_ANALYSIS_CONSENT === "true",
+    offlineMode: process.env.OFFLINE_MODE === "true"
   });
 }
 const THEMES = {
