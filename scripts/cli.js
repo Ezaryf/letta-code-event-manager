@@ -880,14 +880,27 @@ async function runInsights() {
   console.log(chalk.gray("  Opening your personal analytics dashboard..."));
   console.log(chalk.gray("  This will launch the interactive insights interface.\n"));
   
-  const confirm = await confirmPrompt("Launch Developer Insights Dashboard?", { defaultYes: true });
-  if (confirm === "back" || confirm === false) return;
+  // Ask user if they want demo data or real data
+  const modeOptions = [
+    { label: `📊 Use Real Data     ${chalk.gray("Your actual coding analytics")}`, value: "real" },
+    { label: `🎭 Demo Mode         ${chalk.gray("Sample data for exploration")}`, value: "demo" },
+  ];
+  
+  const mode = await arrowMenu("SELECT DATA MODE", modeOptions, { showBack: true });
+  if (mode === "back") return;
   
   // Clear screen before launching dashboard
   console.clear();
   
   const { spawn } = await import("child_process");
-  const child = spawn("node", [path.join(ROOT, "scripts/insightsDashboard.js"), "--demo"], {
+  const args = [path.join(ROOT, "scripts/insightsDashboard.js")];
+  
+  // Only add --demo flag if user selected demo mode
+  if (mode === "demo") {
+    args.push("--demo");
+  }
+  
+  const child = spawn("node", args, {
     stdio: "inherit",
     cwd: ROOT,
     env: { ...process.env },

@@ -125,13 +125,12 @@ class InsightsDashboard {
   async start() {
     this.isRunning = true;
     
-    console.clear();
-    this.showWelcome();
-    
     while (this.isRunning) {
       const result = await this.showMainMenu();
       if (result === 'exit') {
         this.isRunning = false;
+        // Exit the dashboard loop to return control to CLI
+        break;
       }
     }
   }
@@ -149,6 +148,19 @@ class InsightsDashboard {
     
     if (DEMO_MODE) {
       console.log(chalk.yellow('🎭 Running in DEMO mode with sample data\n'));
+    } else {
+      // Check if we have real data
+      const insights = this.insightEngine.generateInsights('7d');
+      const hasData = insights.growth.conceptsLearned > 0 || 
+                     insights.performance.flowSessions > 0 || 
+                     insights.creativity.creativeOutputs > 0;
+      
+      if (hasData) {
+        console.log(chalk.green('📊 Using your real coding analytics data\n'));
+      } else {
+        console.log(chalk.gray('📊 Using real data mode (no data collected yet)\n'));
+        console.log(chalk.gray('   Start coding to see your analytics build up over time!\n'));
+      }
     }
   }
 
@@ -176,32 +188,38 @@ class InsightsDashboard {
   }
 
   async handleAction(action) {
-    console.clear();
-    
     switch (action) {
       case 'showDNA':
-        return await this.showDeveloperDNA();
+        await this.showDeveloperDNA();
+        return 'continue';
       case 'showSkillTree':
-        return await this.showSkillTree();
+        await this.showSkillTree();
+        return 'continue';
       case 'showWeatherForecast':
-        return await this.showWeatherForecast();
+        await this.showWeatherForecast();
+        return 'continue';
       case 'showGeniusArchive':
-        return await this.showGeniusArchive();
+        await this.showGeniusArchive();
+        return 'continue';
       case 'showEvolution':
-        return await this.showEvolution();
+        await this.showEvolution();
+        return 'continue';
       case 'showWeeklyReport':
-        return await this.showWeeklyReport();
+        await this.showWeeklyReport();
+        return 'continue';
       case 'showSettings':
-        return await this.showSettings();
+        await this.showSettings();
+        return 'continue';
       default:
         return 'continue';
     }
   }
 
   async showDeveloperDNA() {
+    // Clear screen and show content
+    console.clear();
     const insights = this.insightEngine.generateInsights('7d');
     const dashboard = this.renderer.renderDeveloperDNA(insights);
-    
     console.log(dashboard);
     
     const options = [
@@ -215,12 +233,13 @@ class InsightsDashboard {
     if (choice === 'refresh') {
       return await this.showDeveloperDNA();
     } else if (choice === 'export') {
+      console.clear();
       console.log(chalk.green('\n📊 DNA Report exported to clipboard!\n'));
       await this.waitForKey('Press Enter to continue...');
       return await this.showDeveloperDNA();
     }
     
-    return 'continue';
+    // Always return to main menu
   }
 
   async showSkillTree() {
@@ -238,14 +257,14 @@ class InsightsDashboard {
     const choice = await this.arrowMenu('SKILL TREE OPTIONS', options);
     
     if (choice === 'focus') {
-      return await this.showSkillFocus();
+      await this.showSkillFocus();
     } else if (choice === 'history') {
       console.log(chalk.cyan('\n📈 Skill progression history would be shown here...\n'));
       await this.waitForKey('Press Enter to continue...');
       return await this.showSkillTree();
     }
     
-    return 'continue';
+    // Always return to main menu
   }
 
   async showSkillFocus() {
@@ -268,7 +287,7 @@ class InsightsDashboard {
       return await this.showSkillFocus();
     }
     
-    return 'continue';
+    // Always return to main menu
   }
 
   async showWeatherForecast() {
@@ -295,7 +314,7 @@ class InsightsDashboard {
       return await this.showWeatherForecast();
     }
     
-    return 'continue';
+    // Always return to main menu
   }
 
   async showGeniusArchive() {
@@ -322,7 +341,7 @@ class InsightsDashboard {
       return await this.showGeniusArchive();
     }
     
-    return 'continue';
+    // Always return to main menu
   }
 
   async showEvolution() {
@@ -350,7 +369,7 @@ class InsightsDashboard {
       return await this.showEvolution();
     }
     
-    return 'continue';
+    // Always return to main menu
   }
 
   async showWeeklyReport() {
@@ -412,7 +431,7 @@ class InsightsDashboard {
       return await this.showWeeklyReport();
     }
     
-    return 'continue';
+    // Always return to main menu
   }
 
   async showSettings() {
@@ -427,7 +446,7 @@ class InsightsDashboard {
     const choice = await this.arrowMenu('SETTINGS & PRIVACY', options);
     
     if (choice === 'back') {
-      return 'continue';
+      return;
     }
     
     const result = await this.handleSettingsAction(choice);
@@ -435,7 +454,7 @@ class InsightsDashboard {
       return await this.showSettings();
     }
     
-    return 'continue';
+    // Always return to main menu
   }
 
   async handleSettingsAction(action) {
@@ -499,9 +518,9 @@ class InsightsDashboard {
     return 'back';
   }
 
-  // Arrow menu implementation (adapted from CLI)
+  // Arrow menu implementation (exact copy from working CLI)
   async arrowMenu(title, options) {
-    // Ensure stdin is in a clean state
+    // Ensure stdin is in a clean state before starting
     if (process.stdin.isTTY) {
       try {
         process.stdin.setRawMode(false);
@@ -519,7 +538,7 @@ class InsightsDashboard {
       let isFirstDraw = true;
       let resolved = false;
       
-      // Build menu content
+      // Build menu content without banner (banner shown once at start)
       const buildMenu = () => {
         let lines = [];
         lines.push(chalk.gray("  ↑↓ Navigate  •  Enter Select  •  Esc Back  •  Ctrl+C Exit"));
@@ -542,19 +561,48 @@ class InsightsDashboard {
         return lines;
       };
       
+      const showInsightsBanner = () => {
+        console.log('╔═══════════════════════════════════════════════════════════════╗');
+        console.log('║                                                               ║');
+        console.log('║         🧬 LETTA INSIGHT ENGINE - DEVELOPER ANALYTICS         ║');
+        console.log('║                                                               ║');
+        console.log('║              "Fitbit for your developer mind"                 ║');
+        console.log('║                                                               ║');
+        console.log('╚═══════════════════════════════════════════════════════════════╝');
+        console.log('');
+        
+        if (DEMO_MODE) {
+          console.log('🎭 Running in DEMO mode with sample data');
+          console.log('');
+        } else {
+          // Check if we have real data
+          const insights = this.insightEngine.generateInsights('7d');
+          const hasData = insights.growth.conceptsLearned > 0 || 
+                         insights.performance.flowSessions > 0 || 
+                         insights.creativity.creativeOutputs > 0;
+          
+          if (hasData) {
+            console.log('📊 Using your real coding analytics data');
+            console.log('');
+          } else {
+            console.log('📊 Real data mode - start coding to build analytics!');
+            console.log('');
+          }
+        }
+      };
+      
       const draw = () => {
         const menuLines = buildMenu();
         
         if (isFirstDraw) {
           console.clear();
-          this.showWelcome();
+          showInsightsBanner();
           menuLines.forEach(line => console.log(line));
-          menuLineCount = menuLines.length + 8; // +8 for welcome banner
+          menuLineCount = menuLines.length;
           isFirstDraw = false;
         } else {
           process.stdout.write(`\x1b[${menuLineCount}A`);
           process.stdout.write('\x1b[J');
-          this.showWelcome();
           menuLines.forEach(line => console.log(line));
         }
       };
