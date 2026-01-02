@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 🧬 Letta Insights Dashboard
+ * 🧠 CodeMind Insights Dashboard
  * 
  * Interactive dashboard for the Developer Insight Engine
  * "Fitbit for your developer mind" - comprehensive personal analytics
@@ -139,7 +139,7 @@ class InsightsDashboard {
     console.log(chalk.cyan(`
 ╔═══════════════════════════════════════════════════════════════╗
 ║                                                               ║
-║         🧬 LETTA INSIGHT ENGINE - DEVELOPER ANALYTICS         ║
+║         🧠 CODEMIND INSIGHT ENGINE - DEVELOPER ANALYTICS      ║
 ║                                                               ║
 ║              "Fitbit for your developer mind"                 ║
 ║                                                               ║
@@ -179,7 +179,7 @@ class InsightsDashboard {
     const choice = await this.arrowMenu('DEVELOPER INSIGHTS DASHBOARD', options);
     
     if (choice === 'back' || choice === 'exit') {
-      console.log(chalk.cyan('\n👋 Thanks for using Letta Insights! Keep growing! 🚀\n'));
+      console.log(chalk.cyan('\n👋 Thanks for using CodeMind Insights! Keep growing! 🚀\n'));
       return 'exit';
     }
     
@@ -564,7 +564,7 @@ class InsightsDashboard {
       const showInsightsBanner = () => {
         console.log('╔═══════════════════════════════════════════════════════════════╗');
         console.log('║                                                               ║');
-        console.log('║         🧬 LETTA INSIGHT ENGINE - DEVELOPER ANALYTICS         ║');
+        console.log('║         🧠 CODEMIND INSIGHT ENGINE - DEVELOPER ANALYTICS      ║');
         console.log('║                                                               ║');
         console.log('║              "Fitbit for your developer mind"                 ║');
         console.log('║                                                               ║');
@@ -634,7 +634,7 @@ class InsightsDashboard {
           resolve("back");
         } else if (key.ctrl && key.name === "c") {
           cleanup();
-          console.log(chalk.cyan("\n\n  👋 Thanks for using Letta Insights! Keep growing! 🚀\n"));
+          console.log(chalk.cyan("\n\n  👋 Thanks for using CodeMind Insights! Keep growing! 🚀\n"));
           process.exit(0);
         }
       };
@@ -671,7 +671,7 @@ class InsightsDashboard {
 
 // Handle graceful shutdown
 process.on('SIGINT', () => {
-  console.log(chalk.cyan('\n\n👋 Thanks for using Letta Insights! Keep growing! 🚀\n'));
+  console.log(chalk.cyan('\n\n👋 Thanks for using CodeMind Insights! Keep growing! 🚀\n'));
   process.exit(0);
 });
 

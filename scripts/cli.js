@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Letta CLI - Production-quality coding assistant with seamless navigation
+// CodeMind CLI - Production-quality coding assistant with seamless navigation
 import readline from "readline";
 import chalk from "chalk";
 import ora from "ora";
@@ -22,19 +22,19 @@ let currentIDE = null;
 // ═══════════════════════════════════════════════════════════════════════════
 
 function hasAgent() {
-  return fs.existsSync(path.join(ROOT, ".letta_agent_id"));
+  return fs.existsSync(path.join(ROOT, ".codemind_agent_id"));
 }
 
 function hasApiKey() {
-  return process.env.LETTA_API_KEY && process.env.LETTA_API_KEY !== "sk-let-your-api-key-here";
+  return process.env.CODEMIND_API_KEY && process.env.CODEMIND_API_KEY !== "sk-let-your-api-key-here";
 }
 
 function getAgentId() {
-  return fs.readFileSync(path.join(ROOT, ".letta_agent_id"), "utf8").trim();
+  return fs.readFileSync(path.join(ROOT, ".codemind_agent_id"), "utf8").trim();
 }
 
 function getAgentConfig() {
-  const configPath = path.join(ROOT, ".letta_agent_config.json");
+  const configPath = path.join(ROOT, ".codemind_agent_config.json");
   if (fs.existsSync(configPath)) {
     try {
       return JSON.parse(fs.readFileSync(configPath, "utf8"));
@@ -44,7 +44,7 @@ function getAgentConfig() {
 }
 
 function getRecentProjects() {
-  const historyFile = path.join(ROOT, ".letta_history.json");
+  const historyFile = path.join(ROOT, ".codemind_history.json");
   if (fs.existsSync(historyFile)) {
     try {
       return JSON.parse(fs.readFileSync(historyFile, "utf8")).recentProjects || [];
@@ -54,7 +54,7 @@ function getRecentProjects() {
 }
 
 function saveToHistory(projectPath) {
-  const historyFile = path.join(ROOT, ".letta_history.json");
+  const historyFile = path.join(ROOT, ".codemind_history.json");
   let history = { recentProjects: [] };
   if (fs.existsSync(historyFile)) {
     try { history = JSON.parse(fs.readFileSync(historyFile, "utf8")); } catch (e) {}
@@ -69,12 +69,12 @@ function saveToHistory(projectPath) {
 
 function showBanner(subtitle = null) {
   console.clear();
-  const title = "LETTA CODING ASSISTANT";
+  const title = "CODEMIND CODING ASSISTANT";
   const desc = "AI-powered code analysis, fixes & commit generation";
   
   console.log(chalk.cyan("╔" + "═".repeat(66) + "╗"));
   console.log(chalk.cyan("║") + " ".repeat(66) + chalk.cyan("║"));
-  console.log(chalk.cyan("║") + "     🤖 " + chalk.bold.white(title) + " ".repeat(66 - 8 - title.length) + chalk.cyan("║"));
+  console.log(chalk.cyan("║") + "     🧠 " + chalk.bold.white(title) + " ".repeat(66 - 8 - title.length) + chalk.cyan("║"));
   console.log(chalk.cyan("║") + "     " + chalk.gray(desc) + " ".repeat(66 - 5 - desc.length) + chalk.cyan("║"));
   console.log(chalk.cyan("║") + " ".repeat(66) + chalk.cyan("║"));
   console.log(chalk.cyan("╚" + "═".repeat(66) + "╝"));
@@ -102,7 +102,7 @@ function showBanner(subtitle = null) {
   if (hasAgent()) {
     const config = getAgentConfig();
     const version = config?.template_version || "unknown";
-    console.log(chalk.green(`  ✓ Agent ready`) + chalk.gray(` (${config?.name || "LettaCode"} v${version})`));
+    console.log(chalk.green(`  ✓ Agent ready`) + chalk.gray(` (${config?.name || "CodeMind"} v${version})`));
   } else {
     console.log(chalk.yellow("  ○ No agent") + chalk.gray(" - select 'Quick Setup'"));
   }
@@ -442,7 +442,7 @@ const SETTINGS_MENU = [
   { label: `🛡️  Security Settings   ${chalk.gray("Autonomy & safety")}`, value: "security" },
   { label: chalk.gray("────────────────────────────────────────────"), value: "separator0" },
   { label: `💻 IDE Detection       ${chalk.gray("View detected IDE info")}`, value: "ideinfo" },
-  { label: `🔑 Configure API Key   ${chalk.gray("Update Letta API key")}`, value: "apikey" },
+  { label: `🔑 Configure API Key   ${chalk.gray("Update CodeMind API key")}`, value: "apikey" },
   { label: `🤖 Setup Agent         ${chalk.gray("Create/recreate agent")}`, value: "setup" },
   { label: `⬆️  Upgrade Agent       ${chalk.gray("Update to latest template")}`, value: "upgrade" },
   { label: `🧹 Cleanup Agents      ${chalk.gray("Remove old agents")}`, value: "cleanup" },
@@ -536,18 +536,18 @@ async function selectFile(projectPath) {
   return choice;
 }
 
-// Get Letta client
-async function getLettaClient() {
+// Get CodeMind client (using Letta backend)
+async function getCodeMindClient() {
   const { Letta } = await import("@letta-ai/letta-client");
   return new Letta({
-    apiKey: process.env.LETTA_API_KEY,
-    projectID: process.env.LETTA_PROJECT_ID,
+    apiKey: process.env.CODEMIND_API_KEY,
+    projectID: process.env.CODEMIND_PROJECT_ID,
   });
 }
 
 // Send prompt to agent and get response
 async function askAgent(prompt) {
-  const client = await getLettaClient();
+  const client = await getCodeMindClient();
   const agentId = getAgentId();
   const response = await client.agents.messages.create(agentId, { input: prompt });
   return response?.messages?.map((m) => m.text || m.content).join("\n") || "No response";

@@ -1,4 +1,4 @@
-# 🤖 LETTA - AI-Powered Developer Cognitive Engine
+# 🧠 CODEMIND - AI-Powered Developer Cognitive Engine
 
 <div align="center">
 
@@ -19,7 +19,7 @@
 
 ## 📖 Table of Contents
 
-1. [What is Letta?](#-what-is-letta)
+1. [What is CodeMind?](#-what-is-codemind)
 2. [Quick Start](#-quick-start)
 3. [Features](#-features)
 4. [The Cognitive Engine](#-cognitive-engine)
@@ -38,9 +38,9 @@
 
 ---
 
-## 🎯 What is Letta?
+## 🎯 What is CodeMind?
 
-Letta is a **Developer Cognitive Engine** - an AI-powered coding assistant that goes beyond simple code analysis. It's designed to be a cognitive partner that:
+CodeMind is a **Developer Cognitive Engine** - an AI-powered coding assistant that goes beyond simple code analysis. It's designed to be a cognitive partner that:
 
 - **Watches** your code in real-time and catches issues before they become bugs
 - **Understands** your intent and adapts its assistance accordingly

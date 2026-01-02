@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Letta Coding Assistant - File Watcher v2
+// CodeMind Coding Assistant - File Watcher v2
 // Simple scrolling log - NO in-place updates (Windows compatible)
 import chokidar from "chokidar";
 import path from "path";
@@ -43,7 +43,7 @@ const RETURN_TO_MENU = process.argv.includes("--return-to-menu");
 let detectedIDE = null;
 let collaborationSettings = null;
 // Settings from .env
-const THEME_NAME = process.env.LETTA_THEME || "ocean";
+const THEME_NAME = process.env.CODEMIND_THEME || "ocean";
 const SHOW_TIMESTAMPS = process.env.SHOW_TIMESTAMPS !== "false";
 const VERBOSE_OUTPUT = process.env.VERBOSE_OUTPUT === "true";
 const WATCHER_DEBOUNCE = parseInt(process.env.WATCHER_DEBOUNCE || "1500", 10);
@@ -93,7 +93,7 @@ const T = THEMES[THEME_NAME] || THEMES.ocean;
 if (!PROJECT_PATH) {
   console.log(T.accent(`
 ┌─────────────────────────────────────────────────────────────┐
-│         🤖 Letta Coding Assistant - File Watcher            │
+│         🧠 CodeMind Coding Assistant - File Watcher         │
 └─────────────────────────────────────────────────────────────┘
 `));
   console.log(`  ${chalk.white("Usage:")} ${T.accent("npm run watch")} ${chalk.yellow("<project-path>")} ${T.dim("[options]")}
@@ -102,24 +102,24 @@ if (!PROJECT_PATH) {
     ${T.success("--auto-fix")}   Automatically apply safe fixes
     ${T.success("--debug")}      Enable debug logging
 
-  ${chalk.white("Themes:")} Set ${T.accent("LETTA_THEME")} in .env (ocean, forest, sunset, midnight, mono)
+  ${chalk.white("Themes:")} Set ${T.accent("CODEMIND_THEME")} in .env (ocean, forest, sunset, midnight, mono)
 `);
   process.exit(0);
 }
 
 // Validate
-if (!process.env.LETTA_API_KEY || process.env.LETTA_API_KEY === "sk-let-your-api-key-here") {
-  console.error(T.error("✗ LETTA_API_KEY not configured. Run: npm start → Quick Setup"));
+if (!process.env.CODEMIND_API_KEY || process.env.CODEMIND_API_KEY === "sk-let-your-api-key-here") {
+  console.error(T.error("✗ CODEMIND_API_KEY not configured. Run: npm start → Quick Setup"));
   process.exit(1);
 }
 
 const client = new Letta({
-  apiKey: process.env.LETTA_API_KEY,
-  projectID: process.env.LETTA_PROJECT_ID,
+  apiKey: process.env.CODEMIND_API_KEY,
+  projectID: process.env.CODEMIND_PROJECT_ID,
 });
 
-const agentId = fs.existsSync(path.join(ROOT, ".letta_agent_id"))
-  ? fs.readFileSync(path.join(ROOT, ".letta_agent_id"), "utf8").trim()
+const agentId = fs.existsSync(path.join(ROOT, ".codemind_agent_id"))
+  ? fs.readFileSync(path.join(ROOT, ".codemind_agent_id"), "utf8").trim()
   : null;
 
 if (!agentId) {
@@ -142,6 +142,335 @@ const changedFiles = new Set();
 const analysisResults = []; // Store detailed results
 let isReady = false;
 let watcher = null;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BACKGROUND ANALYSIS SYSTEM
+// ═══════════════════════════════════════════════════════════════════════════
+
+const backgroundAnalysis = {
+  isRunning: false,
+  isPaused: false,
+  currentIndex: 0,
+  projectFiles: [],
+  idleTimer: null,
+  analysisTimer: null,
+  lastActivity: Date.now(),
+  
+  // Configuration
+  IDLE_THRESHOLD: 5000, // 5 seconds of inactivity before starting background analysis
+  ANALYSIS_BATCH_SIZE: 3, // Analyze 3 files per idle period
+  ANALYSIS_INTERVAL: 2000, // 2 seconds between each file analysis
+  MAX_FILES_PER_SESSION: 50, // Limit to prevent overwhelming
+  
+  stats: {
+    totalFiles: 0,
+    analyzed: 0,
+    remaining: 0,
+    currentSession: 0,
+    completedSessions: 0
+  }
+};
+
+// Discover all analyzable files in the project
+function discoverProjectFiles() {
+  const files = [];
+  const IGNORE_PATTERNS = [
+    'node_modules', '.git', '.next', 'dist', 'build', 'coverage', 
+    '.codemind-backups', '.kiro', 'package-lock.json', '.env'
+  ];
+  
+  function scanDirectory(dir, depth = 0) {
+    if (depth > WATCHER_DEPTH) return;
+    
+    try {
+      const items = fs.readdirSync(dir);
+      
+      for (const item of items) {
+        // Skip ignored patterns
+        if (IGNORE_PATTERNS.some(pattern => item.includes(pattern))) continue;
+        
+        const fullPath = path.join(dir, item);
+        const stat = fs.statSync(fullPath);
+        
+        if (stat.isDirectory()) {
+          scanDirectory(fullPath, depth + 1);
+        } else if (stat.isFile()) {
+          const ext = path.extname(item);
+          if (VALID_EXTENSIONS.includes(ext) && stat.size < 1024 * 1024) { // Skip files > 1MB
+            files.push(fullPath);
+          }
+        }
+      }
+    } catch (err) {
+      if (DEBUG) log(T.dim(`Scan error in ${dir}: ${err.message}`));
+    }
+  }
+  
+  scanDirectory(PROJECT_PATH);
+  return files.sort(); // Consistent order
+}
+
+// Initialize background analysis system
+function initializeBackgroundAnalysis() {
+  backgroundAnalysis.projectFiles = discoverProjectFiles();
+  backgroundAnalysis.stats.totalFiles = backgroundAnalysis.projectFiles.length;
+  backgroundAnalysis.stats.remaining = backgroundAnalysis.projectFiles.length;
+  
+  logVerbose(`🔍 Discovered ${backgroundAnalysis.stats.totalFiles} files for background analysis`);
+  
+  // Start idle detection
+  resetIdleTimer();
+}
+
+// Reset the idle timer (called whenever there's file activity)
+function resetIdleTimer() {
+  backgroundAnalysis.lastActivity = Date.now();
+  
+  // Clear existing timer
+  if (backgroundAnalysis.idleTimer) {
+    clearTimeout(backgroundAnalysis.idleTimer);
+  }
+  
+  // Pause background analysis if running
+  if (backgroundAnalysis.isRunning) {
+    pauseBackgroundAnalysis();
+  }
+  
+  // Set new idle timer
+  backgroundAnalysis.idleTimer = setTimeout(() => {
+    startBackgroundAnalysis();
+  }, backgroundAnalysis.IDLE_THRESHOLD);
+}
+
+// Start background analysis when idle
+function startBackgroundAnalysis() {
+  if (backgroundAnalysis.isRunning || backgroundAnalysis.currentIndex >= backgroundAnalysis.projectFiles.length) {
+    return;
+  }
+  
+  backgroundAnalysis.isRunning = true;
+  backgroundAnalysis.isPaused = false;
+  backgroundAnalysis.stats.currentSession = 0;
+  
+  const remaining = backgroundAnalysis.projectFiles.length - backgroundAnalysis.currentIndex;
+  const batchSize = Math.min(backgroundAnalysis.ANALYSIS_BATCH_SIZE, remaining);
+  
+  log(`${T.accent("🔍")} Starting background analysis (${batchSize} files, ${remaining} remaining)`);
+  
+  // Start analyzing files
+  analyzeNextBackgroundFile();
+}
+
+// Pause background analysis (when file changes detected)
+function pauseBackgroundAnalysis() {
+  if (!backgroundAnalysis.isRunning) return;
+  
+  backgroundAnalysis.isPaused = true;
+  
+  if (backgroundAnalysis.analysisTimer) {
+    clearTimeout(backgroundAnalysis.analysisTimer);
+    backgroundAnalysis.analysisTimer = null;
+  }
+  
+  logVerbose(`⏸️  Background analysis paused (analyzed ${backgroundAnalysis.stats.currentSession} files this session)`);
+}
+
+// Resume background analysis
+function resumeBackgroundAnalysis() {
+  if (!backgroundAnalysis.isPaused) return;
+  
+  backgroundAnalysis.isPaused = false;
+  logVerbose(`▶️  Background analysis resumed`);
+  
+  // Continue with next file
+  analyzeNextBackgroundFile();
+}
+
+// Analyze the next file in the background queue
+async function analyzeNextBackgroundFile() {
+  if (backgroundAnalysis.isPaused || !backgroundAnalysis.isRunning) return;
+  
+  // Check if we've reached the batch limit or end of files
+  if (backgroundAnalysis.stats.currentSession >= backgroundAnalysis.ANALYSIS_BATCH_SIZE || 
+      backgroundAnalysis.currentIndex >= backgroundAnalysis.projectFiles.length) {
+    completeBackgroundSession();
+    return;
+  }
+  
+  const filePath = backgroundAnalysis.projectFiles[backgroundAnalysis.currentIndex];
+  const fileName = path.basename(filePath);
+  const relativePath = path.relative(PROJECT_PATH, filePath);
+  
+  // Skip if file doesn't exist or was recently analyzed
+  if (!fs.existsSync(filePath)) {
+    backgroundAnalysis.currentIndex++;
+    scheduleNextBackgroundFile();
+    return;
+  }
+  
+  // Skip if already in cache and file hasn't changed
+  const content = fs.readFileSync(filePath, 'utf8');
+  const contentHash = simpleHash(content);
+  if (analysisCache.get(filePath) === contentHash) {
+    backgroundAnalysis.currentIndex++;
+    backgroundAnalysis.stats.analyzed++;
+    backgroundAnalysis.stats.currentSession++;
+    logVerbose(`⊘ Background: ${fileName} (cached)`);
+    scheduleNextBackgroundFile();
+    return;
+  }
+  
+  try {
+    logVerbose(`${T.dim("🔍")} Background: ${fileName}...`);
+    
+    // Analyze the file (reuse existing analysis function)
+    const result = await analyzeWithContext(filePath);
+    
+    if (result) {
+      // Update cache
+      analysisCache.set(filePath, contentHash);
+      
+      // Store result
+      const hasIssues = result.status !== "excellent" && (result.issues?.length > 0 || result.improvements?.length > 0);
+      
+      analysisResults.push({
+        file: relativePath,
+        fileName,
+        duration: 0, // Background analysis doesn't track duration
+        hasIssues,
+        issues: result.issues || [],
+        improvements: result.improvements || [],
+        suggestions: result.suggestions || [],
+        positives: result.positives || [],
+        summary: result.summary,
+        overallScore: result.overallScore || 0,
+        categories: result.categories || {},
+        isBackground: true, // Mark as background analysis
+      });
+      
+      // Show compact result
+      if (hasIssues) {
+        const criticalCount = (result.issues || []).filter(i => i.severity === "critical" || i.severity === "high").length;
+        const improvementCount = (result.improvements || []).filter(i => i.priority === "high").length;
+        
+        if (criticalCount > 0) {
+          log(`${T.warning("⚠")} Background: ${fileName} - ${criticalCount} critical issues found`);
+        } else if (improvementCount > 0) {
+          logVerbose(`${T.accent("💡")} Background: ${fileName} - ${improvementCount} improvements available`);
+        }
+      } else {
+        logVerbose(`${T.success("✓")} Background: ${fileName}`);
+      }
+      
+      backgroundAnalysis.stats.analyzed++;
+    }
+    
+    backgroundAnalysis.currentIndex++;
+    backgroundAnalysis.stats.currentSession++;
+    
+  } catch (error) {
+    logVerbose(`${T.error("✗")} Background: ${fileName} - ${error.message}`);
+    backgroundAnalysis.currentIndex++;
+  }
+  
+  // Schedule next file
+  scheduleNextBackgroundFile();
+}
+
+// Schedule the next background file analysis
+function scheduleNextBackgroundFile() {
+  if (backgroundAnalysis.isPaused || !backgroundAnalysis.isRunning) return;
+  
+  backgroundAnalysis.analysisTimer = setTimeout(() => {
+    analyzeNextBackgroundFile();
+  }, backgroundAnalysis.ANALYSIS_INTERVAL);
+}
+
+// Complete the current background analysis session
+function completeBackgroundSession() {
+  backgroundAnalysis.isRunning = false;
+  backgroundAnalysis.stats.completedSessions++;
+  backgroundAnalysis.stats.remaining = backgroundAnalysis.projectFiles.length - backgroundAnalysis.currentIndex;
+  
+  const sessionCount = backgroundAnalysis.stats.currentSession;
+  const totalAnalyzed = backgroundAnalysis.stats.analyzed;
+  const remaining = backgroundAnalysis.stats.remaining;
+  
+  if (sessionCount > 0) {
+    log(`${T.success("✓")} Background analysis complete: ${sessionCount} files analyzed (${totalAnalyzed}/${backgroundAnalysis.stats.totalFiles} total, ${remaining} remaining)`);
+    
+    // Show summary of findings
+    const backgroundResults = analysisResults.filter(r => r.isBackground);
+    const recentFindings = backgroundResults.slice(-sessionCount);
+    const criticalIssues = recentFindings.filter(r => r.issues?.some(i => i.severity === "critical" || i.severity === "high")).length;
+    const improvements = recentFindings.filter(r => r.improvements?.some(i => i.priority === "high")).length;
+    
+    if (criticalIssues > 0 || improvements > 0) {
+      const parts = [];
+      if (criticalIssues > 0) parts.push(`${criticalIssues} files with critical issues`);
+      if (improvements > 0) parts.push(`${improvements} files with high-priority improvements`);
+      log(`${T.accent("📊")} Found: ${parts.join(", ")}`);
+    }
+  }
+  
+  // Reset idle timer for next session
+  resetIdleTimer();
+}
+
+// Show background analysis status
+function showBackgroundAnalysisStatus() {
+  console.log("");
+  console.log(T.accent("  ╭─────────────────────────────────────────────────────────────────╮"));
+  console.log(T.accent("  │") + chalk.bold.white("  🔍 BACKGROUND ANALYSIS STATUS                                 ") + T.accent("│"));
+  console.log(T.accent("  ╰─────────────────────────────────────────────────────────────────╯"));
+  console.log("");
+  
+  const stats = backgroundAnalysis.stats;
+  const progress = stats.totalFiles > 0 ? ((stats.analyzed / stats.totalFiles) * 100).toFixed(1) : 0;
+  
+  // Overall progress
+  console.log(`  📊 ${chalk.bold("Progress:")} ${stats.analyzed}/${stats.totalFiles} files (${progress}%)`);
+  console.log(`  🔄 ${chalk.bold("Sessions:")} ${stats.completedSessions} completed`);
+  console.log(`  ⏳ ${chalk.bold("Remaining:")} ${stats.remaining} files`);
+  
+  // Current status
+  if (backgroundAnalysis.isRunning) {
+    console.log(`  ▶️  ${chalk.bold("Status:")} ${T.accent("Running")} (${backgroundAnalysis.stats.currentSession} files this session)`);
+  } else if (backgroundAnalysis.isPaused) {
+    console.log(`  ⏸️  ${chalk.bold("Status:")} ${T.warning("Paused")} (waiting for file activity to complete)`);
+  } else {
+    const timeSinceActivity = Date.now() - backgroundAnalysis.lastActivity;
+    const timeUntilNext = Math.max(0, backgroundAnalysis.IDLE_THRESHOLD - timeSinceActivity);
+    
+    if (timeUntilNext > 0) {
+      console.log(`  ⏱️  ${chalk.bold("Status:")} ${T.dim("Waiting")} (${Math.ceil(timeUntilNext / 1000)}s until next session)`);
+    } else {
+      console.log(`  ✅ ${chalk.bold("Status:")} ${T.success("Complete")} (all files analyzed)`);
+    }
+  }
+  
+  // Recent findings
+  const backgroundResults = analysisResults.filter(r => r.isBackground);
+  if (backgroundResults.length > 0) {
+    const criticalFiles = backgroundResults.filter(r => r.issues?.some(i => i.severity === "critical" || i.severity === "high"));
+    const improvementFiles = backgroundResults.filter(r => r.improvements?.some(i => i.priority === "high"));
+    
+    console.log("");
+    console.log(`  📋 ${chalk.bold("Findings:")}`);
+    
+    if (criticalFiles.length > 0) {
+      console.log(`     🚨 ${criticalFiles.length} files with critical issues`);
+    }
+    if (improvementFiles.length > 0) {
+      console.log(`     💡 ${improvementFiles.length} files with high-priority improvements`);
+    }
+    if (criticalFiles.length === 0 && improvementFiles.length === 0) {
+      console.log(`     ✅ No critical issues found`);
+    }
+  }
+  
+  console.log("");
+}
 
 const stats = {
   analyzed: 0,
@@ -438,7 +767,7 @@ function showHeader() {
   // ═══════════════════════════════════════════════════════════════════════
   console.log("");
   console.log(T.accent("  ╭─────────────────────────────────────────────────────────────────╮"));
-  console.log(T.accent("  │") + chalk.bold.white("  🤖 LETTA CODE WATCHER                                         ") + T.accent("│"));
+  console.log(T.accent("  │") + chalk.bold.white("  🧠 CODEMIND CODE WATCHER                                      ") + T.accent("│"));
   console.log(T.accent("  ╰─────────────────────────────────────────────────────────────────╯"));
   console.log("");
   
@@ -706,10 +1035,10 @@ async function processFile(filePath) {
     return;
   }
   
-  // Check for @letta-ignore comment - skip analysis for demo/test files
-  if (content.includes("@letta-ignore")) {
+  // Check for @codemind-ignore comment - skip analysis for demo/test files
+  if (content.includes("@codemind-ignore") || content.includes("@letta-ignore")) {
     stats.skipped++;
-    logVerbose(`⊘ Skipped (@letta-ignore): ${fileName}`);
+    logVerbose(`⊘ Skipped (@codemind-ignore): ${fileName}`);
     return;
   }
   
@@ -963,6 +1292,9 @@ function showPeriodicImprovementTip() {
 }
 
 function scheduleAnalysis(filePath) {
+  // Reset idle timer - file activity detected
+  resetIdleTimer();
+  
   if (pendingAnalysis.has(filePath)) {
     clearTimeout(pendingAnalysis.get(filePath));
   }
@@ -1241,6 +1573,15 @@ async function showSessionSummary() {
   const issuesStr = stats.issues > 0 ? T.warning(`${stats.issues} findings`) : T.success("no issues");
   
   console.log(`  ⏱ ${uptimeStr}  │  ${analyzedStr}  │  ${issuesStr}`);
+  
+  // Background analysis stats
+  if (backgroundAnalysis.stats.analyzed > 0) {
+    const bgAnalyzed = backgroundAnalysis.stats.analyzed;
+    const bgTotal = backgroundAnalysis.stats.totalFiles;
+    const bgProgress = ((bgAnalyzed / bgTotal) * 100).toFixed(0);
+    console.log(`  🔍 ${T.accent("Background:")} ${bgAnalyzed}/${bgTotal} files (${bgProgress}% complete)`);
+  }
+  
   console.log("");
   
   // Overall project health score
@@ -1794,6 +2135,9 @@ watcher.on("ready", () => {
   log(T.success(`✓ Ready — watching ${totalWatched} files`));
   console.log("");
   
+  // Initialize background analysis system
+  initializeBackgroundAnalysis();
+  
   // Start keyboard listener after watcher is ready
   setTimeout(setupKeyboardListener, 100);
 });
@@ -1968,7 +2312,7 @@ async function shutdown() {
       process.exit(0);
     }
   } else {
-    console.log(T.accent("\n  ♥ Thanks for using Letta! Happy coding!\n"));
+    console.log(T.accent("\n  ♥ Thanks for using CodeMind! Happy coding!\n"));
     process.exit(0);
   }
 }
@@ -2020,7 +2364,7 @@ function syncShutdown() {
   }
   
   console.log(T.dim("  ─────────────────────────────────────────────────────────────────"));
-  console.log(`  ${T.accent("♥")} Thanks for using Letta!`);
+  console.log(`  ${T.accent("♥")} Thanks for using CodeMind!`);
   console.log(T.dim("  Tip: Press 'q' for full commit assistant"));
   console.log("");
 }
@@ -2076,6 +2420,12 @@ function setupKeyboardListener() {
         return;
       }
       
+      // 'b' or 'B' to show background analysis status
+      if (key === "b" || key === "B") {
+        showBackgroundAnalysisStatus();
+        return;
+      }
+      
       // Escape key
       if (key === "\u001B") {
         shutdown();
@@ -2085,8 +2435,10 @@ function setupKeyboardListener() {
     
     if (process.platform === "win32") {
       log(T.success("Press 'q' for full summary + commit options (recommended)"));
+      log(T.dim("Press 'b' for background analysis status"));
     } else {
       log(T.dim("Press 'q' or Ctrl+C to stop and see session summary"));
+      log(T.dim("Press 'b' for background analysis status"));
     }
     console.log("");
   } else {

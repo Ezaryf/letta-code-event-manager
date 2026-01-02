@@ -1,0 +1,11 @@
+{
+  "id": "agent-426a0c1a-328b-4daf-ba7e-2db717eead02",
+  "name": "EchoHarbor",
+  "created": "2025-12-26T10:32:33.358Z",
+  "model": "openai/gpt-4o-mini",
+  "capabilities": [
+    "code_analysis",
+    "test_fixing",
+    "memory_persistence"
+  ]
+}

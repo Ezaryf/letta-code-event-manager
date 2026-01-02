@@ -1,11 +1,11 @@
 {
-  "name": "letta",
+  "name": "codemind",
   "version": "3.1.0",
   "type": "module",
-  "description": "AI-Powered Developer Cognitive Engine - Real-time code analysis, auto-fixes, intelligent debugging, and flow protection",
+  "description": "CodeMind - AI-Powered Developer Cognitive Engine. Real-time code analysis, intelligent debugging, auto-fixes, and flow protection for enhanced coding productivity.",
   "main": "scripts/cli.js",
   "bin": {
-    "letta": "./scripts/cli.js"
+    "codemind": "./scripts/cli.js"
   },
   "scripts": {
     "start": "node scripts/cli.js",
@@ -23,6 +23,7 @@
     "setup:upgrade": "node scripts/createAgent.js --upgrade",
     "cleanup": "node scripts/cleanupAgents.js",
     "help": "node scripts/cli.js --help",
+    "migrate": "node scripts/migrate-to-codemind.js",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
     "test:property": "node --experimental-vm-modules node_modules/jest/bin/jest.js --testPathPattern=property"
@@ -31,8 +32,11 @@
     "ai",
     "coding-assistant",
     "code-analysis",
-    "letta",
-    "cli"
+    "codemind",
+    "developer-tools",
+    "cognitive-engine",
+    "cli",
+    "productivity"
   ],
   "author": "",
   "license": "MIT",
