@@ -577,7 +577,7 @@ async function analyzeWithContext(filePath) {
   const context = buildAnalysisContext(filePath, PROJECT_PATH, { includeGit: true });
   const { file, project } = context;
   
-  const prompt = `You are an expert code reviewer. Analyze this file.
+  const prompt = `You are an expert code reviewer and mentor. Analyze this file comprehensively and provide actionable feedback.
 
 PROJECT: ${project.framework || project.type} / ${project.language}
 FILE: ${file.path} (${file.lineCount} lines)
@@ -586,19 +586,75 @@ FILE: ${file.path} (${file.lineCount} lines)
 ${file.content}
 \`\`\`
 
-Check for: BUGS, SECURITY, PERFORMANCE issues.
+COMPREHENSIVE ANALYSIS REQUIRED:
+1. CRITICAL ISSUES: Bugs, security vulnerabilities, performance problems
+2. CODE QUALITY: Best practices, patterns, maintainability
+3. IMPROVEMENTS: Specific suggestions for better code
+4. MODERN PRACTICES: Latest language features, framework patterns
+5. ARCHITECTURE: Structure, organization, design patterns
+6. TESTING: Test coverage, testability improvements
+7. DOCUMENTATION: Missing comments, unclear naming
+8. PERFORMANCE: Optimization opportunities
+9. ACCESSIBILITY: If UI code, accessibility improvements
+10. SECURITY: Security best practices and hardening
+
+For each finding, provide:
+- Specific line numbers when possible
+- Clear explanation of WHY it's an issue/improvement
+- HOW to fix it with concrete examples
+- IMPACT of making the change
 
 Respond with ONLY valid JSON (no markdown, no extra text):
 {
-  "status": "ok" | "issues_found",
-  "summary": "One short sentence describing the file status",
+  "status": "excellent" | "good" | "needs_improvement" | "critical_issues",
+  "summary": "One sentence overall assessment",
+  "overallScore": 85,
+  "categories": {
+    "bugs": { "score": 90, "issues": 0 },
+    "security": { "score": 85, "issues": 1 },
+    "performance": { "score": 75, "issues": 2 },
+    "maintainability": { "score": 80, "issues": 1 },
+    "modernization": { "score": 70, "issues": 3 },
+    "testing": { "score": 60, "issues": 2 },
+    "documentation": { "score": 65, "issues": 2 }
+  },
   "issues": [
     {
-      "type": "bug|security|performance|style",
+      "type": "bug|security|performance|maintainability|modernization|testing|documentation|accessibility",
       "severity": "critical|high|medium|low",
-      "line": 0,
-      "description": "Clear description of the issue"
+      "line": 42,
+      "title": "Short descriptive title",
+      "description": "Clear explanation of the issue",
+      "why": "Why this is problematic",
+      "how": "Specific steps to fix",
+      "example": "Code example of the fix",
+      "impact": "What improves when fixed"
     }
+  ],
+  "improvements": [
+    {
+      "type": "enhancement|optimization|modernization|best_practice",
+      "priority": "high|medium|low",
+      "line": 15,
+      "title": "Use async/await instead of promises",
+      "description": "Replace .then() chains with modern async/await",
+      "benefit": "Improved readability and error handling",
+      "example": "const result = await fetchData(); instead of fetchData().then()",
+      "effort": "low|medium|high"
+    }
+  ],
+  "suggestions": [
+    {
+      "category": "architecture|patterns|naming|structure",
+      "title": "Extract utility function",
+      "description": "This logic appears in multiple places",
+      "actionable": "Create a shared utility function in utils/helpers.js"
+    }
+  ],
+  "positives": [
+    "Good error handling in the main function",
+    "Clear variable naming throughout",
+    "Proper TypeScript types defined"
   ]
 }`;
   
@@ -689,6 +745,11 @@ async function processFile(filePath) {
   
   stats.analyzed++;
   const startTime = Date.now();
+  
+  // Show periodic improvement tips
+  if (stats.analyzed % 3 === 0 && analysisResults.length > 0) {
+    showPeriodicImprovementTip();
+  }
 
   // 🧠 Cognitive Engine: Run predictive analysis first
   let cognitiveResult = null;
@@ -727,7 +788,7 @@ async function processFile(filePath) {
   analysisCache.set(filePath, contentHash);
   changedFiles.add(relativePath);
   
-  const hasIssues = result.status !== "ok" && result.issues?.length > 0;
+  const hasIssues = result.status !== "excellent" && (result.issues?.length > 0 || result.improvements?.length > 0);
   
   // Store result for summary (include cognitive insights)
   analysisResults.push({
@@ -736,7 +797,12 @@ async function processFile(filePath) {
     duration,
     hasIssues,
     issues: result.issues || [],
+    improvements: result.improvements || [],
+    suggestions: result.suggestions || [],
+    positives: result.positives || [],
     summary: result.summary,
+    overallScore: result.overallScore || 0,
+    categories: result.categories || {},
     cognitive: cognitiveResult ? {
       intent: cognitiveResult.intent?.intent,
       riskLevel: cognitiveResult.predictions?.riskScore?.level,
@@ -744,13 +810,24 @@ async function processFile(filePath) {
     } : null,
   });
   
-  // Clean output
+  // Enhanced output with scores and comprehensive feedback
+  const scoreColor = result.overallScore >= 90 ? T.success : 
+                    result.overallScore >= 75 ? T.accent : 
+                    result.overallScore >= 60 ? T.warning : T.error;
+  
+  const statusIcon = result.status === "excellent" ? "🌟" :
+                    result.status === "good" ? "✓" :
+                    result.status === "needs_improvement" ? "⚠" : "❌";
+  
   if (hasIssues) {
-    stats.issues += result.issues.length;
-    log(`${T.warning("⚠")} ${fileName} ${T.dim(`(${result.issues.length} issues, ${duration}s)`)}`);
+    const totalFindings = (result.issues?.length || 0) + (result.improvements?.length || 0);
+    stats.issues += totalFindings;
     
-    // Show issues compactly
-    for (const issue of result.issues) {
+    log(`${T.warning(statusIcon)} ${fileName} ${scoreColor(`${result.overallScore}/100`)} ${T.dim(`(${totalFindings} findings, ${duration}s)`)}`);
+    
+    // Show critical issues first
+    const criticalIssues = result.issues?.filter(i => i.severity === "critical" || i.severity === "high") || [];
+    for (const issue of criticalIssues) {
       if (issue.type === "bug") stats.issuesByType.bugs++;
       else if (issue.type === "security") stats.issuesByType.security++;
       else if (issue.type === "performance") stats.issuesByType.performance++;
@@ -760,19 +837,72 @@ async function processFile(filePath) {
         stats.severityCounts[issue.severity] = (stats.severityCounts[issue.severity] || 0) + 1;
       }
       
-      const sevIcon = { critical: "!", high: "!", medium: "·", low: "·" }[issue.severity] || "·";
-      const sevColor = { critical: T.error, high: T.warning, medium: chalk.white, low: T.dim }[issue.severity] || T.dim;
+      const sevIcon = { critical: "🚨", high: "⚠️", medium: "💡", low: "ℹ️" }[issue.severity] || "💡";
       const lineInfo = issue.line ? T.dim(` L${issue.line}`) : "";
       
-      console.log(`       ${sevColor(sevIcon)} ${issue.description || "Issue detected"}${lineInfo}`);
+      console.log(`       ${sevIcon} ${T.error(issue.title || issue.description)}${lineInfo}`);
+      if (issue.why && VERBOSE_OUTPUT) {
+        console.log(`          ${T.dim("Why:")} ${issue.why}`);
+      }
+      if (issue.how) {
+        console.log(`          ${T.dim("Fix:")} ${issue.how}`);
+      }
+    }
+    
+    // Show top improvements
+    const highPriorityImprovements = result.improvements?.filter(i => i.priority === "high").slice(0, 2) || [];
+    for (const improvement of highPriorityImprovements) {
+      const lineInfo = improvement.line ? T.dim(` L${improvement.line}`) : "";
+      console.log(`       💡 ${T.accent(improvement.title)}${lineInfo}`);
+      console.log(`          ${T.dim("Benefit:")} ${improvement.benefit}`);
+      if (improvement.example && VERBOSE_OUTPUT) {
+        console.log(`          ${T.dim("Example:")} ${improvement.example}`);
+      }
+    }
+    
+    // Show architectural suggestions
+    const archSuggestions = result.suggestions?.filter(s => s.category === "architecture" || s.category === "patterns").slice(0, 1) || [];
+    for (const suggestion of archSuggestions) {
+      console.log(`       🏗️  ${T.accent(suggestion.title)}`);
+      console.log(`          ${suggestion.actionable}`);
+    }
+    
+    // Show what's good (positive reinforcement)
+    if (result.positives?.length > 0 && VERBOSE_OUTPUT) {
+      console.log(`       ${T.success("✨ Good:")} ${result.positives[0]}`);
     }
 
     // 🧠 Show cognitive suggestions if available
     if (cognitiveResult?.suggestions?.length > 0 && !cognitiveResult.flow?.flowState?.state?.includes('FLOW')) {
-      console.log(T.dim(`       💡 ${cognitiveResult.suggestions[0].message}`));
+      console.log(`       🧠 ${T.dim(cognitiveResult.suggestions[0].message)}`);
     }
   } else {
-    log(`${T.success("✓")} ${fileName} ${T.dim(`(${duration}s)`)}`);
+    log(`${T.success(statusIcon)} ${fileName} ${scoreColor(`${result.overallScore}/100`)} ${T.dim(`(${duration}s)`)}`);
+    
+    // Even for "good" files, show top improvement if available
+    if (result.improvements?.length > 0) {
+      const topImprovement = result.improvements[0];
+      console.log(`       💡 ${T.dim(topImprovement.title)} - ${topImprovement.benefit}`);
+    }
+    
+    // Show what's excellent
+    if (result.positives?.length > 0) {
+      console.log(`       ${T.success("✨")} ${result.positives[0]}`);
+    }
+    
+    // Show immediate actionable suggestion
+    if (result.improvements?.length > 0) {
+      const quickWin = result.improvements.find(i => i.effort === "low") || result.improvements[0];
+      console.log(`       ${T.accent("💡 Quick win:")} ${quickWin.title}`);
+    }
+  }
+  
+  // Show real-time learning insights
+  if (cognitiveEngine && result.overallScore < 80) {
+    const insight = cognitiveEngine.generateImprovementInsight(result);
+    if (insight) {
+      console.log(`       ${T.dim("🧠 Insight:")} ${insight}`);
+    }
   }
 }
 
@@ -783,6 +913,53 @@ function simpleHash(str) {
     hash = hash & hash;
   }
   return hash.toString(16);
+}
+
+function showPeriodicImprovementTip() {
+  const recentResults = analysisResults.slice(-3);
+  const commonIssues = {};
+  const commonImprovements = {};
+  
+  // Analyze patterns in recent results
+  recentResults.forEach(result => {
+    (result.issues || []).forEach(issue => {
+      commonIssues[issue.type] = (commonIssues[issue.type] || 0) + 1;
+    });
+    (result.improvements || []).forEach(imp => {
+      commonImprovements[imp.type] = (commonImprovements[imp.type] || 0) + 1;
+    });
+  });
+  
+  // Find most common pattern
+  const topIssue = Object.entries(commonIssues).sort(([,a], [,b]) => b - a)[0];
+  const topImprovement = Object.entries(commonImprovements).sort(([,a], [,b]) => b - a)[0];
+  
+  if (topIssue && topIssue[1] >= 2) {
+    const tips = {
+      security: "💡 Tip: Consider using environment variables for sensitive data and validating all inputs",
+      performance: "💡 Tip: Look for opportunities to cache results, use lazy loading, or optimize loops",
+      maintainability: "💡 Tip: Break down large functions, use descriptive names, and add comments for complex logic",
+      modernization: "💡 Tip: Consider using modern ES6+ features like destructuring, arrow functions, and async/await"
+    };
+    
+    if (tips[topIssue[0]]) {
+      console.log("");
+      console.log(`  ${T.accent(tips[topIssue[0]])}`);
+      console.log("");
+    }
+  } else if (topImprovement && topImprovement[1] >= 2) {
+    const improvementTips = {
+      enhancement: "💡 Pattern detected: Consider creating reusable components or utilities for repeated logic",
+      optimization: "💡 Pattern detected: Look for caching opportunities and algorithm improvements",
+      modernization: "💡 Pattern detected: Gradually adopt modern language features for better maintainability"
+    };
+    
+    if (improvementTips[topImprovement[0]]) {
+      console.log("");
+      console.log(`  ${T.accent(improvementTips[topImprovement[0]])}`);
+      console.log("");
+    }
+  }
 }
 
 function scheduleAnalysis(filePath) {
@@ -1054,17 +1231,27 @@ function generateFallbackMessage(gitStatus, categories, fileList = []) {
 async function showSessionSummary() {
   console.log("");
   console.log(T.accent("  ╭─────────────────────────────────────────────────────────────────╮"));
-  console.log(T.accent("  │") + chalk.bold.white("  📊 SESSION SUMMARY                                            ") + T.accent("│"));
+  console.log(T.accent("  │") + chalk.bold.white("  📊 COMPREHENSIVE SESSION ANALYSIS                            ") + T.accent("│"));
   console.log(T.accent("  ╰─────────────────────────────────────────────────────────────────╯"));
   console.log("");
   
   // Stats row - clean and visual
   const uptimeStr = chalk.white(getUptime());
   const analyzedStr = stats.analyzed > 0 ? T.success(`${stats.analyzed} analyzed`) : T.dim("0 analyzed");
-  const issuesStr = stats.issues > 0 ? T.warning(`${stats.issues} issues`) : T.success("no issues");
+  const issuesStr = stats.issues > 0 ? T.warning(`${stats.issues} findings`) : T.success("no issues");
   
   console.log(`  ⏱ ${uptimeStr}  │  ${analyzedStr}  │  ${issuesStr}`);
   console.log("");
+  
+  // Overall project health score
+  if (analysisResults.length > 0) {
+    const avgScore = analysisResults.reduce((sum, r) => sum + (r.overallScore || 0), 0) / analysisResults.length;
+    const healthColor = avgScore >= 90 ? T.success : avgScore >= 75 ? T.accent : avgScore >= 60 ? T.warning : T.error;
+    const healthIcon = avgScore >= 90 ? "🌟" : avgScore >= 75 ? "✅" : avgScore >= 60 ? "⚠️" : "🚨";
+    
+    console.log(`  ${healthIcon} ${chalk.bold("Project Health:")} ${healthColor(`${avgScore.toFixed(0)}/100`)}`);
+    console.log("");
+  }
   
   // 🧠 Cognitive Engine stats
   if (cognitiveEngine && ENABLE_COGNITIVE) {
@@ -1085,37 +1272,129 @@ async function showSessionSummary() {
     }
   }
   
-  // Issue breakdown (if any)
-  if (stats.issues > 0) {
-    const issueParts = [];
-    if (stats.issuesByType.bugs > 0) issueParts.push(`${stats.issuesByType.bugs} bugs`);
-    if (stats.issuesByType.security > 0) issueParts.push(`${stats.issuesByType.security} security`);
-    if (stats.issuesByType.performance > 0) issueParts.push(`${stats.issuesByType.performance} perf`);
-    if (stats.issuesByType.style > 0) issueParts.push(`${stats.issuesByType.style} style`);
-    console.log(T.dim(`  Found: ${issueParts.join(", ")}`));
+  // Category breakdown with scores
+  if (analysisResults.length > 0) {
+    const categoryScores = {
+      bugs: [], security: [], performance: [], maintainability: [], 
+      modernization: [], testing: [], documentation: []
+    };
+    
+    analysisResults.forEach(r => {
+      if (r.categories) {
+        Object.keys(categoryScores).forEach(cat => {
+          if (r.categories[cat]?.score) {
+            categoryScores[cat].push(r.categories[cat].score);
+          }
+        });
+      }
+    });
+    
+    console.log(`  📈 ${chalk.bold("Code Quality Breakdown:")}`);
+    Object.entries(categoryScores).forEach(([category, scores]) => {
+      if (scores.length > 0) {
+        const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length;
+        const scoreColor = avgScore >= 90 ? T.success : avgScore >= 75 ? T.accent : avgScore >= 60 ? T.warning : T.error;
+        const icon = avgScore >= 90 ? "🌟" : avgScore >= 75 ? "✅" : avgScore >= 60 ? "⚠️" : "🚨";
+        console.log(`     ${icon} ${category.charAt(0).toUpperCase() + category.slice(1)}: ${scoreColor(`${avgScore.toFixed(0)}/100`)}`);
+      }
+    });
     console.log("");
   }
   
-  // Files analyzed - compact list
+  // Top actionable improvements
+  const allImprovements = analysisResults.flatMap(r => 
+    (r.improvements || []).map(imp => ({ ...imp, file: r.fileName }))
+  ).filter(imp => imp.priority === "high").slice(0, 3);
+  
+  if (allImprovements.length > 0) {
+    console.log(`  💡 ${chalk.bold("Top Improvement Opportunities:")}`);
+    allImprovements.forEach((imp, i) => {
+      console.log(`     ${i + 1}. ${T.accent(imp.title)} (${imp.file})`);
+      console.log(`        ${T.dim("→")} ${imp.benefit}`);
+      if (imp.effort) {
+        const effortColor = imp.effort === "low" ? T.success : imp.effort === "medium" ? T.warning : T.error;
+        console.log(`        ${T.dim("Effort:")} ${effortColor(imp.effort)}`);
+      }
+    });
+    console.log("");
+  }
+  
+  // Architectural suggestions
+  const archSuggestions = analysisResults.flatMap(r => 
+    (r.suggestions || []).filter(s => s.category === "architecture" || s.category === "patterns")
+  ).slice(0, 2);
+  
+  if (archSuggestions.length > 0) {
+    console.log(`  🏗️  ${chalk.bold("Architecture Recommendations:")}`);
+    archSuggestions.forEach((sug, i) => {
+      console.log(`     ${i + 1}. ${T.accent(sug.title)}`);
+      console.log(`        ${sug.actionable}`);
+    });
+    console.log("");
+  }
+  
+  // Critical issues that need immediate attention
+  const criticalIssues = analysisResults.flatMap(r => 
+    (r.issues || []).filter(issue => issue.severity === "critical" || issue.severity === "high")
+      .map(issue => ({ ...issue, file: r.fileName }))
+  ).slice(0, 3);
+  
+  if (criticalIssues.length > 0) {
+    console.log(`  🚨 ${chalk.bold("Critical Issues Requiring Attention:")}`);
+    criticalIssues.forEach((issue, i) => {
+      const sevIcon = issue.severity === "critical" ? "🚨" : "⚠️";
+      console.log(`     ${sevIcon} ${T.error(issue.title || issue.description)} (${issue.file})`);
+      if (issue.how) {
+        console.log(`        ${T.dim("Fix:")} ${issue.how}`);
+      }
+    });
+    console.log("");
+  }
+  
+  // What's going well (positive reinforcement)
+  const positives = analysisResults.flatMap(r => r.positives || []).slice(0, 3);
+  if (positives.length > 0) {
+    console.log(`  ✨ ${chalk.bold("What's Going Well:")}`);
+    positives.forEach((positive, i) => {
+      console.log(`     ${T.success("•")} ${positive}`);
+    });
+    console.log("");
+  }
+  
+  // Files analyzed - compact list with scores
   if (analysisResults.length > 0) {
     const withIssues = analysisResults.filter(r => r.hasIssues);
-    const clean = analysisResults.filter(r => !r.hasIssues);
+    const excellent = analysisResults.filter(r => (r.overallScore || 0) >= 90);
     
     if (withIssues.length > 0) {
-      console.log(`  ${T.warning("⚠")} ${withIssues.length} file(s) with issues:`);
-      for (const result of withIssues.slice(0, 5)) {
-        console.log(T.dim(`    ${result.fileName}`));
-      }
-      if (withIssues.length > 5) {
-        console.log(T.dim(`    +${withIssues.length - 5} more`));
+      console.log(`  📋 ${chalk.bold("Files Analyzed:")}`);
+      console.log(`     ${T.warning("⚠")} ${withIssues.length} file(s) with improvement opportunities`);
+      if (excellent.length > 0) {
+        console.log(`     ${T.success("🌟")} ${excellent.length} file(s) excellent quality`);
       }
       console.log("");
     }
+  }
+  
+  // Next steps recommendation
+  if (analysisResults.length > 0) {
+    console.log(`  🎯 ${chalk.bold("Recommended Next Steps:")}`);
     
-    if (clean.length > 0) {
-      console.log(`  ${T.success("✓")} ${clean.length} file(s) passed`);
-      console.log("");
+    if (criticalIssues.length > 0) {
+      console.log(`     1. ${T.error("Address critical issues first")} (security & bugs)`);
+      console.log(`     2. ${T.warning("Implement high-priority improvements")}`);
+      console.log(`     3. ${T.accent("Consider architectural suggestions")}`);
+    } else if (allImprovements.length > 0) {
+      console.log(`     1. ${T.accent("Implement high-impact improvements")}`);
+      console.log(`     2. ${T.dim("Review modernization opportunities")}`);
+      console.log(`     3. ${T.dim("Enhance testing and documentation")}`);
+    } else {
+      console.log(`     ${T.success("✓ Code quality is excellent! Consider:")}`);
+      console.log(`     1. ${T.dim("Add more comprehensive tests")}`);
+      console.log(`     2. ${T.dim("Improve documentation")}`);
+      console.log(`     3. ${T.dim("Explore performance optimizations")}`);
     }
+    console.log("");
   }
 }
 
