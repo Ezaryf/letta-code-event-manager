@@ -40,7 +40,7 @@
 
 ## 🎯 What is CodeMind?
 
-CodeMind is a **Developer Cognitive Engine** - an AI-powered coding assistant that goes beyond simple code analysis. It's designed to be a cognitive partner that:
+CodeMind is a **Developer Cognitive Engine** - an AI-powered coding assistant that goes beyond simple code analysis. Built on top of the Letta AI platform, it's designed to be a cognitive partner that:
 
 - **Watches** your code in real-time and catches issues before they become bugs
 - **Understands** your intent and adapts its assistance accordingly
@@ -68,7 +68,7 @@ CodeMind is a **Developer Cognitive Engine** - an AI-powered coding assistant th
 - **Node.js** 18.0.0 or higher
 - **npm** or **yarn**
 - **Git** (for commit features)
-- **Letta API Key** from [app.letta.ai](https://app.letta.ai)
+- **Letta API Key** from [app.letta.com](https://app.letta.com) (CodeMind uses Letta AI as backend)
 
 ### Installation
 
@@ -93,7 +93,7 @@ npm start
 
 2. **Select "🚀 Quick Setup"** from the menu
 
-3. **Enter your API key** when prompted (get it from [app.letta.ai](https://app.letta.ai))
+3. **Enter your API key** when prompted (get it from [app.letta.com](https://app.letta.com))
 
 4. **Wait for agent creation** (automatic)
 

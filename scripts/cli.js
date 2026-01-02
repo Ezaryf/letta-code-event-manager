@@ -26,7 +26,7 @@ function hasAgent() {
 }
 
 function hasApiKey() {
-  return process.env.CODEMIND_API_KEY && process.env.CODEMIND_API_KEY !== "sk-let-your-api-key-here";
+  return process.env.LETTA_API_KEY && process.env.LETTA_API_KEY !== "sk-let-your-api-key-here";
 }
 
 function getAgentId() {
@@ -564,7 +564,7 @@ async function runQuickSetup() {
   // Step 1: API Key
   if (!hasApiKey()) {
     console.log(chalk.bold.white("  Step 1: Configure API Key\n"));
-    console.log(chalk.gray("  Get your key from: https://app.letta.com (CodeMind uses Letta AI backend)\n"));
+    console.log(chalk.gray("  Get your key from: https://app.letta.com\n"));
     
     const apiKey = await secureInput("API Key:");
     
@@ -613,7 +613,7 @@ async function runQuickSetup() {
       const { spawn } = await import("child_process");
       const child = spawn("node", [path.join(ROOT, "scripts/createAgent.js")], {
         cwd: ROOT,
-        env: { ...process.env, CODEMIND_API_KEY: process.env.CODEMIND_API_KEY },
+        env: { ...process.env, LETTA_API_KEY: process.env.LETTA_API_KEY },
         stdio: "pipe",
       });
       
@@ -829,8 +829,8 @@ async function runChat() {
   
   const { Letta } = await import("@letta-ai/letta-client");
   const client = new Letta({
-    apiKey: process.env.CODEMIND_API_KEY,
-    projectID: process.env.CODEMIND_PROJECT_ID,
+    apiKey: process.env.LETTA_API_KEY,
+    projectID: process.env.LETTA_PROJECT_ID,
   });
   const agentId = getAgentId();
   
@@ -1726,7 +1726,7 @@ async function runConfigureApiKey() {
   showBanner("🔑 CONFIGURE API KEY");
   
   console.log(chalk.gray("  Your API key will be stored securely using hardware-bound encryption"));
-  console.log(chalk.gray("  Get your key from: https://app.letta.ai\n"));
+  console.log(chalk.gray("  Get your key from: https://app.letta.com\n"));
   
   if (hasApiKey()) {
     console.log(chalk.green("  ✓ API key is already configured\n"));
@@ -1820,7 +1820,7 @@ async function runSetup() {
   showBanner("⚙️ AGENT SETUP");
   
   if (!hasApiKey()) {
-    console.log(chalk.red("  ❌ CODEMIND_API_KEY not set. Configure API key first.\n"));
+    console.log(chalk.red("  ❌ LETTA_API_KEY not set. Configure API key first.\n"));
     await waitForKey();
     return;
   }
@@ -1911,7 +1911,7 @@ async function runCleanup() {
   showBanner("🧹 AGENT CLEANUP");
   
   if (!hasApiKey()) {
-    console.log(chalk.red("  ❌ CODEMIND_API_KEY not set.\n"));
+    console.log(chalk.red("  ❌ LETTA_API_KEY not set.\n"));
     await waitForKey();
     return;
   }

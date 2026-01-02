@@ -138,11 +138,11 @@ function saveAgentConfig(agent, template) {
 
 async function main() {
   // Check API key
-  const apiKey = process.env.CODEMIND_API_KEY;
-  const projectID = process.env.CODEMIND_PROJECT_ID || undefined;
+  const apiKey = process.env.LETTA_API_KEY;
+  const projectID = process.env.LETTA_PROJECT_ID || undefined;
 
   if (!apiKey || apiKey === "sk-let-your-api-key-here") {
-    console.error("❌ CODEMIND_API_KEY not configured");
+    console.error("❌ LETTA_API_KEY not configured");
     console.error("   Run: npm start → Configure API Key");
     console.error("   Or edit .env file directly");
     process.exit(1);

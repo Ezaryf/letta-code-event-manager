@@ -421,8 +421,8 @@ export class SecureCredentialManager {
    */
   validateApiKey(apiKey, service) {
     const patterns = {
-      codemind: /^sk-let-[a-zA-Z0-9]{32,}$/,
-      letta: /^sk-let-[a-zA-Z0-9]{32,}$/,  // Keep for backward compatibility with Letta AI service
+      letta: /^sk-let-[a-zA-Z0-9]{32,}$/,  // Letta AI service (used by CodeMind)
+      codemind: /^sk-let-[a-zA-Z0-9]{32,}$/,  // Alias for Letta format
       openai: /^sk-[a-zA-Z0-9]{48,}$/,
       anthropic: /^sk-ant-[a-zA-Z0-9-]{32,}$/,
       default: /^[a-zA-Z0-9-_]{16,}$/ // Generic pattern
