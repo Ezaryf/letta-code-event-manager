@@ -1,5 +1,5 @@
 /**
- * Jest configuration for Letta IDE Collaboration tests
+ * Jest configuration for CodeMind IDE Collaboration tests
  */
 export default {
   // Use ES modules

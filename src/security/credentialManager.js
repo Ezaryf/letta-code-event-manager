@@ -224,7 +224,7 @@ class CrossPlatformKeychain {
 
   // Fallback file-based storage (encrypted)
   async storeFile(service, account, secret) {
-    const credentialsDir = path.join(os.homedir(), '.letta', 'credentials');
+    const credentialsDir = path.join(os.homedir(), '.codemind', 'credentials');
     if (!fs.existsSync(credentialsDir)) {
       fs.mkdirSync(credentialsDir, { recursive: true, mode: 0o700 });
     }
@@ -240,7 +240,7 @@ class CrossPlatformKeychain {
   }
 
   async retrieveFile(service, account) {
-    const credentialsDir = path.join(os.homedir(), '.letta', 'credentials');
+    const credentialsDir = path.join(os.homedir(), '.codemind', 'credentials');
     const filePath = path.join(credentialsDir, `${service}-${account}.enc`);
     
     if (!fs.existsSync(filePath)) {
@@ -260,7 +260,7 @@ class CrossPlatformKeychain {
   }
 
   async deleteFile(service, account) {
-    const credentialsDir = path.join(os.homedir(), '.letta', 'credentials');
+    const credentialsDir = path.join(os.homedir(), '.codemind', 'credentials');
     const filePath = path.join(credentialsDir, `${service}-${account}.enc`);
     
     if (fs.existsSync(filePath)) {
@@ -285,7 +285,7 @@ export class SecureCredentialManager {
   /**
    * Store API key securely with automatic rotation scheduling
    */
-  async storeApiKey(apiKey, service = 'letta', options = {}) {
+  async storeApiKey(apiKey, service = 'codemind', options = {}) {
     const account = options.account || 'default';
     const rotationDays = options.rotationDays || KEY_ROTATION_DAYS;
     
@@ -321,7 +321,7 @@ export class SecureCredentialManager {
   /**
    * Retrieve API key with session-based authentication
    */
-  async retrieveApiKey(service = 'letta', options = {}) {
+  async retrieveApiKey(service = 'codemind', options = {}) {
     const account = options.account || 'default';
     const sessionKey = `${service}-${account}`;
     
@@ -339,7 +339,7 @@ export class SecureCredentialManager {
     const apiKey = await this.keychain.retrieve(service, account);
     
     if (!apiKey) {
-      throw new Error(`No API key found for ${service}. Run 'letta setup' to configure.`);
+      throw new Error(`No API key found for ${service}. Run 'codemind setup' to configure.`);
     }
     
     return apiKey;
@@ -348,7 +348,7 @@ export class SecureCredentialManager {
   /**
    * Delete API key and clear rotation schedule
    */
-  async deleteApiKey(service = 'letta', account = 'default') {
+  async deleteApiKey(service = 'codemind', account = 'default') {
     const deleted = await this.keychain.delete(service, account);
     
     if (deleted) {
@@ -368,7 +368,7 @@ export class SecureCredentialManager {
   /**
    * Rotate API key (manual or automatic)
    */
-  async rotateApiKey(service = 'letta', account = 'default', newApiKey = null) {
+  async rotateApiKey(service = 'codemind', account = 'default', newApiKey = null) {
     if (!newApiKey) {
       console.log('🔄 API key rotation requires a new key. Please provide one.');
       return false;
@@ -421,7 +421,8 @@ export class SecureCredentialManager {
    */
   validateApiKey(apiKey, service) {
     const patterns = {
-      letta: /^sk-let-[a-zA-Z0-9]{32,}$/,
+      codemind: /^sk-let-[a-zA-Z0-9]{32,}$/,
+      letta: /^sk-let-[a-zA-Z0-9]{32,}$/,  // Keep for backward compatibility with Letta AI service
       openai: /^sk-[a-zA-Z0-9]{48,}$/,
       anthropic: /^sk-ant-[a-zA-Z0-9-]{32,}$/,
       default: /^[a-zA-Z0-9-_]{16,}$/ // Generic pattern
@@ -478,7 +479,7 @@ export class SecureCredentialManager {
     if (now >= schedule.rotationDate) {
       console.warn(`⚠️ API key for ${service} is due for rotation`);
       console.warn(`   Last rotated: ${schedule.lastRotated.toLocaleDateString()}`);
-      console.warn(`   Run 'letta rotate-key ${service}' to update`);
+      console.warn(`   Run 'codemind rotate-key ${service}' to update`);
     }
   }
 
@@ -486,7 +487,7 @@ export class SecureCredentialManager {
    * Save rotation schedule to disk
    */
   async saveRotationSchedule() {
-    const scheduleDir = path.join(os.homedir(), '.letta');
+    const scheduleDir = path.join(os.homedir(), '.codemind');
     if (!fs.existsSync(scheduleDir)) {
       fs.mkdirSync(scheduleDir, { recursive: true, mode: 0o700 });
     }
@@ -510,7 +511,7 @@ export class SecureCredentialManager {
    * Load rotation schedule from disk
    */
   async loadRotationSchedule() {
-    const schedulePath = path.join(os.homedir(), '.letta', 'rotation-schedule.json');
+    const schedulePath = path.join(os.homedir(), '.codemind', 'rotation-schedule.json');
     
     if (!fs.existsSync(schedulePath)) return;
     

@@ -1,5 +1,5 @@
 /**
- * 🧠 LETTA COGNITIVE ENGINE
+ * 🧠 CODEMIND COGNITIVE ENGINE
  * 
  * The main orchestrator that combines all six pillars into a unified
  * cognitive partner that thinks alongside developers.
@@ -872,7 +872,7 @@ export class CognitiveEngine {
   /**
    * Store API key securely
    */
-  async storeApiKey(apiKey, service = 'letta', options = {}) {
+  async storeApiKey(apiKey, service = 'codemind', options = {}) {
     if (!this.config.enableSecurity) {
       return { error: 'Security features disabled' };
     }
@@ -882,7 +882,7 @@ export class CognitiveEngine {
   /**
    * Retrieve API key securely
    */
-  async retrieveApiKey(service = 'letta', options = {}) {
+  async retrieveApiKey(service = 'codemind', options = {}) {
     if (!this.config.enableSecurity) {
       return { error: 'Security features disabled' };
     }

@@ -287,7 +287,7 @@ class ProgressiveRenderer {
   renderMinimal(data) {
     const status = this.getStatusIndicator(data);
     const hint = chalk.dim(' (⌘L for details)');
-    return `[Letta: ${status}]${hint}`;
+    return `[CodeMind: ${status}]${hint}`;
   }
 
   /**
@@ -298,7 +298,7 @@ class ProgressiveRenderer {
     const issues = data.issues || 0;
     const fixed = data.fixed || 0;
     
-    return `[Letta: ${status}] ${issues} issues | ${fixed} fixed | ${data.flowState || 'Working'}`;
+    return `[CodeMind: ${status}] ${issues} issues | ${fixed} fixed | ${data.flowState || 'Working'}`;
   }
 
   /**
@@ -309,7 +309,7 @@ class ProgressiveRenderer {
     const width = Math.min(this.terminalWidth, 60);
     
     // Header
-    lines.push(this.createBox('Letta Status', width));
+    lines.push(this.createBox('CodeMind Status', width));
     
     // Project info
     if (data.project) {
@@ -356,7 +356,7 @@ class ProgressiveRenderer {
     const width = Math.min(this.terminalWidth, 80);
     
     // Header with full project info
-    lines.push(this.createBox(`Letta - ${data.project?.name || 'Project'}`, width));
+    lines.push(this.createBox(`CodeMind - ${data.project?.name || 'Project'}`, width));
     
     if (data.project) {
       lines.push(`Version: ${data.project.version} | Files: ${data.project.fileCount || 0}`);

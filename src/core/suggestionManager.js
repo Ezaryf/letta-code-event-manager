@@ -31,7 +31,7 @@ export class SuggestionManager {
     this.projectPath = projectPath;
     
     /** @type {string} */
-    this.suggestionsDir = path.join(projectPath, '.letta', 'suggestions');
+    this.suggestionsDir = path.join(projectPath, '.codemind', 'suggestions');
     
     /** @type {number} */
     this.retentionPeriod = DEFAULT_RETENTION;

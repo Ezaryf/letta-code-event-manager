@@ -45,7 +45,7 @@
 // ============================================================================
 
 /**
- * @typedef {'letta' | 'ide'} LockOwner
+ * @typedef {'codemind' | 'ide'} LockOwner
  */
 
 /**
@@ -206,7 +206,7 @@
 /**
  * @typedef {Object} ConflictInfo
  * @property {string} file - File with conflict
- * @property {string} lettaVersion - Path to Letta's version
+ * @property {string} codemindVersion - Path to CodeMind's version
  * @property {string} ideVersion - Path to IDE's version
  * @property {Date} detectedAt - When the conflict was detected
  * @property {boolean} resolved - Whether the conflict has been resolved

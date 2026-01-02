@@ -250,7 +250,7 @@ class GitSafetyManager {
    * Create safety branch for changes
    */
   async createSafetyBranch(changeId) {
-    const branchName = `letta-safety-${changeId}-${Date.now()}`;
+    const branchName = `codemind-safety-${changeId}-${Date.now()}`;
     
     try {
       // Create and switch to safety branch
@@ -270,7 +270,7 @@ class GitSafetyManager {
    * Create revert snapshot
    */
   async createRevertSnapshot(files, changeId) {
-    const snapshotDir = path.join(this.projectPath, '.letta', 'snapshots');
+    const snapshotDir = path.join(this.projectPath, '.codemind', 'snapshots');
     if (!fs.existsSync(snapshotDir)) {
       fs.mkdirSync(snapshotDir, { recursive: true });
     }
@@ -304,7 +304,7 @@ class GitSafetyManager {
    * Revert changes using snapshot
    */
   async revertFromSnapshot(changeId) {
-    const snapshotPath = path.join(this.projectPath, '.letta', 'snapshots', `${changeId}.json`);
+    const snapshotPath = path.join(this.projectPath, '.codemind', 'snapshots', `${changeId}.json`);
     
     if (!fs.existsSync(snapshotPath)) {
       throw new Error(`Snapshot not found for change ${changeId}`);
@@ -326,7 +326,7 @@ class GitSafetyManager {
    * Cleanup old snapshots
    */
   cleanupSnapshot(changeId) {
-    const snapshotPath = path.join(this.projectPath, '.letta', 'snapshots', `${changeId}.json`);
+    const snapshotPath = path.join(this.projectPath, '.codemind', 'snapshots', `${changeId}.json`);
     if (fs.existsSync(snapshotPath)) {
       fs.unlinkSync(snapshotPath);
     }
@@ -519,7 +519,7 @@ export class ChangeSafetyProtocol {
       // Step 6: Commit changes
       if (safetyBranch) {
         execSync(`git add ${change.filePath}`, { cwd: this.projectPath });
-        execSync(`git commit -m "Letta auto-fix: ${change.description} (${changeId})"`, {
+        execSync(`git commit -m "CodeMind auto-fix: ${change.description} (${changeId})"`, {
           cwd: this.projectPath
         });
       }

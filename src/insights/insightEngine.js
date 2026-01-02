@@ -1,5 +1,5 @@
 /**
- * 🧬 Letta Insight Engine
+ * 🧠 CodeMind Insight Engine
  * 
  * Revolutionary personal analytics for developers - "Fitbit for your developer mind"
  * Transforms raw development activity into deep self-awareness and growth insights.

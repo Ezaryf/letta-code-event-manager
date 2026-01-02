@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Create Letta agent from template with version tracking
+// Create CodeMind agent from template with version tracking
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -13,8 +13,8 @@ const ROOT = path.join(__dirname, "..");
 
 // Paths
 const TEMPLATE_PATH = path.join(ROOT, "templates/agent/code_agent.json");
-const AGENT_ID_FILE = path.join(ROOT, ".letta_agent_id");
-const AGENT_CONFIG_FILE = path.join(ROOT, ".letta_agent_config.json");
+const AGENT_ID_FILE = path.join(ROOT, ".codemind_agent_id");
+const AGENT_CONFIG_FILE = path.join(ROOT, ".codemind_agent_config.json");
 
 // CLI flags
 const FORCE_RECREATE = process.argv.includes("--force");
@@ -23,8 +23,8 @@ const SHOW_HELP = process.argv.includes("--help") || process.argv.includes("-h")
 
 if (SHOW_HELP) {
   console.log(`
-LettaCode Agent Setup
-======================
+CodeMind Agent Setup
+====================
 
 Usage:
   npm run setup              Create agent from template (if none exists)
@@ -138,11 +138,11 @@ function saveAgentConfig(agent, template) {
 
 async function main() {
   // Check API key
-  const apiKey = process.env.LETTA_API_KEY;
-  const projectID = process.env.LETTA_PROJECT_ID || undefined;
+  const apiKey = process.env.CODEMIND_API_KEY;
+  const projectID = process.env.CODEMIND_PROJECT_ID || undefined;
 
   if (!apiKey || apiKey === "sk-let-your-api-key-here") {
-    console.error("❌ LETTA_API_KEY not configured");
+    console.error("❌ CODEMIND_API_KEY not configured");
     console.error("   Run: npm start → Configure API Key");
     console.error("   Or edit .env file directly");
     process.exit(1);
@@ -152,7 +152,7 @@ async function main() {
   const template = loadTemplate();
   const existingConfig = loadExistingConfig();
   
-  console.log(`\n🤖 LettaCode Agent Setup`);
+  console.log(`\n🧠 CodeMind Agent Setup`);
   console.log(`   Template: ${template.name} v${template.version}`);
   console.log("");
 
@@ -198,14 +198,14 @@ async function main() {
     console.log(`   Model: ${config.model}`);
     console.log(`   Memory: ${config.memory_blocks.join(", ")}`);
     console.log("");
-    console.log("   Config saved to: .letta_agent_config.json");
+    console.log("   Config saved to: .codemind_agent_config.json");
     console.log("");
     
   } catch (err) {
     console.error("\n   ❌ Failed to create agent:", err.message);
     
     if (err.message.includes("401") || err.message.includes("unauthorized")) {
-      console.error("   Check your LETTA_API_KEY in .env");
+      console.error("   Check your CODEMIND_API_KEY in .env");
     } else if (err.message.includes("model")) {
       console.error("   The model specified in the template may not be available");
     }

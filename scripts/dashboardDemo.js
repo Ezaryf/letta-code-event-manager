@@ -41,7 +41,7 @@ const dateStr = `${day}${month}${year}`;
 console.clear();
 console.log("");
 console.log(T.accent("  ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓"));
-console.log(T.accent("  ┃") + chalk.bold.white("  🤖 LETTA CODE WATCHER                                        ") + T.accent("┃"));
+console.log(T.accent("  ┃") + chalk.bold.white("  🧠 CODEMIND CODE WATCHER                                     ") + T.accent("┃"));
 console.log(T.accent("  ┃") + T.dim("     Real-time AI code analysis & smart commits                ") + T.accent("┃"));
 console.log(T.accent("  ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛"));
 console.log("");
@@ -181,7 +181,7 @@ const events = [
     console.log("");
     console.log(T.accent("  Your choice (1-2): ") + chalk.white("2"));
     console.log("");
-    console.log(T.accent("  ♥ Thanks for using Letta! Happy coding!"));
+    console.log(T.accent("  ♥ Thanks for using CodeMind! Happy coding!"));
     console.log("");
     console.log(T.dim("  ─────────────────────────────────────────────────────────────────"));
     console.log(T.accent("  ♥ Demo complete!"));

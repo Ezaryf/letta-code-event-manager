@@ -96,7 +96,7 @@ const IDE_DEFINITIONS = {
     },
     collaboration: {
       canShare: false,
-      suggestionsPath: ".vscode/letta-suggestions",
+      suggestionsPath: ".vscode/codemind-suggestions",
     },
   },
   
@@ -113,7 +113,7 @@ const IDE_DEFINITIONS = {
     },
     collaboration: {
       canShare: false,
-      suggestionsPath: ".idea/letta-suggestions",
+      suggestionsPath: ".idea/codemind-suggestions",
     },
   },
   
@@ -130,7 +130,7 @@ const IDE_DEFINITIONS = {
     },
     collaboration: {
       canShare: false,
-      suggestionsPath: ".nvim/letta-suggestions",
+      suggestionsPath: ".nvim/codemind-suggestions",
     },
   },
   
@@ -147,7 +147,7 @@ const IDE_DEFINITIONS = {
     },
     collaboration: {
       canShare: false,
-      suggestionsPath: ".vim/letta-suggestions",
+      suggestionsPath: ".vim/codemind-suggestions",
     },
   },
   
@@ -164,7 +164,7 @@ const IDE_DEFINITIONS = {
     },
     collaboration: {
       canShare: false,
-      suggestionsPath: ".sublime/letta-suggestions",
+      suggestionsPath: ".sublime/codemind-suggestions",
     },
   },
   
@@ -182,7 +182,7 @@ const IDE_DEFINITIONS = {
     collaboration: {
       canShare: true,
       protocol: "zed-collab",
-      suggestionsPath: ".zed/letta-suggestions",
+      suggestionsPath: ".zed/codemind-suggestions",
     },
   },
 };
@@ -345,7 +345,7 @@ export function detectIDE(projectPath = process.cwd()) {
       confidence: 0,
       collaboration: {
         canShare: false,
-        suggestionsPath: ".letta/suggestions",
+        suggestionsPath: ".codemind/suggestions",
       },
     },
     alternatives: results,
@@ -380,7 +380,7 @@ export function getCollaborationSettings(projectPath = process.cwd()) {
     ideType: ide.type,
     canCollaborate: ide.collaboration?.canShare || false,
     protocol: ide.collaboration?.protocol || null,
-    suggestionsPath: ide.collaboration?.suggestionsPath || ".letta/suggestions",
+    suggestionsPath: ide.collaboration?.suggestionsPath || ".codemind/suggestions",
     features: ide.features || [],
   };
 }

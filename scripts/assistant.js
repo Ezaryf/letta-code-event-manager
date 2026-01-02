@@ -2107,7 +2107,7 @@ async function promptNextAction() {
 
 const IGNORE = [
   "**/node_modules/**", "**/.git/**", "**/.next/**", "**/dist/**",
-  "**/build/**", "**/coverage/**", "**/.letta-backups/**",
+  "**/build/**", "**/coverage/**", "**/.codemind-backups/**",
   "**/*.min.js", "**/*.map", "**/.kiro/**", "**/package-lock.json", "**/.env*",
 ];
 

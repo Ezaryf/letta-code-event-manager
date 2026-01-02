@@ -57,7 +57,7 @@ export function scanProjectStructure(projectPath, maxDepth = 4) {
     recentlyModified: [],
   };
   
-  const IGNORE = ["node_modules", ".git", ".next", "dist", "build", "coverage", ".letta-backups", ".kiro"];
+  const IGNORE = ["node_modules", ".git", ".next", "dist", "build", "coverage", ".codemind-backups", ".kiro"];
   const now = Date.now();
   const ONE_DAY = 24 * 60 * 60 * 1000;
   

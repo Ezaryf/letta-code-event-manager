@@ -564,7 +564,7 @@ async function runQuickSetup() {
   // Step 1: API Key
   if (!hasApiKey()) {
     console.log(chalk.bold.white("  Step 1: Configure API Key\n"));
-    console.log(chalk.gray("  Get your key from: https://app.letta.ai\n"));
+    console.log(chalk.gray("  Get your key from: https://app.letta.com (CodeMind uses Letta AI backend)\n"));
     
     const apiKey = await secureInput("API Key:");
     
@@ -613,7 +613,7 @@ async function runQuickSetup() {
       const { spawn } = await import("child_process");
       const child = spawn("node", [path.join(ROOT, "scripts/createAgent.js")], {
         cwd: ROOT,
-        env: { ...process.env, LETTA_API_KEY: process.env.LETTA_API_KEY },
+        env: { ...process.env, CODEMIND_API_KEY: process.env.CODEMIND_API_KEY },
         stdio: "pipe",
       });
       
@@ -626,7 +626,7 @@ async function runQuickSetup() {
       if (hasAgent()) {
         spinner.succeed("  Agent created successfully!");
         const config = getAgentConfig();
-        console.log(chalk.gray(`\n  Name: ${config?.name || "LettaCode"}`));
+        console.log(chalk.gray(`\n  Name: ${config?.name || "CodeMind"}`));
         console.log(chalk.gray(`  Version: ${config?.template_version || "1.0.0"}`));
       } else {
         spinner.fail("  Failed to create agent");
@@ -829,8 +829,8 @@ async function runChat() {
   
   const { Letta } = await import("@letta-ai/letta-client");
   const client = new Letta({
-    apiKey: process.env.LETTA_API_KEY,
-    projectID: process.env.LETTA_PROJECT_ID,
+    apiKey: process.env.CODEMIND_API_KEY,
+    projectID: process.env.CODEMIND_PROJECT_ID,
   });
   const agentId = getAgentId();
   
@@ -1666,7 +1666,7 @@ async function runIDEInfo() {
   
   if (ide.type === "agentic") {
     console.log(chalk.green("  ✓ Full AI collaboration enabled"));
-    console.log(chalk.gray("     Letta will sync with your IDE's built-in AI assistant"));
+    console.log(chalk.gray("     CodeMind will sync with your IDE's built-in AI assistant"));
     console.log(chalk.gray("     for enhanced code analysis and suggestions."));
     
     if (ide.collaboration?.protocol) {
@@ -1677,7 +1677,7 @@ async function runIDEInfo() {
     console.log(chalk.gray("     Some features can integrate with your editor."));
   } else {
     console.log(chalk.gray("  ○ Running in standalone mode"));
-    console.log(chalk.gray("     Letta works independently from your editor."));
+    console.log(chalk.gray("     CodeMind works independently from your editor."));
   }
   
   console.log("");
@@ -1735,7 +1735,7 @@ async function runConfigureApiKey() {
     if (confirm === "back" || confirm === false) return;
   }
   
-  console.log(chalk.yellow("\n  Enter your Letta API key (input is hidden):"));
+  console.log(chalk.yellow("\n  Enter your CodeMind API key (input is hidden):"));
   console.log(chalk.gray("  Press Esc to cancel\n"));
   
   const apiKey = await secureInput("API Key:");
@@ -1820,7 +1820,7 @@ async function runSetup() {
   showBanner("⚙️ AGENT SETUP");
   
   if (!hasApiKey()) {
-    console.log(chalk.red("  ❌ LETTA_API_KEY not set. Configure API key first.\n"));
+    console.log(chalk.red("  ❌ CODEMIND_API_KEY not set. Configure API key first.\n"));
     await waitForKey();
     return;
   }
@@ -1911,7 +1911,7 @@ async function runCleanup() {
   showBanner("🧹 AGENT CLEANUP");
   
   if (!hasApiKey()) {
-    console.log(chalk.red("  ❌ LETTA_API_KEY not set.\n"));
+    console.log(chalk.red("  ❌ CODEMIND_API_KEY not set.\n"));
     await waitForKey();
     return;
   }
@@ -2303,7 +2303,7 @@ async function runSecuritySettings() {
     
     switch (action) {
       case "autonomy": {
-        console.log(chalk.gray("\n  Choose how autonomous Letta should be:\n"));
+        console.log(chalk.gray("\n  Choose how autonomous CodeMind should be:\n"));
         
         const AUTONOMY_OPTIONS = [
           { label: "🔍 Observer    - Only reports issues, never changes code", value: "0" },
@@ -2333,7 +2333,7 @@ async function runSecuritySettings() {
         if (newValue === "true") {
           console.log(chalk.yellow("\n  ⚠ Cloud Analysis Consent\n"));
           console.log(chalk.gray("  Cloud analysis provides advanced insights but sends"));
-          console.log(chalk.gray("  anonymized code snippets to Letta's servers.\n"));
+          console.log(chalk.gray("  anonymized code snippets to CodeMind's servers.\n"));
           console.log(chalk.gray("  • Code is anonymized (secrets/paths removed)"));
           console.log(chalk.gray("  • Only complex patterns use cloud analysis"));
           console.log(chalk.gray("  • 80% of analysis runs locally"));
@@ -2594,7 +2594,7 @@ async function runViewConfig() {
   
   if (hasAgent()) {
     const config = getAgentConfig();
-    console.log(`  Agent:            ${chalk.green("✓ " + (config?.name || "LettaCode"))}`);
+    console.log(`  Agent:            ${chalk.green("✓ " + (config?.name || "CodeMind"))}`);
     console.log(`  Agent Version:    ${config?.template_version || "Unknown"}`);
   } else {
     console.log(`  Agent:            ${chalk.red("✗ Not configured")}`);
@@ -2656,7 +2656,7 @@ async function main() {
   // CLI help
   if (process.argv.includes("--help") || process.argv.includes("-h")) {
     console.log(`
-${chalk.cyan("Letta Coding Assistant")}
+${chalk.cyan("CodeMind Coding Assistant")}
 
 Usage:
   npm start                    Interactive menu

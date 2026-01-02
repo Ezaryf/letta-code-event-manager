@@ -159,7 +159,7 @@ export class IDECoordinator {
    * @param {string} [currentFile] - Current file being processed
    */
   broadcastStatus(status, currentFile) {
-    const statusPath = path.join(this.projectPath, '.letta', 'status.json');
+    const statusPath = path.join(this.projectPath, '.codemind', 'status.json');
     const statusDir = path.dirname(statusPath);
     
     // Ensure directory exists

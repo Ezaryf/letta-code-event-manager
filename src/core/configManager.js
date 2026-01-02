@@ -53,10 +53,10 @@ export class ConfigManager {
     this.projectPath = projectPath;
     
     /** @type {string} */
-    this.localConfigPath = path.join(projectPath, '.letta', 'config.json');
+    this.localConfigPath = path.join(projectPath, '.codemind', 'config.json');
     
     /** @type {string} */
-    this.globalConfigPath = path.join(os.homedir(), '.letta', 'config.json');
+    this.globalConfigPath = path.join(os.homedir(), '.codemind', 'config.json');
     
     /** @type {CollaborationConfig | null} */
     this._cachedConfig = null;

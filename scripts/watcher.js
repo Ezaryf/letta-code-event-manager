@@ -5,7 +5,7 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-// Use TARGET_REPO env var to watch another repo (otherwise defaults to current letta repo)
+// Use TARGET_REPO env var to watch another repo (otherwise defaults to current CodeMind repo)
 const TARGET_REPO = process.env.TARGET_REPO || process.cwd();
 
 // Patterns relative to TARGET_REPO to watch for events
@@ -19,7 +19,7 @@ const WATCH_PATHS = [
   "signals/*.json"
 ];
 
-console.log("Letta watcher starting...");
+console.log("CodeMind watcher starting...");
 console.log("Target repo:", TARGET_REPO);
 console.log("Watching paths:");
 WATCH_PATHS.forEach(p => console.log("  ", p));

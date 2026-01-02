@@ -1,7 +1,7 @@
 /**
- * 🧠 Letta Cognitive Engine
+ * 🧠 CodeMind Cognitive Engine
  * 
- * A Developer Intelligence Layer that transforms Letta from a reactive tool
+ * A Developer Intelligence Layer that transforms CodeMind from a reactive tool
  * into a cognitive partner that thinks alongside developers.
  * 
  * The Six Pillars:

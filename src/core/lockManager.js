@@ -2,7 +2,7 @@
  * @fileoverview Lock Manager - Handles file locking coordination
  * @module src/core/lockManager
  * 
- * Implements lock file coordination between Letta and IDE agents.
+ * Implements lock file coordination between CodeMind and IDE agents.
  * Requirements: 2.1, 2.2, 2.3, 2.4, 2.5
  */
 
@@ -34,10 +34,10 @@ const IDE_LOCK_PATHS = [
 ];
 
 /**
- * Handles file locking coordination between Letta and IDE agents.
+ * Handles file locking coordination between CodeMind and IDE agents.
  * 
  * Key behaviors:
- * - Creates .letta.lock when Letta is modifying files (Req 2.4)
+ * - Creates .codemind.lock when CodeMind is modifying files (Req 2.4)
  * - Watches IDE lock files and pauses auto-fix when IDE is editing (Req 2.1)
  * - Queues analysis when IDE lock exists (Req 2.2)
  * - Processes queued analyses when IDE lock is removed (Req 2.3)
@@ -52,7 +52,7 @@ export class LockManager {
     this.projectPath = projectPath;
     
     /** @type {string} */
-    this.lockFilePath = path.join(projectPath, '.letta.lock');
+    this.lockFilePath = path.join(projectPath, '.codemind.lock');
     
     /** @type {number} */
     this.lockTimeout = DEFAULT_LOCK_TIMEOUT;
@@ -69,7 +69,7 @@ export class LockManager {
 
   /**
    * Attempts to acquire a lock for a file.
-   * Creates .letta.lock file when Letta is applying fixes (Req 2.4).
+   * Creates .codemind.lock file when CodeMind is applying fixes (Req 2.4).
    * Yields to IDE if IDE has an existing lock (Req 2.5).
    * 
    * @param {string} filePath - Path to the file to lock
@@ -90,7 +90,7 @@ export class LockManager {
       if (Date.now() - lockTime > this.lockTimeout) {
         // Stale lock, remove it
         this._removeLockFile();
-      } else if (existingLock.owner !== 'letta') {
+      } else if (existingLock.owner !== 'codemind') {
         // Another owner has the lock
         return false;
       } else {
@@ -117,7 +117,7 @@ export class LockManager {
     // Create lock file
     /** @type {LockFileData} */
     const lockData = {
-      owner: 'letta',
+      owner: 'codemind',
       pid: process.pid,
       timestamp: new Date().toISOString(),
       files: [{
@@ -147,7 +147,7 @@ export class LockManager {
    */
   releaseLock(filePath) {
     const lockData = this._readLockFile();
-    if (!lockData || lockData.owner !== 'letta') {
+    if (!lockData || lockData.owner !== 'codemind') {
       return;
     }
     
@@ -177,15 +177,15 @@ export class LockManager {
       return ideLock;
     }
     
-    // Check Letta lock
-    const lettaLock = this._readLockFile();
-    if (lettaLock) {
-      const fileEntry = lettaLock.files.find(f => f.path === filePath);
+    // Check CodeMind lock
+    const codemindLock = this._readLockFile();
+    if (codemindLock) {
+      const fileEntry = codemindLock.files.find(f => f.path === filePath);
       if (fileEntry) {
         return {
-          owner: /** @type {LockOwner} */ (lettaLock.owner),
+          owner: /** @type {LockOwner} */ (codemindLock.owner),
           filePath,
-          timestamp: new Date(lettaLock.timestamp),
+          timestamp: new Date(codemindLock.timestamp),
           operation: fileEntry.operation
         };
       }
@@ -304,7 +304,7 @@ export class LockManager {
   }
 
   /**
-   * Yields to IDE by releasing Letta's lock on a file.
+   * Yields to IDE by releasing CodeMind's lock on a file.
    * Called when both systems attempt to lock the same file (Req 2.5).
    * 
    * @param {string} filePath - Path to yield
@@ -316,7 +316,7 @@ export class LockManager {
     /** @type {LockEvent} */
     const event = {
       type: 'released',
-      owner: 'letta',
+      owner: 'codemind',
       filePath: filePath
     };
     
@@ -412,7 +412,7 @@ export class LockManager {
   }
 
   /**
-   * Reads the Letta lock file
+   * Reads the CodeMind lock file
    * @returns {LockFileData | null} Lock data or null
    * @private
    */
@@ -430,7 +430,7 @@ export class LockManager {
   }
 
   /**
-   * Removes the Letta lock file
+   * Removes the CodeMind lock file
    * @private
    */
   _removeLockFile() {
