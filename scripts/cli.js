@@ -540,8 +540,8 @@ async function selectFile(projectPath) {
 async function getCodeMindClient() {
   const { Letta } = await import("@letta-ai/letta-client");
   return new Letta({
-    apiKey: process.env.CODEMIND_API_KEY,
-    projectID: process.env.CODEMIND_PROJECT_ID,
+    apiKey: process.env.LETTA_API_KEY,
+    projectID: process.env.LETTA_PROJECT_ID,
   });
 }
 

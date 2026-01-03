@@ -205,7 +205,7 @@ async function main() {
     console.error("\n   ❌ Failed to create agent:", err.message);
     
     if (err.message.includes("401") || err.message.includes("unauthorized")) {
-      console.error("   Check your CODEMIND_API_KEY in .env");
+      console.error("   Check your LETTA_API_KEY in .env");
     } else if (err.message.includes("model")) {
       console.error("   The model specified in the template may not be available");
     }

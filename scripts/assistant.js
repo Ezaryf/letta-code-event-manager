@@ -108,14 +108,14 @@ if (!PROJECT_PATH) {
 }
 
 // Validate
-if (!process.env.CODEMIND_API_KEY || process.env.CODEMIND_API_KEY === "sk-let-your-api-key-here") {
-  console.error(T.error("✗ CODEMIND_API_KEY not configured. Run: npm start → Quick Setup"));
+if (!process.env.LETTA_API_KEY || process.env.LETTA_API_KEY === "sk-let-your-api-key-here") {
+  console.error(T.error("✗ LETTA_API_KEY not configured. Run: npm start → Quick Setup"));
   process.exit(1);
 }
 
 const client = new Letta({
-  apiKey: process.env.CODEMIND_API_KEY,
-  projectID: process.env.CODEMIND_PROJECT_ID,
+  apiKey: process.env.LETTA_API_KEY,
+  projectID: process.env.LETTA_PROJECT_ID,
 });
 
 const agentId = fs.existsSync(path.join(ROOT, ".codemind_agent_id"))

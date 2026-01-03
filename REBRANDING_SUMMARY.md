@@ -14,10 +14,9 @@
 - `.letta_history.json` → `.codemind_history.json`
 
 ### **Environment Variables**
-- `LETTA_API_KEY` → `CODEMIND_API_KEY`
-- `LETTA_PROJECT_ID` → `CODEMIND_PROJECT_ID`
-- `LETTA_THEME` → `CODEMIND_THEME`
-- `LETTA_IDE` → `CODEMIND_IDE`
+- Environment variables remain as `LETTA_*` (CodeMind uses Letta AI as backend service)
+- `LETTA_API_KEY` - Required for API access
+- `LETTA_PROJECT_ID` - Optional project identifier
 
 ### **User Interface**
 - **CLI Banner**: "LETTA CODING ASSISTANT" → "CODEMIND CODING ASSISTANT"
@@ -66,7 +65,7 @@ npm run migrate
 
 ### **Environment Setup**
 1. Copy `.env.example` to `.env`
-2. Set your `CODEMIND_API_KEY` (get from https://app.letta.ai)
+2. Set your `LETTA_API_KEY` (get from https://app.letta.com)
 3. Configure other settings as needed
 
 ## 🎯 Brand Identity
